@@ -171,6 +171,83 @@ class FeedingController extends GetxController {
     }
   }
 
+  Future<Map<String, int>> submitBulkFeeding(
+    Map<int, String> quantityByAnimal,
+  ) async {
+    if (farmerId == 0) {
+      Get.snackbar(
+        'Error',
+        'Farmer ID not found. Please login again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+    if (selectedFeedType.value == null) {
+      Get.snackbar(
+        'Error',
+        'Please select feed type first.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+
+    final entries = <MapEntry<int, String>>[];
+    quantityByAnimal.forEach((animalId, quantity) {
+      if (double.tryParse(quantity.trim()) != null &&
+          (double.tryParse(quantity.trim()) ?? 0) > 0) {
+        entries.add(MapEntry(animalId, quantity.trim()));
+      }
+    });
+
+    if (entries.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please enter at least one valid quantity.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+
+    int successCount = 0;
+    int failedCount = 0;
+    isSubmitting.value = true;
+
+    for (final entry in entries) {
+      try {
+        final payload = {
+          'farmer_id': farmerId.toString(),
+          'animal_id': entry.key.toString(),
+          'feed_type_id': selectedFeedType.value!.id.toString(),
+          'feed_type': selectedFeedType.value!.name,
+          'quantity': entry.value,
+          'unit': selectedUnit.value,
+          'feeding_time': selectedFeedingTime.value,
+          'date': _formatDate(dateController.text.trim()),
+          'notes': notesController.text.trim(),
+        };
+
+        final response = await http.post(
+          Uri.parse(Api.addFeeding),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (_) {
+        failedCount++;
+      }
+    }
+
+    isSubmitting.value = false;
+    return {'success': successCount, 'failed': failedCount};
+  }
+
   String _formatDate(String value) {
     try {
       final parsed = DateFormat('dd/MM/yyyy').parse(value);

@@ -151,7 +151,7 @@ class AnimalDetailsWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -181,7 +181,7 @@ class AnimalDetailsWidget extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.42),
+                  color: Colors.black.withValues(alpha: 0.42),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -190,7 +190,7 @@ class AnimalDetailsWidget extends StatelessWidget {
                       height: 46,
                       width: 46,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
+                        color: Colors.white.withValues(alpha: 0.18),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -236,7 +236,7 @@ class AnimalDetailsWidget extends StatelessWidget {
 
   Widget _fallbackImage() {
     return Container(
-      color: AppColors.primary.withOpacity(0.08),
+      color: AppColors.primary.withValues(alpha: 0.08),
       child: const Center(
         child: Icon(
           Icons.image_not_supported_outlined,
@@ -256,12 +256,12 @@ class AnimalDetailsWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
         ],
-        border: Border.all(color: AppColors.primary.withOpacity(0.07)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.07)),
       ),
       child: child,
     );
@@ -298,7 +298,7 @@ class AnimalDetailsWidget extends StatelessWidget {
             height: 38,
             width: 38,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.10),
+              color: AppColors.primary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: AppColors.primary, size: 20),

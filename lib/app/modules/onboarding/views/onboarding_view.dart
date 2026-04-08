@@ -49,7 +49,7 @@ class OnboardingView extends GetView<OnboardingController> {
                 children: [
                   Image.asset(item["image"] ?? "", fit: BoxFit.cover),
 
-                  Container(color: Colors.black.withOpacity(0.3)),
+                  Container(color: Colors.black.withValues(alpha: 0.3)),
 
                   Positioned(
                     bottom: 160,

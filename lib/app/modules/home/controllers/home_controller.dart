@@ -2,30 +2,34 @@ import 'dart:convert';
 
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 
 class HomeController extends GetxController {
+  static final NumberFormat _numberFormat = NumberFormat('#,##0.##');
+
   final RxBool isLoadingAnimals = false.obs;
   final RxBool isLoadingDashboard = false.obs;
   final RxBool isUpdatingLifecycle = false.obs;
   final RxList<dynamic> animals = <dynamic>[].obs;
   final RxList<AnimalTypeOption> animalTypes = <AnimalTypeOption>[].obs;
   final RxMap<String, String> stats = <String, String>{
-    'today_milk': '18 L',
-    'today_feeding': '9 Kg',
-    'total_milk': '245 L',
-    'total_feeding': '124 Kg',
+    'today_milk': '0 L',
+    'today_feeding': '0 Kg',
+    'total_milk': '0 L',
+    'total_feeding': '0 Kg',
   }.obs;
   final RxList<HomePaymentModel> payments = <HomePaymentModel>[].obs;
   final Rx<FarmerPlanModel> currentPlan = const FarmerPlanModel(
-    name: 'paid_plan',
-    amount: 'Rs 999 / year',
-    expiryDate: '31 Mar 2027',
+    name: 'free_plan',
+    amount: 'Rs 0',
+    expiryDate: '-',
   ).obs;
   final RxString farmerName = ''.obs;
+  final RxString farmerMobile = ''.obs;
 
   int farmerId = 0;
 
@@ -43,7 +47,15 @@ class HomeController extends GetxController {
   Future<void> loadBaseData() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
-    farmerName.value = await SessionService.getFarmerName();
+    final savedName = await SessionService.getFarmerName();
+    final profile = await SessionService.getFarmerProfile();
+    farmerName.value = _formatFarmerName(
+      firstName: profile['first_name'] ?? '',
+      middleName: profile['middle_name'] ?? '',
+      lastName: profile['last_name'] ?? '',
+      fallbackName: savedName,
+    );
+    farmerMobile.value = await SessionService.getMobile();
   }
 
   Future<void> fetchAnimalTypes() async {
@@ -79,14 +91,16 @@ class HomeController extends GetxController {
   }
 
   Future<void> loadDashboard() async {
-    isLoadingDashboard.value = true;
-    await Future.delayed(const Duration(milliseconds: 200));
-    payments.assignAll(const [
-      HomePaymentModel(dairyName: 'Green Valley Dairy', todayPayment: 'Rs 2480', totalPayment: 'Rs 12480', todayMilk: '18 L', totalMilk: '245 L'),
-      HomePaymentModel(dairyName: 'Shree Milk Center', todayPayment: 'Rs 1950', totalPayment: 'Rs 9250', todayMilk: '14 L', totalMilk: '188 L'),
-      HomePaymentModel(dairyName: 'Sai Dairy Point', todayPayment: 'Rs 1680', totalPayment: 'Rs 7980', todayMilk: '11 L', totalMilk: '162 L'),
-    ]);
-    isLoadingDashboard.value = false;
+    try {
+      isLoadingDashboard.value = true;
+      await Future.wait([
+        _loadDairyPaymentsAndMilk(),
+        _loadFeedingSummary(),
+        _loadCurrentPlan(),
+      ]);
+    } finally {
+      isLoadingDashboard.value = false;
+    }
   }
 
   Future<bool> updateAnimalLifecycle({
@@ -125,6 +139,198 @@ class HomeController extends GetxController {
 
   Future<void> refreshDashboard() async {
     await Future.wait([fetchAnimals(), loadDashboard()]);
+  }
+
+  Future<void> _loadDairyPaymentsAndMilk() async {
+    if (farmerId == 0) {
+      payments.clear();
+      stats.addAll({
+        'today_milk': _formatQuantity(0, 'L'),
+        'total_milk': _formatQuantity(0, 'L'),
+      });
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.dairyPayments}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        payments.clear();
+        stats.addAll({
+          'today_milk': _formatQuantity(0, 'L'),
+          'total_milk': _formatQuantity(0, 'L'),
+        });
+        return;
+      }
+
+      final list = data['data'] is List ? data['data'] as List : <dynamic>[];
+      double todayMilkTotal = 0;
+      double totalMilkTotal = 0;
+
+      final mappedPayments = list.map((item) {
+        final row = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item as Map);
+
+        final todayPayment = _asDouble(row['today_payment']);
+        final totalPayment = _asDouble(row['total_payment']);
+        final todayMilk = _asDouble(row['today_milk']);
+        final totalMilk = _asDouble(row['total_milk']);
+
+        todayMilkTotal += todayMilk;
+        totalMilkTotal += totalMilk;
+
+        return HomePaymentModel(
+          dairyName: row['dairy_name']?.toString().trim().isNotEmpty == true
+              ? row['dairy_name'].toString()
+              : 'Dairy',
+          todayPayment: _formatCurrency(todayPayment),
+          totalPayment: _formatCurrency(totalPayment),
+          todayMilk: _formatQuantity(todayMilk, 'L'),
+          totalMilk: _formatQuantity(totalMilk, 'L'),
+        );
+      }).toList();
+
+      payments.assignAll(mappedPayments);
+      stats.addAll({
+        'today_milk': _formatQuantity(todayMilkTotal, 'L'),
+        'total_milk': _formatQuantity(totalMilkTotal, 'L'),
+      });
+    } catch (_) {
+      payments.clear();
+      stats.addAll({
+        'today_milk': _formatQuantity(0, 'L'),
+        'total_milk': _formatQuantity(0, 'L'),
+      });
+    }
+  }
+
+  Future<void> _loadFeedingSummary() async {
+    if (farmerId == 0) {
+      stats.addAll({
+        'today_feeding': _formatQuantity(0, 'Kg'),
+        'total_feeding': _formatQuantity(0, 'Kg'),
+      });
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.feedingSummary}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        stats.addAll({
+          'today_feeding': _formatQuantity(0, 'Kg'),
+          'total_feeding': _formatQuantity(0, 'Kg'),
+        });
+        return;
+      }
+
+      final summary = data['data'] is Map<String, dynamic>
+          ? data['data'] as Map<String, dynamic>
+          : Map<String, dynamic>.from(data['data'] as Map? ?? {});
+      final unit = (summary['unit']?.toString().trim().isNotEmpty == true)
+          ? summary['unit'].toString()
+          : 'Kg';
+
+      stats.addAll({
+        'today_feeding': _formatQuantity(_asDouble(summary['today_feeding']), unit),
+        'total_feeding': _formatQuantity(_asDouble(summary['total_feeding']), unit),
+      });
+    } catch (_) {
+      stats.addAll({
+        'today_feeding': _formatQuantity(0, 'Kg'),
+        'total_feeding': _formatQuantity(0, 'Kg'),
+      });
+    }
+  }
+
+  Future<void> _loadCurrentPlan() async {
+    try {
+      final response = await http.get(
+        Uri.parse(Api.subscriptionPlans),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true || data['data'] is! List) {
+        return;
+      }
+
+      final list = (data['data'] as List)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      if (list.isEmpty) return;
+
+      final plan = list.firstWhere(
+        (item) => item['is_popular'] == true,
+        orElse: () => list.first,
+      );
+
+      final durationDays = int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
+      final amount = plan['price_label']?.toString().trim().isNotEmpty == true
+          ? plan['price_label'].toString()
+          : _formatCurrency(_asDouble(plan['price']));
+
+      currentPlan.value = FarmerPlanModel(
+        name: plan['name']?.toString().trim().isNotEmpty == true
+            ? plan['name'].toString()
+            : 'free_plan',
+        amount: amount,
+        expiryDate: durationDays > 0 ? '$durationDays days' : '-',
+      );
+    } catch (_) {
+      // Keep existing plan data on API failure.
+    }
+  }
+
+  Map<String, dynamic> _decodeBody(String body) {
+    if (body.trim().isEmpty) return <String, dynamic>{};
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{};
+  }
+
+  double _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _formatCurrency(double amount) {
+    return 'Rs ${_numberFormat.format(amount)}';
+  }
+
+  String _formatQuantity(double value, String unit) {
+    return '${_numberFormat.format(value)} $unit';
+  }
+
+  String _formatFarmerName({
+    required String firstName,
+    required String middleName,
+    required String lastName,
+    required String fallbackName,
+  }) {
+    final first = firstName.trim();
+    final middle = middleName.trim();
+    final last = lastName.trim();
+
+    final parts = <String>[
+      if (first.isNotEmpty) first,
+      if (middle.isNotEmpty) middle[0].toUpperCase(),
+      if (last.isNotEmpty) last,
+    ];
+
+    if (parts.isNotEmpty) {
+      return parts.join(' ');
+    }
+
+    return fallbackName.trim();
   }
 }
 

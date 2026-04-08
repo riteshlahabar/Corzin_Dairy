@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
@@ -12,13 +13,13 @@ class SplashController extends GetxController {
   void onInit() {
     super.onInit();
 
-    print("🔥 SplashController onInit called");
+    debugPrint("🔥 SplashController onInit called");
 
     Future.delayed(const Duration(seconds: 5), () async {
-      print("⏳ Timer finished");
+      debugPrint("⏳ Timer finished");
 
       if (Get.currentRoute != Routes.SPLASH) {
-        print("❌ Already left splash → skip navigation");
+        debugPrint("❌ Already left splash → skip navigation");
         return;
       }
 
@@ -31,13 +32,13 @@ class SplashController extends GetxController {
     final isLoggedIn = await SessionService.getLoggedIn();
     final mobile = await SessionService.getMobile();
 
-    print("📌 seenOnboarding: $seenOnboarding");
-    print("📌 isLoggedIn: $isLoggedIn");
-    print("📌 mobile: $mobile");
+    debugPrint("📌 seenOnboarding: $seenOnboarding");
+    debugPrint("📌 isLoggedIn: $isLoggedIn");
+    debugPrint("📌 mobile: $mobile");
 
     /// first time app open OR after manual logout
     if (!seenOnboarding) {
-      print("➡️ Go to Onboarding");
+      debugPrint("➡️ Go to Onboarding");
       Get.offAllNamed(Routes.ONBOARDING);
       return;
     }
@@ -54,8 +55,8 @@ class SplashController extends GetxController {
           body: jsonEncode({"mobile": mobile}),
         );
 
-        print("✅ Splash check response code: ${response.statusCode}");
-        print("✅ Splash check response body: ${response.body}");
+        debugPrint("✅ Splash check response code: ${response.statusCode}");
+        debugPrint("✅ Splash check response body: ${response.body}");
 
         final data = jsonDecode(response.body);
 
@@ -75,18 +76,18 @@ class SplashController extends GetxController {
             await SessionService.saveFarmerName(data["farmer_name"].toString());
           }
 
-          print("➡️ Existing registered user -> Home");
+          debugPrint("➡️ Existing registered user -> Home");
           Get.offAllNamed(Routes.HOME);
           return;
         } else {
           /// user deleted from backend OR not registered anymore
-          print("❌ User not found in backend -> clear session");
+          debugPrint("❌ User not found in backend -> clear session");
           await SessionService.clearAll();
           Get.offAllNamed(Routes.ONBOARDING);
           return;
         }
       } catch (e) {
-        print("❌ Splash backend check error: $e");
+        debugPrint("❌ Splash backend check error: $e");
 
         /// internet/api issue -> send to login
         Get.offAllNamed(Routes.LOGIN);
@@ -95,7 +96,8 @@ class SplashController extends GetxController {
     }
 
     /// onboarding done but not logged in
-    print("➡️ Not logged in -> Login");
+    debugPrint("➡️ Not logged in -> Login");
     Get.offAllNamed(Routes.LOGIN);
   }
 }
+

@@ -164,6 +164,82 @@ class MilkController extends GetxController {
     }
   }
 
+  Future<Map<String, int>> submitBulkMilk(
+    Map<int, String> quantityByAnimal,
+  ) async {
+    if (farmerId == 0) {
+      Get.snackbar(
+        'Error',
+        'Farmer ID not found. Please login again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+    if (selectedDairy.value == null) {
+      Get.snackbar(
+        'Error',
+        'Please select a dairy first.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+
+    final entries = <MapEntry<int, String>>[];
+    quantityByAnimal.forEach((animalId, quantity) {
+      if (double.tryParse(quantity.trim()) != null &&
+          (double.tryParse(quantity.trim()) ?? 0) > 0) {
+        entries.add(MapEntry(animalId, quantity.trim()));
+      }
+    });
+
+    if (entries.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please enter at least one valid quantity.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return {'success': 0, 'failed': 0};
+    }
+
+    int successCount = 0;
+    int failedCount = 0;
+    isSubmitting.value = true;
+
+    for (final entry in entries) {
+      try {
+        final payload = {
+          'farmer_id': farmerId.toString(),
+          'animal_id': entry.key.toString(),
+          'dairy_id': selectedDairy.value!.id.toString(),
+          'date': _formatDateForApi(milkDateController.text.trim()),
+          'shift': selectedShift.value,
+          'quantity': entry.value,
+          'fat': fatController.text.trim(),
+          'snf': snfController.text.trim(),
+          'rate': rateController.text.trim(),
+          'notes': notesController.text.trim(),
+        };
+
+        final response = await http.post(
+          Uri.parse(Api.addMilk),
+          headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (_) {
+        failedCount++;
+      }
+    }
+
+    isSubmitting.value = false;
+    return {'success': successCount, 'failed': failedCount};
+  }
+
   String _formatDateForApi(String value) {
     try {
       final parsed = DateFormat('dd/MM/yyyy').parse(value);

@@ -31,10 +31,10 @@ class LoginOtpController extends GetxController {
     isTestNumber = Get.arguments?["isTestNumber"] ?? false;
     autoVerified = Get.arguments?["autoVerified"] ?? false;
 
-    print("📱 OTP Screen Mobile: $mobile");
-    print("🔐 VerificationId: $verificationId");
-    print("🧪 isTestNumber: $isTestNumber");
-    print("⚡ autoVerified: $autoVerified");
+    debugPrint("📱 OTP Screen Mobile: $mobile");
+    debugPrint("🔐 VerificationId: $verificationId");
+    debugPrint("🧪 isTestNumber: $isTestNumber");
+    debugPrint("⚡ autoVerified: $autoVerified");
 
     /// If firebase auto verification completed
     if (autoVerified) {
@@ -60,7 +60,7 @@ class LoginOtpController extends GetxController {
     if (isLoading.value) return;
 
     final otp = getOtp();
-    print("🔐 Entered OTP: $otp");
+    debugPrint("🔐 Entered OTP: $otp");
 
     if (!autoVerified && otp.length < 6) {
       Get.snackbar("Error", "Enter complete OTP");
@@ -91,7 +91,7 @@ class LoginOtpController extends GetxController {
 
       await handlePostOtpSuccess();
     } catch (e) {
-      print("❌ verifyOtp error: $e");
+      debugPrint("❌ verifyOtp error: $e");
       Get.snackbar("Error", "Invalid OTP");
     } finally {
       isLoading.value = false;
@@ -119,8 +119,8 @@ class LoginOtpController extends GetxController {
         body: jsonEncode({"mobile": mobile}),
       );
 
-      print("✅ checkUser statusCode: ${response.statusCode}");
-      print("✅ checkUser response: ${response.body}");
+      debugPrint("✅ checkUser statusCode: ${response.statusCode}");
+      debugPrint("✅ checkUser response: ${response.body}");
 
       final data = jsonDecode(response.body);
 
@@ -154,7 +154,7 @@ class LoginOtpController extends GetxController {
       await SessionService.setLoggedIn(false);
       Get.snackbar("Error", "Unable to verify user");
     } catch (e) {
-      print("❌ checkUserAndNavigate error: $e");
+      debugPrint("❌ checkUserAndNavigate error: $e");
       await SessionService.setLoggedIn(false);
       Get.snackbar("Error", "Failed to verify user");
     }
@@ -175,3 +175,4 @@ class LoginOtpController extends GetxController {
     super.onClose();
   }
 }
+

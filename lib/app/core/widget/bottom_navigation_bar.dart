@@ -79,7 +79,7 @@ class MainBottomNavView extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.white,
       resizeToAvoidBottomInset: false,
-      drawer: _buildDrawer(controller),
+      drawer: _buildDrawer(context, controller),
       body: Obx(() => IndexedStack(index: controller.currentIndex.value, children: pages)),
       floatingActionButton: FloatingActionButton(backgroundColor: AppColors.primary, elevation: 1, onPressed: controller.openAddAction, child: const Icon(Icons.add, color: Colors.white)),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -87,13 +87,212 @@ class MainBottomNavView extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawer(BottomNavController controller) {
+  Widget _buildDrawer(BuildContext context, BottomNavController controller) {
     final homeController = Get.find<HomeController>();
     return Drawer(
+      width: Get.width * 0.74,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(right: Radius.circular(28))),
-      child: SafeArea(
-        child: Column(children: [Container(width: double.infinity, padding: const EdgeInsets.fromLTRB(20, 20, 20, 18), color: AppColors.primary, child: Obx(() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(height: 54, width: 54, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), shape: BoxShape.circle), child: const Icon(Icons.person_outline_rounded, color: Colors.white)), const SizedBox(height: 12), Text(homeController.farmerName.value.trim().isEmpty ? 'guest'.tr : homeController.farmerName.value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text('drawer_quick_access'.tr, style: const TextStyle(color: Colors.white, fontSize: 13))]))), Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 12), children: [_drawerTile(icon: Icons.add_circle_outline_rounded, title: 'add_animal'.tr, onTap: () { Get.back(); Get.toNamed(Routes.ANIMAL); }), _drawerTile(icon: Icons.manage_accounts_outlined, title: 'manage_animal'.tr, onTap: () { Get.back(); Get.toNamed(Routes.MANAGE_ANIMAL); }), _drawerTile(icon: Icons.pregnant_woman_outlined, title: 'manage_pregnancy'.tr, onTap: () { Get.back(); Get.toNamed(Routes.MANAGE_PREGNANCY); }), _drawerTile(icon: Icons.child_care_outlined, title: 'add_new_born_cows'.tr, onTap: () { Get.back(); Get.toNamed(Routes.ANIMAL, arguments: {'prefillAnimalTypeName': 'Calf', 'title': 'add_new_born_cow'.tr}); }), _drawerTile(icon: Icons.history_rounded, title: 'animal_history'.tr, onTap: () { Get.back(); Get.toNamed(Routes.ANIMAL_HISTORY); }), _drawerTile(icon: Icons.health_and_safety_outlined, title: 'health'.tr, onTap: () { Get.back(); Get.toNamed(Routes.HEALTH); }), _drawerTile(icon: Icons.translate_rounded, title: 'change_language'.tr, onTap: () { Get.back(); Get.toNamed(Routes.LANGUAGE, arguments: {'fromDrawer': true}); }), _drawerTile(icon: Icons.storefront_outlined, title: 'add_dairy'.tr, onTap: () { Get.back(); Get.toNamed(Routes.DAIRY); }), _drawerTile(icon: Icons.payments_outlined, title: 'payments'.tr, onTap: () { Get.back(); Get.toNamed(Routes.PAYMENT); }), _drawerTile(icon: Icons.workspace_premium_outlined, title: 'upgrade_plan'.tr, onTap: () { Get.back(); Get.toNamed(Routes.UPGRADE); })])), Padding(padding: const EdgeInsets.all(16), child: SizedBox(width: double.infinity, height: 52, child: ElevatedButton.icon(onPressed: controller.logout, style: ElevatedButton.styleFrom(backgroundColor: AppColors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), icon: const Icon(Icons.logout_rounded, color: Colors.white), label: Text('logout'.tr, style: const TextStyle(color: Colors.white)))))]),
+      child: Column(
+        children: [
+          _buildDrawerHeader(context, homeController),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                children: [
+                  _drawerTile(
+                    icon: Icons.add_circle_outline_rounded,
+                    title: 'add_animal'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.ANIMAL);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.manage_accounts_outlined,
+                    title: 'manage_animal'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.MANAGE_ANIMAL);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.pregnant_woman_outlined,
+                    title: 'manage_pregnancy'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.MANAGE_PREGNANCY);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.child_care_outlined,
+                    title: 'add_new_born_cows'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(
+                        Routes.ANIMAL,
+                        arguments: {
+                          'prefillAnimalTypeName': 'Calf',
+                          'title': 'add_new_born_cow'.tr,
+                        },
+                      );
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.history_rounded,
+                    title: 'animal_history'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.ANIMAL_HISTORY);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.health_and_safety_outlined,
+                    title: 'health'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.HEALTH);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.translate_rounded,
+                    title: 'change_language'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(
+                        Routes.LANGUAGE,
+                        arguments: {'fromDrawer': true},
+                      );
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.storefront_outlined,
+                    title: 'add_dairy'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.DAIRY);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.payments_outlined,
+                    title: 'payments'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.PAYMENT);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.workspace_premium_outlined,
+                    title: 'upgrade_plan'.tr,
+                    onTap: () {
+                      Get.back();
+                      Get.toNamed(Routes.UPGRADE);
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.logout_rounded,
+                    title: 'logout'.tr,
+                    onTap: () async {
+                      Get.back();
+                      await controller.logout();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildDrawerHeader(BuildContext context, HomeController homeController) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14, MediaQuery.of(context).viewPadding.top + 14, 14, 10),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1F5F30), Color(0xFF2E7A41)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Obx(() {
+        final farmerName = homeController.farmerName.value.trim().isEmpty ? 'guest'.tr : homeController.farmerName.value;
+        final farmerMobile = homeController.farmerMobile.value.trim();
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.45), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.person_rounded, color: AppColors.primary, size: 30),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      farmerName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                    ),
+                    if (farmerMobile.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.call_rounded,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.84),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              farmerMobile,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.84),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 

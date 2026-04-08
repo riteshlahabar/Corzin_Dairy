@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../routes/app_pages.dart';
@@ -11,7 +12,7 @@ class LoginController extends GetxController {
     if (isLoading.value) return;
 
     final phone = mobile.value.trim();
-    print("📱 Mobile: $phone");
+    debugPrint("📱 Mobile: $phone");
 
     if (phone.isEmpty) {
       Get.snackbar("Error", "Enter mobile number");
@@ -60,18 +61,18 @@ class LoginController extends GetxController {
               },
             );
           } catch (e) {
-            print("❌ Auto verification sign-in error: $e");
+            debugPrint("❌ Auto verification sign-in error: $e");
             Get.snackbar("Error", "Auto verification failed");
           }
         },
 
         verificationFailed: (FirebaseAuthException e) {
-          print("❌ verificationFailed: ${e.message}");
+          debugPrint("❌ verificationFailed: ${e.message}");
           Get.snackbar("Error", e.message ?? "OTP failed");
         },
 
         codeSent: (String verificationId, int? resendToken) {
-          print("✅ OTP sent. verificationId: $verificationId");
+          debugPrint("✅ OTP sent. verificationId: $verificationId");
 
           Get.offNamed(
             Routes.LOGIN_OTP,
@@ -85,14 +86,15 @@ class LoginController extends GetxController {
         },
 
         codeAutoRetrievalTimeout: (String verificationId) {
-          print("⏰ Auto retrieval timeout: $verificationId");
+          debugPrint("⏰ Auto retrieval timeout: $verificationId");
         },
       );
     } catch (e) {
-      print("❌ sendOtp error: $e");
+      debugPrint("❌ sendOtp error: $e");
       Get.snackbar("Error", "Something went wrong while sending OTP");
     } finally {
       isLoading.value = false;
     }
   }
 }
+

@@ -113,6 +113,14 @@ class FeedingView extends GetView<FeedingController> {
     ),
     child: Column(
       children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: controller.animals.isEmpty ? null : () => _openBulkEntryDialog(),
+            icon: const Icon(Icons.playlist_add_rounded, size: 18),
+            label: const Text('Bulk Entry'),
+          ),
+        ),
         _label('select_animal'.tr),
         const SizedBox(height: 8),
         Obx(
@@ -266,6 +274,83 @@ class FeedingView extends GetView<FeedingController> {
       ],
     ),
   );
+
+  Future<void> _openBulkEntryDialog() async {
+    final qtyControllers = <int, TextEditingController>{};
+    for (final animal in controller.animals) {
+      qtyControllers[animal.id] = TextEditingController();
+    }
+
+    await Get.dialog(
+      AlertDialog(
+        title: const Text('Bulk Feeding Entry'),
+        content: SizedBox(
+          width: 380,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: controller.animals.map((animal) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          animal.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 110,
+                        child: TextField(
+                          controller: qtyControllers[animal.id],
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: _decoration('Qty'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final payload = <int, String>{};
+              for (final animal in controller.animals) {
+                payload[animal.id] = qtyControllers[animal.id]?.text.trim() ?? '';
+              }
+              Get.back();
+              final result = await controller.submitBulkFeeding(payload);
+              if (result['success'] == 0 && result['failed'] == 0) {
+                return;
+              }
+              Get.snackbar(
+                'Bulk Upload',
+                'Success: ${result['success']}  Failed: ${result['failed']}',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+            child: const Text('Save All'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    for (final c in qtyControllers.values) {
+      c.dispose();
+    }
+  }
 
   Widget _button() => Obx(
     () => SizedBox(

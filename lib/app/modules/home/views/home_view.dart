@@ -43,22 +43,33 @@ class HomeView extends GetView<HomeController> {
             const SizedBox(height: 12),
             SizedBox(
               height: 138,
-              child: Obx(() => ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: controller.payments.length,
-                itemBuilder: (context, index) {
-                  final payment = controller.payments[index];
+              child: Obx(() {
+                if (controller.payments.isEmpty) {
                   return Container(
-                    width: 285,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: const Color(0xFF3F8F52), borderRadius: BorderRadius.circular(24)),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(payment.dairyName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)), const SizedBox(height: 8), Expanded(child: Row(children: [Expanded(child: _paymentColumn(topLabel: 'today_payment'.tr, topValue: payment.todayPayment, bottomLabel: 'today_milk'.tr, bottomValue: payment.todayMilk)), Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white.withValues(alpha: 0.22)), Expanded(child: _paymentColumn(topLabel: 'total_payment'.tr, topValue: payment.totalPayment, bottomLabel: 'total_milk'.tr, bottomValue: payment.totalMilk))]))]),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(color: AppColors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+                    child: Center(child: Text('No payments yet', style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))),
                   );
-                },
-              )),
+                }
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: controller.payments.length,
+                  itemBuilder: (context, index) {
+                    final payment = controller.payments[index];
+                    return Container(
+                      width: 285,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: const Color(0xFF3F8F52), borderRadius: BorderRadius.circular(24)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(payment.dairyName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)), const SizedBox(height: 8), Expanded(child: Row(children: [Expanded(child: _paymentColumn(topLabel: 'today_payment'.tr, topValue: payment.todayPayment, bottomLabel: 'today_milk'.tr, bottomValue: payment.todayMilk)), Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white.withValues(alpha: 0.22)), Expanded(child: _paymentColumn(topLabel: 'total_payment'.tr, topValue: payment.totalPayment, bottomLabel: 'total_milk'.tr, bottomValue: payment.totalMilk))]))]),
+                    );
+                  },
+                );
+              }),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 12),
+            _sectionTitle('Animals'),
+            const SizedBox(height: 10),
             Obx(() {
               if (controller.animals.isEmpty) {
                 return Container(
@@ -66,15 +77,6 @@ class HomeView extends GetView<HomeController> {
                   decoration: BoxDecoration(color: AppColors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
                   child: Center(child: Text('no_animals_added_yet'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))),
                 );
-              }
-              return const SizedBox();
-            }),
-            const SizedBox(height: 12),
-            _sectionTitle('Animals'),
-            const SizedBox(height: 10),
-            Obx(() {
-              if (controller.animals.isEmpty) {
-                return const SizedBox();
               }
               return SizedBox(
                 height: 194,
@@ -92,7 +94,7 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget _buildTopBar() {
-    return Builder(builder: (context) => Row(children: [Expanded(child: Obx(() => RichText(maxLines: 1, overflow: TextOverflow.ellipsis, text: TextSpan(style: const TextStyle(fontFamily: 'SFPro', fontSize: 20, color: AppColors.black), children: [TextSpan(text: '${'welcome'.tr} ', style: const TextStyle(fontWeight: FontWeight.w400)), TextSpan(text: controller.farmerName.value.trim().isEmpty ? 'guest'.tr : controller.farmerName.value, style: const TextStyle(fontWeight: FontWeight.w700))])))), IconButton(onPressed: () => Scaffold.of(context).openDrawer(), icon: const Icon(Icons.menu_rounded), style: IconButton.styleFrom(backgroundColor: AppColors.white, foregroundColor: AppColors.black))]));
+    return Builder(builder: (context) => Row(children: [Expanded(child: Obx(() => RichText(maxLines: 1, overflow: TextOverflow.ellipsis, text: TextSpan(style: const TextStyle(fontFamily: 'SFPro', color: AppColors.black), children: [TextSpan(text: '${'welcome'.tr} ', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400)), TextSpan(text: controller.farmerName.value.trim().isEmpty ? 'guest'.tr : controller.farmerName.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))])))), IconButton(onPressed: () => Scaffold.of(context).openDrawer(), icon: const Icon(Icons.menu_rounded), style: IconButton.styleFrom(backgroundColor: AppColors.white, foregroundColor: AppColors.black))]));
   }
 
   Widget _buildHeroCard() {
