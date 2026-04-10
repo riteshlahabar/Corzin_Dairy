@@ -14,7 +14,7 @@ import '../modules/manage_pregnancy/views/manage_pregnancy_view.dart';
 import '../modules/dairy/bindings/dairy_binding.dart';
 import '../modules/dairy/views/dairy_view.dart';
 import '../modules/doctor/bindings/doctor_binding.dart';
-import '../modules/doctor/views/doctor_view.dart';
+import '../modules/doctor/views/doctor_appointments_nearby_view.dart';
 import '../modules/farmer_details/bindings/farmer_details_binding.dart';
 import '../modules/farmer_details/views/farmer_details_view.dart';
 import '../modules/feeding/bindings/feeding_binding.dart';
@@ -65,7 +65,7 @@ class AppPages {
     GetPage(name: _Paths.MILK, page: () => const MilkView(), binding: MilkBinding()),
     GetPage(name: _Paths.FEEDING, page: () => const FeedingView(), binding: FeedingBinding()),
     GetPage(name: _Paths.HEALTH, page: () => const HealthView(), binding: HealthBinding()),
-    GetPage(name: _Paths.DOCTOR, page: () => const DoctorView(), binding: DoctorBinding()),
+    GetPage(name: _Paths.DOCTOR, page: () => const DoctorAppointmentsNearbyView(), binding: DoctorBinding()),
     GetPage(name: _Paths.SHOP, page: () => const ShopView(), binding: ShopBinding()),
     GetPage(name: _Paths.PROFILE, page: () => const ProfileView(), binding: ProfileBinding()),
     GetPage(name: _Paths.PAYMENT, page: () => const PaymentView(), binding: PaymentBinding()),
@@ -73,3 +73,4 @@ class AppPages {
     GetPage(name: _Paths.DAIRY, page: () => const DairyView(), binding: DairyBinding()),
   ];
 }
+

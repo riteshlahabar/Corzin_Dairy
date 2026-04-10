@@ -1,12 +1,18 @@
 import 'package:dairycorzin/app/core/theme/colors.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'app/routes/app_pages.dart';
+
+import 'app/core/services/local_notification_service.dart';
 import 'app/core/translations/translations.dart';
+import 'app/routes/app_pages.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await LocalNotificationService.instance.initialise();
+
   final prefs = await SharedPreferences.getInstance();
   final localeCode = prefs.getString('app_language') ?? 'en';
 
@@ -21,22 +27,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      translations: MyTranslations(), // ✅ ADD
+      translations: MyTranslations(),
       locale: Locale(localeCode),
       fallbackLocale: const Locale('en'),
       debugShowCheckedModeBanner: false,
-
-      /// 🔹 App Name
       title: 'DairyCorzin',
-
-      /// 🔹 Initial Route (Splash)
       initialRoute: AppPages.INITIAL,
-      //home: const MainBottomNavView(),
-
-      /// 🔹 All Routes
       getPages: AppPages.routes,
-
-      /// 🔹 Theme (keep simple for now, we’ll match design later)
       theme: ThemeData(
         fontFamily: 'SFPro',
         scaffoldBackgroundColor: AppColors.white,

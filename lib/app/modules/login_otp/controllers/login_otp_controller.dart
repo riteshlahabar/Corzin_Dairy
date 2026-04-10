@@ -126,14 +126,38 @@ class LoginOtpController extends GetxController {
 
       if (response.statusCode == 200 && data["status"] == true) {
         final bool isRegistered = data["is_registered"] == true;
+        final Map<String, dynamic> farmerData = data["data"] is Map
+            ? Map<String, dynamic>.from(data["data"] as Map)
+            : <String, dynamic>{};
 
         if (isRegistered) {
           await SessionService.setRegistered(true);
+
+          final dynamic farmerIdValue = farmerData["id"];
+          final int farmerId = farmerIdValue is int
+              ? farmerIdValue
+              : int.tryParse(farmerIdValue?.toString() ?? "0") ?? 0;
+          if (farmerId > 0) {
+            await SessionService.saveFarmerId(farmerId);
+          }
 
           if (data["farmer_name"] != null &&
               data["farmer_name"].toString().isNotEmpty) {
             await SessionService.saveFarmerName(data["farmer_name"].toString());
           }
+
+          await SessionService.saveFarmerProfile(
+            firstName: farmerData["first_name"]?.toString() ?? "",
+            middleName: farmerData["middle_name"]?.toString() ?? "",
+            lastName: farmerData["last_name"]?.toString() ?? "",
+            village: farmerData["village"]?.toString() ?? "",
+            city: farmerData["city"]?.toString() ?? "",
+            taluka: farmerData["taluka"]?.toString() ?? "",
+            district: farmerData["district"]?.toString() ?? "",
+            state: farmerData["state"]?.toString() ?? "",
+            pincode: farmerData["pincode"]?.toString() ?? "",
+            farmerPhoto: farmerData["farmer_photo"]?.toString() ?? "",
+          );
 
           /// Existing user -> Home
           Get.offAllNamed(Routes.HOME);

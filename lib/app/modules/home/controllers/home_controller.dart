@@ -1,10 +1,14 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/firebase_messaging_service.dart';
+import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 
@@ -30,6 +34,7 @@ class HomeController extends GetxController {
   ).obs;
   final RxString farmerName = ''.obs;
   final RxString farmerMobile = ''.obs;
+  final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
 
   int farmerId = 0;
 
@@ -37,6 +42,7 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     initHome();
+    initialiseNotifications();
   }
 
   Future<void> initHome() async {
@@ -47,6 +53,12 @@ class HomeController extends GetxController {
   Future<void> loadBaseData() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
+    if (farmerId <= 0) {
+      farmerId = await SessionService.getFarmerId();
+      if (farmerId > 0) {
+        await prefs.setInt('farmer_id', farmerId);
+      }
+    }
     final savedName = await SessionService.getFarmerName();
     final profile = await SessionService.getFarmerProfile();
     farmerName.value = _formatFarmerName(
@@ -56,6 +68,10 @@ class HomeController extends GetxController {
       fallbackName: savedName,
     );
     farmerMobile.value = await SessionService.getMobile();
+
+    if (farmerId <= 0 && farmerMobile.value.trim().isNotEmpty) {
+      await _loadFarmerIdFromProfileApi(farmerMobile.value.trim(), prefs);
+    }
   }
 
   Future<void> fetchAnimalTypes() async {
@@ -289,6 +305,92 @@ class HomeController extends GetxController {
     }
   }
 
+
+  Future<void> initialiseNotifications() async {
+    try {
+      final token = await _firebaseMessagingService.initialise();
+      if (token != null && token.isNotEmpty) {
+        await _updateFarmerFcmToken(token);
+      }
+
+      _firebaseMessagingService.tokenRefreshStream().listen((token) async {
+        if (token.isNotEmpty) {
+          await _updateFarmerFcmToken(token);
+        }
+      });
+
+      _firebaseMessagingService.foregroundMessageStream().listen(_handleRemoteMessage);
+      _firebaseMessagingService.messageOpenedAppStream().listen(_handleRemoteMessage);
+
+      final initialMessage = await _firebaseMessagingService.getInitialMessage();
+      if (initialMessage != null) {
+        _handleRemoteMessage(initialMessage);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _updateFarmerFcmToken(String token) async {
+    if (farmerId <= 0) {
+      await loadBaseData();
+    }
+    if (farmerId <= 0) {
+      return;
+    }
+
+    final response = await http.post(
+      Uri.parse('${Api.farmerFcmToken}/$farmerId'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'fcm_token': token}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      debugPrint('[FCM][Farmer] token update failed status=${response.statusCode} body=${response.body}');
+      return;
+    }
+    debugPrint('[FCM][Farmer] token updated successfully for farmerId=$farmerId');
+  }
+
+  Future<void> _loadFarmerIdFromProfileApi(String mobile, SharedPreferences prefs) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode != 200) return;
+
+      final data = _decodeBody(response.body);
+      if (data['status'] != true) return;
+      final payload = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : <String, dynamic>{};
+      final idRaw = payload['id'];
+      final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
+      if (id <= 0) return;
+
+      farmerId = id;
+      await SessionService.saveFarmerId(id);
+      await prefs.setInt('farmer_id', id);
+    } catch (_) {}
+  }
+
+  void _handleRemoteMessage(RemoteMessage message) {
+    final title = message.notification?.title?.trim();
+    final body = message.notification?.body?.trim();
+    if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
+      return;
+    }
+
+    LocalNotificationService.instance.showRemoteMessage(message);
+
+    Get.snackbar(
+      title?.isNotEmpty == true ? title! : 'Notification',
+      body?.isNotEmpty == true ? body! : 'You have a new update.',
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 4),
+    );
+
+    refreshDashboard();
+  }
   Map<String, dynamic> _decodeBody(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);
@@ -375,3 +477,6 @@ class FarmerPlanModel {
     required this.expiryDate,
   });
 }
+
+
+

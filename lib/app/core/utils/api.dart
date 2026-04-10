@@ -7,6 +7,7 @@ class Api {
 
   static const String addFarmer = "$baseUrl/farmer/store";
   static const String updateFarmer = "$baseUrl/farmer/update";
+  static const String farmerFcmToken = "$baseUrl/farmer/fcm-token";
   static const String farmerList = "$baseUrl/farmer";
 
   static const String addAnimal = "$baseUrl/animal/store";
@@ -37,7 +38,9 @@ class Api {
   static const String dashboardSummary = "$baseUrl/dashboard/summary";
   static const String doctorList = "$baseUrl/doctor/list";
   static const String doctorAppointments = "$baseUrl/doctor/appointments";
+  static const String doctorAppointmentsByFarmer = "$baseUrl/doctor/appointments/farmer";
   static const String doctorSettings = "$baseUrl/doctor/settings";
+  static const String doctorDiseases = "$baseUrl/doctor/diseases";
   static const String shopCategories = "$baseUrl/shop/categories";
   static const String shopProducts = "$baseUrl/shop/products";
   static const String subscriptionPlans = "$baseUrl/subscription/plans";

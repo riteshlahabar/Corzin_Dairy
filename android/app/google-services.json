@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "152533202294",
+    "project_id": "corzindairymanagementsystem",
+    "storage_bucket": "corzindairymanagementsystem.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:152533202294:android:bd6074e934913d693a3657",
+        "android_client_info": {
+          "package_name": "com.dairy.corzin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrQI4OdI8VL7UMcO_BvgfncTgorSpElLs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:152533202294:android:51050b3b4d26cbb43a3657",
+        "android_client_info": {
+          "package_name": "com.doctor.corzin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrQI4OdI8VL7UMcO_BvgfncTgorSpElLs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

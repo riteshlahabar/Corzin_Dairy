@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
+import '../../../core/theme/colors.dart';
 
 class AnimalController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -89,7 +90,34 @@ class AnimalController extends GetxController {
         initialDate = DateFormat('dd/MM/yyyy').parse(birthDateController.text);
       } catch (_) {}
     }
-    final DateTime? picked = await showDatePicker(context: Get.context!, initialDate: initialDate, firstDate: DateTime(2000), lastDate: DateTime.now());
+    final DateTime? picked = await showDatePicker(
+      context: Get.context!,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        const softGreen = Color(0xFFF4FAF4);
+
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF95BE95),
+              onPrimary: AppColors.black,
+              surface: softGreen,
+              onSurface: AppColors.black,
+            ),
+            dialogTheme: theme.dialogTheme.copyWith(backgroundColor: softGreen),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: softGreen,
+              headerBackgroundColor: const Color(0xFFDDEEDC),
+              headerForegroundColor: AppColors.black,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
     if (picked != null) {
       birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
     }
@@ -195,3 +223,4 @@ class AnimalTypeModel {
     return AnimalTypeModel(id: int.tryParse(json['id'].toString()) ?? 0, name: json['name']?.toString() ?? '');
   }
 }
+

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../modules/doctor/controllers/doctor_controller.dart';
-import '../../modules/doctor/views/doctor_view.dart';
+import '../../modules/doctor/views/doctor_appointments_nearby_view.dart';
 import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
@@ -74,7 +74,7 @@ class MainBottomNavView extends StatelessWidget {
     if (!Get.isRegistered<ShopController>()) Get.put(ShopController());
     if (!Get.isRegistered<ProfileController>()) Get.put(ProfileController());
 
-    final List<Widget> pages = [const HomeView(), const DoctorView(), const SizedBox(), const ShopView(), const ProfileView()];
+    final List<Widget> pages = [const HomeView(), const DoctorAppointmentsNearbyView(), const SizedBox(), const ShopView(), const ProfileView()];
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -302,4 +302,5 @@ class MainBottomNavView extends StatelessWidget {
     return Expanded(child: InkWell(onTap: onTap, child: SizedBox(height: 72, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isSelected ? selectedIcon : icon, color: isSelected ? AppColors.primary : AppColors.grey), const SizedBox(height: 4), Text(label, style: TextStyle(fontSize: 11, color: isSelected ? AppColors.primary : AppColors.grey, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400))]))));
   }
 }
+
 
