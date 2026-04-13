@@ -295,7 +295,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   ),
                 ),
               ),
-              if (hasStatusFlow && isApprovedState && latestRequest != null) ...[
+              if (hasStatusFlow && isApprovedState) ...[
                 const SizedBox(width: 8),
                 SizedBox(
                   height: 36,
@@ -465,27 +465,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
         ],
       ),
     );
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return const Color(0xFFE07A00);
-      case 'approved':
-      case 'completed':
-      case 'in_progress':
-      case 'followup':
-      case 'follow_up':
-        return const Color(0xFF2E7D32);
-      case 'declined':
-      case 'cancelled':
-        return const Color(0xFFC62828);
-      case 'rescheduled':
-      case 'proposed':
-        return const Color(0xFFEF6C00);
-      default:
-        return AppColors.primary;
-    }
   }
 
   Future<void> _openTrackingView(VetRequestModel request) async {

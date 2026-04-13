@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../controllers/shop_controller.dart';
+import 'shop_cart_view.dart';
+import 'shop_product_details_view.dart';
 
 class ShopView extends GetView<ShopController> {
   const ShopView({super.key});
@@ -30,13 +32,33 @@ class ShopView extends GetView<ShopController> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.white,
-                        foregroundColor: AppColors.black,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () => Get.to(() => const ShopCartView()),
+                          icon: Obx(
+                            () => Badge(
+                              isLabelVisible: controller.cartCount > 0,
+                              label: Text(controller.cartCount.toString()),
+                              child: const Icon(Icons.shopping_cart_outlined),
+                            ),
+                          ),
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.white,
+                            foregroundColor: AppColors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          onPressed: () => Scaffold.of(context).openDrawer(),
+                          icon: const Icon(Icons.menu_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.white,
+                            foregroundColor: AppColors.black,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -157,105 +179,122 @@ class ShopView extends GetView<ShopController> {
                                       crossAxisCount: 2,
                                       mainAxisSpacing: 12,
                                       crossAxisSpacing: 10,
-                                      childAspectRatio: 0.56,
+                                      mainAxisExtent: 258,
                                     ),
                                     itemCount: controller.filteredProducts.length,
                                     itemBuilder: (context, index) {
                                       final item = controller.filteredProducts[index];
-                                      return Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.white,
-                                          borderRadius: BorderRadius.circular(18),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.04),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              height: 96,
-                                              decoration: BoxDecoration(
-                                                color: AppColors.grey.withValues(alpha: 0.12),
-                                                borderRadius: BorderRadius.circular(16),
+                                      return InkWell(
+                                        onTap: () => Get.to(() => ShopProductDetailsView(product: item)),
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.white,
+                                            borderRadius: BorderRadius.circular(18),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.04),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
                                               ),
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.shopping_bag_outlined,
-                                                  size: 30,
-                                                  color: AppColors.primary,
+                                            ],
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                height: 96,
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.grey.withValues(alpha: 0.12),
+                                                  borderRadius: BorderRadius.circular(16),
                                                 ),
+                                                clipBehavior: Clip.antiAlias,
+                                                child: item.imageUrl.trim().isNotEmpty
+                                                    ? Image.network(
+                                                        item.imageUrl,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (_, _, _) => const Center(
+                                                          child: Icon(
+                                                            Icons.shopping_bag_outlined,
+                                                            size: 30,
+                                                            color: AppColors.primary,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : const Center(
+                                                        child: Icon(
+                                                          Icons.shopping_bag_outlined,
+                                                          size: 30,
+                                                          color: AppColors.primary,
+                                                        ),
+                                                      ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    item.name,
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 12.5,
-                                                      fontWeight: FontWeight.w700,
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      item.name,
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontSize: 12.5,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.primary.withValues(alpha: 0.08),
-                                                    borderRadius: BorderRadius.circular(10),
-                                                  ),
-                                                  child: Text(
-                                                    item.category.toUpperCase(),
-                                                    style: const TextStyle(
-                                                      color: AppColors.primary,
-                                                      fontSize: 9,
-                                                      fontWeight: FontWeight.w700,
+                                                  const SizedBox(width: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.primary.withValues(alpha: 0.08),
+                                                      borderRadius: BorderRadius.circular(10),
                                                     ),
+                                                    child: Text(
+                                                      item.category.toUpperCase(),
+                                                      style: const TextStyle(
+                                                        color: AppColors.primary,
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                item.priceLabel,
+                                                style: const TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppColors.black,
+                                                ),
+                                              ),
+                                              if (item.unit.isNotEmpty) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  item.unit,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.grey.shade700,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              item.price,
-                                              style: const TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.black,
-                                              ),
-                                            ),
-                                            if (item.unit.isNotEmpty) ...[
-                                              const SizedBox(height: 2),
+                                              const SizedBox(height: 4),
                                               Text(
-                                                item.unit,
+                                                item.subtitle.isEmpty ? item.description : item.subtitle,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   color: AppColors.grey.shade700,
-                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.35,
                                                 ),
                                               ),
                                             ],
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              item.subtitle.isEmpty ? item.description : item.subtitle,
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.grey.shade700,
-                                                height: 1.35,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                       );
                                     },

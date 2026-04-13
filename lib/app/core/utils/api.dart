@@ -43,5 +43,7 @@ class Api {
   static const String doctorDiseases = "$baseUrl/doctor/diseases";
   static const String shopCategories = "$baseUrl/shop/categories";
   static const String shopProducts = "$baseUrl/shop/products";
+  static const String shopOrders = "$baseUrl/shop/orders";
+  static const String shopOrdersByFarmer = "$baseUrl/shop/orders/farmer";
   static const String subscriptionPlans = "$baseUrl/subscription/plans";
 }
