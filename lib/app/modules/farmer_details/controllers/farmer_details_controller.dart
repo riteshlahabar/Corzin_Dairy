@@ -30,6 +30,7 @@ class FarmerDetailsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    state.text = "Maharashtra";
 
     /// ✅ SAFE ARGUMENT HANDLING
     if (Get.arguments != null) {

@@ -14,6 +14,7 @@ class ShopController extends GetxController {
   final RxString selectedCategory = 'all'.obs;
   final RxList<ShopProductModel> products = <ShopProductModel>[].obs;
   final RxList<CartItemModel> cartItems = <CartItemModel>[].obs;
+  final RxList<ShopOrderModel> myOrders = <ShopOrderModel>[].obs;
   final TextEditingController searchController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
   final RxString searchQuery = ''.obs;
@@ -161,9 +162,8 @@ class ShopController extends GetxController {
         return false;
       }
 
-      if (directItems == null) {
-        cartItems.clear();
-      }
+      if (directItems == null) cartItems.clear();
+      await fetchMyOrders();
       return true;
     } catch (e) {
       Get.snackbar('Order Failed', e.toString());
@@ -171,6 +171,21 @@ class ShopController extends GetxController {
     } finally {
       isPlacingOrder.value = false;
     }
+  }
+
+  Future<void> fetchMyOrders() async {
+    if (farmerId <= 0) return;
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.shopOrdersByFarmer}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final ok = response.statusCode == 200 && data['status'] == true;
+      if (!ok) return;
+      final List rows = data['data'] ?? [];
+      myOrders.assignAll(rows.map((e) => ShopOrderModel.fromJson(Map<String, dynamic>.from(e))).toList());
+    } catch (_) {}
   }
 
   @override
@@ -248,6 +263,68 @@ class CartItemModel {
     return CartItemModel(
       product: product ?? this.product,
       quantity: quantity ?? this.quantity,
+    );
+  }
+}
+
+class ShopOrderModel {
+  const ShopOrderModel({
+    required this.id,
+    required this.status,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    required this.shippingAddress,
+    required this.total,
+    required this.createdAt,
+    required this.items,
+  });
+
+  final int id;
+  final String status;
+  final String paymentMethod;
+  final String paymentStatus;
+  final String shippingAddress;
+  final double total;
+  final String createdAt;
+  final List<ShopOrderItemModel> items;
+
+  factory ShopOrderModel.fromJson(Map<String, dynamic> json) {
+    final List rawItems = json['items'] is List ? json['items'] as List : <dynamic>[];
+    return ShopOrderModel(
+      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      status: json['status']?.toString() ?? '',
+      paymentMethod: json['payment_method']?.toString() ?? '',
+      paymentStatus: json['payment_status']?.toString() ?? 'pending',
+      shippingAddress: json['shipping_address']?.toString() ?? '',
+      total: double.tryParse(json['total']?.toString() ?? '0') ?? 0,
+      createdAt: json['created_at']?.toString() ?? '',
+      items: rawItems.map((e) => ShopOrderItemModel.fromJson(Map<String, dynamic>.from(e))).toList(),
+    );
+  }
+}
+
+class ShopOrderItemModel {
+  const ShopOrderItemModel({
+    required this.productName,
+    required this.quantity,
+    required this.price,
+    required this.lineTotal,
+    required this.unit,
+  });
+
+  final String productName;
+  final int quantity;
+  final double price;
+  final double lineTotal;
+  final String unit;
+
+  factory ShopOrderItemModel.fromJson(Map<String, dynamic> json) {
+    return ShopOrderItemModel(
+      productName: json['product_name']?.toString() ?? '',
+      quantity: int.tryParse(json['quantity']?.toString() ?? '0') ?? 0,
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
+      lineTotal: double.tryParse(json['line_total']?.toString() ?? '0') ?? 0,
+      unit: json['unit']?.toString() ?? '',
     );
   }
 }

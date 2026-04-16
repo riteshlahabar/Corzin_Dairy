@@ -24,6 +24,8 @@ class AnimalController extends GetxController {
   final List<String> genderList = ['Male', 'Female'];
   final Rxn<AnimalTypeModel> selectedAnimalType = Rxn<AnimalTypeModel>();
   final RxList<AnimalTypeModel> animalTypes = <AnimalTypeModel>[].obs;
+  final Rxn<MotherAnimalModel> selectedMotherAnimal = Rxn<MotherAnimalModel>();
+  final RxList<MotherAnimalModel> motherAnimals = <MotherAnimalModel>[].obs;
   final Rxn<XFile> selectedImage = Rxn<XFile>();
 
   final ImagePicker _picker = ImagePicker();
@@ -45,18 +47,42 @@ class AnimalController extends GetxController {
     if (args is Map) {
       isNewBornMode = args['prefillAnimalTypeName']?.toString().isNotEmpty == true;
       lockedAnimalTypeName = args['prefillAnimalTypeName']?.toString() ?? '';
-      pageTitle = args['title']?.toString() ?? (isNewBornMode ? 'Add New Born Cow' : 'Add Animal');
+      pageTitle = args['title']?.toString() ?? (isNewBornMode ? 'Add New Born Animal' : 'Add Animal');
     }
   }
 
   Future<void> initData() async {
     await loadFarmerId();
-    await fetchAnimalTypes();
+    await Future.wait([fetchAnimalTypes(), fetchMotherAnimals()]);
   }
 
   Future<void> loadFarmerId() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
+  }
+
+  Future<void> fetchMotherAnimals() async {
+    if (farmerId == 0) {
+      motherAnimals.clear();
+      return;
+    }
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.animalList}/$farmerId?include_inactive=1'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['status'] == true) {
+        final List list = data['data'] ?? [];
+        motherAnimals.assignAll(
+          list.map((e) => MotherAnimalModel.fromJson(e)).where((e) => e.id > 0).toList(),
+        );
+      } else {
+        motherAnimals.clear();
+      }
+    } catch (_) {
+      motherAnimals.clear();
+    }
   }
 
   Future<void> fetchAnimalTypes() async {
@@ -140,6 +166,10 @@ class AnimalController extends GetxController {
       Get.snackbar('Error', 'Please select animal type', snackPosition: SnackPosition.BOTTOM);
       return;
     }
+    if (isNewBornMode && selectedMotherAnimal.value == null) {
+      Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
 
     try {
       isSubmitting.value = true;
@@ -149,6 +179,9 @@ class AnimalController extends GetxController {
       request.fields['animal_name'] = animalNameController.text.trim();
       request.fields['tag_number'] = tagNumberController.text.trim();
       request.fields['animal_type_id'] = selectedAnimalType.value!.id.toString();
+      if (isNewBornMode && selectedMotherAnimal.value != null) {
+        request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
+      }
       request.fields['birth_date'] = birthDateController.text.trim();
       request.fields['gender'] = selectedGender.value;
       if (weightController.text.trim().isNotEmpty) {
@@ -198,6 +231,7 @@ class AnimalController extends GetxController {
     weightController.clear();
     selectedGender.value = '';
     selectedImage.value = null;
+    selectedMotherAnimal.value = null;
     if (!isNewBornMode) {
       selectedAnimalType.value = null;
     }
@@ -221,6 +255,32 @@ class AnimalTypeModel {
 
   factory AnimalTypeModel.fromJson(Map<String, dynamic> json) {
     return AnimalTypeModel(id: int.tryParse(json['id'].toString()) ?? 0, name: json['name']?.toString() ?? '');
+  }
+}
+
+class MotherAnimalModel {
+  final int id;
+  final String animalName;
+  final String tagNumber;
+
+  MotherAnimalModel({
+    required this.id,
+    required this.animalName,
+    required this.tagNumber,
+  });
+
+  String get label {
+    final name = animalName.trim().isEmpty ? 'Animal #$id' : animalName.trim();
+    final tag = tagNumber.trim().isEmpty ? '-' : tagNumber.trim();
+    return '$name (Tag: $tag)';
+  }
+
+  factory MotherAnimalModel.fromJson(Map<String, dynamic> json) {
+    return MotherAnimalModel(
+      id: int.tryParse(json['id'].toString()) ?? 0,
+      animalName: json['animal_name']?.toString() ?? '',
+      tagNumber: json['tag_number']?.toString() ?? '',
+    );
   }
 }
 

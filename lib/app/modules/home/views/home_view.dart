@@ -42,7 +42,7 @@ class HomeView extends GetView<HomeController> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('latest_payments'.tr, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black)), Text('view_all'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700, fontWeight: FontWeight.w600))]),
             const SizedBox(height: 12),
             SizedBox(
-              height: 138,
+              height: 150,
               child: Obx(() {
                 if (controller.payments.isEmpty) {
                   return Container(
@@ -61,7 +61,58 @@ class HomeView extends GetView<HomeController> {
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(color: const Color(0xFF3F8F52), borderRadius: BorderRadius.circular(24)),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(payment.dairyName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)), const SizedBox(height: 8), Expanded(child: Row(children: [Expanded(child: _paymentColumn(topLabel: 'today_payment'.tr, topValue: payment.todayPayment, bottomLabel: 'today_milk'.tr, bottomValue: payment.todayMilk)), Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 10), color: Colors.white.withValues(alpha: 0.22)), Expanded(child: _paymentColumn(topLabel: 'total_payment'.tr, topValue: payment.totalPayment, bottomLabel: 'total_milk'.tr, bottomValue: payment.totalMilk))]))]),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            payment.dairyName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _paymentColumn(
+                                    topLabel: 'today_payment'.tr,
+                                    topValue: payment.todayPayment,
+                                    bottomLabel: 'today_milk'.tr,
+                                    bottomValue: payment.todayMilk,
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                ),
+                                Expanded(
+                                  child: _paymentColumn(
+                                    topLabel: 'total_payment'.tr,
+                                    topValue: payment.totalPayment,
+                                    bottomLabel: 'total_milk'.tr,
+                                    bottomValue: payment.totalMilk,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Payment Pending: ${payment.pendingPayment}',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 );
@@ -108,9 +159,23 @@ class HomeView extends GetView<HomeController> {
   Widget _buildPlanCard() {
     return Obx(() {
       final plan = controller.currentPlan.value;
+      final shouldBlink = controller.shouldBlinkPlan;
+      final blinkOn = controller.planBlinkOn.value;
+      final gradientColors = shouldBlink
+          ? (blinkOn
+              ? const [Color(0xFFD32F2F), Color(0xFFEF5350)]
+              : [const Color(0xFF4A9A58), AppColors.primary.withValues(alpha: 0.92)])
+          : [const Color(0xFF4A9A58), AppColors.primary.withValues(alpha: 0.92)];
       return Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(gradient: LinearGradient(colors: [const Color(0xFF4A9A58), AppColors.primary.withValues(alpha: 0.92)], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(24)),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(20)), child: Text(plan.name.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))), const Spacer(), Text('current_plan'.tr, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11, fontWeight: FontWeight.w600))]), const SizedBox(height: 8), Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(plan.amount, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text('${'expires_on'.tr}: ${plan.expiryDate}', style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11))])), const SizedBox(width: 10), SizedBox(height: 34, child: ElevatedButton(onPressed: () => Get.toNamed(Routes.UPGRADE), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0), child: Text('upgrade_plan'.tr, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700))))])]),
       );
     });

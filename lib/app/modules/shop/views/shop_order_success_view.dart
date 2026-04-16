@@ -27,12 +27,12 @@ class ShopOrderSuccessView extends StatelessWidget {
                   child: const Icon(Icons.check_circle_rounded, size: 54, color: AppColors.primary),
                 ),
                 const SizedBox(height: 16),
-                const Text('Order Placed!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                Text('shop_order_placed_title'.tr, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                const Text(
-                  'Your order is confirmed with Cash on Delivery. We will deliver soon.',
+                Text(
+                  'shop_order_placed_desc'.tr,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13.5, color: AppColors.grey),
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.grey),
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -43,7 +43,7 @@ class ShopOrderSuccessView extends StatelessWidget {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('Continue Shopping'),
+                    child: Text('shop_continue_shopping'.tr),
                   ),
                 ),
               ],

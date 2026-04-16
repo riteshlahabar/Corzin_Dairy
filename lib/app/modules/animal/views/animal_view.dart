@@ -56,8 +56,8 @@ class AnimalView extends GetView<AnimalController> {
   }
 
   Widget _buildHeroCard() {
-    final title = controller.isNewBornMode ? 'Register New Born Cow' : 'Register a new animal';
-    final description = controller.isNewBornMode ? 'Add calf details quickly so the new born animal starts tracking in the system immediately.' : 'Add complete details to keep your dairy records clean and organized.';
+    final title = controller.isNewBornMode ? 'Register New Born Animal' : 'Register a new animal';
+    final description = controller.isNewBornMode ? 'Add new born details quickly so the animal starts tracking in the system immediately.' : 'Add complete details to keep your dairy records clean and organized.';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -93,6 +93,41 @@ class AnimalView extends GetView<AnimalController> {
             _fieldLabel('Animal Type'), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('Select animal type'), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'Please select animal type' : null)), const SizedBox(height: 16),
           ],
           _fieldLabel('Animal Name'), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter animal name'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter animal name' : null),
+          if (controller.isNewBornMode) ...[
+            const SizedBox(height: 16),
+            _fieldLabel('Mother Animal (Name/Tag)'),
+            const SizedBox(height: 8),
+            Obx(
+              () => DropdownButtonFormField<MotherAnimalModel>(
+                initialValue: controller.selectedMotherAnimal.value,
+                isExpanded: true,
+                dropdownColor: const Color(0xFFF4FAF4),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)),
+                decoration: _animalTypeDecoration('Select mother animal'),
+                items: controller.motherAnimals
+                    .map(
+                      (animal) => DropdownMenuItem<MotherAnimalModel>(
+                        value: animal,
+                        child: Text(animal.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => controller.selectedMotherAnimal.value = value,
+                validator: (value) {
+                  if (!controller.isNewBornMode) return null;
+                  return value == null ? 'Please select mother animal' : null;
+                },
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Select the animal from which this calf/new born is born.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _fieldLabel('Tag Number'), const SizedBox(height: 8), TextFormField(controller: controller.tagNumberController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter tag number'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter tag number' : null),
           const SizedBox(height: 18),
@@ -109,7 +144,7 @@ class AnimalView extends GetView<AnimalController> {
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value ? null : controller.submitAnimal, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: controller.isSubmitting.value ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text(controller.isNewBornMode ? 'Save New Born Cow' : 'Save Animal', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700))]))));
+    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value ? null : controller.submitAnimal, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: controller.isSubmitting.value ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text(controller.isNewBornMode ? 'Save New Born Animal' : 'Save Animal', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700))]))));
   }
 
   Widget _sectionTitle(String title) => Align(alignment: Alignment.centerLeft, child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black)));

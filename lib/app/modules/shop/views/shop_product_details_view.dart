@@ -44,7 +44,7 @@ class ShopProductDetailsView extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           if (product.features.isNotEmpty) ...[
-            const Text('Features', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            Text('shop_features'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             ...product.features.map(
               (feature) => Padding(
@@ -64,10 +64,10 @@ class ShopProductDetailsView extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
-          const Text('Description', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          Text('shop_description'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text(
-            product.description.trim().isEmpty ? 'No additional description available.' : product.description,
+            product.description.trim().isEmpty ? 'shop_no_description'.tr : product.description,
             style: const TextStyle(fontSize: 13, height: 1.45),
           ),
         ],
@@ -86,7 +86,7 @@ class ShopProductDetailsView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Text('Add to Cart'),
+                  child: Text('shop_add_to_cart'.tr),
                 ),
               ),
               const SizedBox(width: 10),
@@ -101,7 +101,7 @@ class ShopProductDetailsView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Text('Buy Now'),
+                  child: Text('buy_now'.tr),
                 ),
               ),
             ],

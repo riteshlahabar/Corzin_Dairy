@@ -149,13 +149,18 @@ class FeedingController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final successMessage =
+            data['message']?.toString() ?? 'Feeding entry saved successfully';
+        Get.snackbar(
+          'Success',
+          successMessage,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         clearForm();
         Get.back(
           result: {
             'success': true,
-            'message':
-                data['message']?.toString() ??
-                'Feeding entry saved successfully',
+            'message': successMessage,
           },
         );
       } else {

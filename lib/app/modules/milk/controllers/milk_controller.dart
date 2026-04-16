@@ -143,6 +143,11 @@ class MilkController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final successMessage = data['message']?.toString() ?? 'Milk record saved successfully';
+        Get.snackbar(
+          'Success',
+          successMessage,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         clearForm();
         Get.back(result: {'success': true, 'message': successMessage});
       } else if (response.statusCode == 422) {

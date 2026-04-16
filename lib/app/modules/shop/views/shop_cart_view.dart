@@ -14,13 +14,13 @@ class ShopCartView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        title: const Text('Cart'),
+        title: Text('shop_cart'.tr),
         backgroundColor: Colors.white,
       ),
       body: Obx(() {
         if (controller.cartItems.isEmpty) {
-          return const Center(
-            child: Text('Your cart is empty', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          return Center(
+            child: Text('shop_cart_empty'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           );
         }
 
@@ -76,7 +76,12 @@ class ShopCartView extends StatelessWidget {
                 child: SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () => Get.to(() => ShopCheckoutView(items: controller.cartItems.toList())),
+                    onPressed: () => Get.to(
+                      () => ShopCheckoutView(
+                        items: controller.cartItems.toList(),
+                        clearCartOnSuccess: true,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                     child: Text('Proceed to Checkout • Rs ${controller.grandTotal.toStringAsFixed(2)}'),
                   ),

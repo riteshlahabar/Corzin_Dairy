@@ -8,6 +8,37 @@ import '../controllers/farmer_details_controller.dart';
 class FarmerDetailsView extends GetView<FarmerDetailsController> {
   const FarmerDetailsView({super.key});
 
+  static const List<String> _states = [
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,7 +117,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
 
                     _field("district".tr, controller.district, icon: Icons.map),
 
-                    _field("state".tr, controller.state, icon: Icons.public),
+                    _stateDropdown(),
 
                     _field(
                       "pincode".tr,
@@ -179,6 +210,43 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stateDropdown() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: DropdownButtonFormField<String>(
+        initialValue: controller.state.text.trim().isEmpty
+            ? 'Maharashtra'
+            : controller.state.text.trim(),
+        items: _states
+            .map(
+              (state) => DropdownMenuItem<String>(
+                value: state,
+                child: Text(state, style: const TextStyle(fontSize: 14)),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          controller.state.text = value ?? 'Maharashtra';
+        },
+        decoration: InputDecoration(
+          hintText: "state".tr,
+          prefixIcon: const Icon(Icons.public, color: AppColors.primary),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
       ),

@@ -69,7 +69,7 @@ class ShopView extends GetView<ShopController> {
               child: TextField(
                 controller: controller.searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search product, category, description',
+                  hintText: 'shop_search_hint'.tr,
                   prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
                   fillColor: Colors.white,
@@ -161,14 +161,14 @@ class ShopView extends GetView<ShopController> {
                             child: controller.filteredProducts.isEmpty
                                 ? ListView(
                                     padding: const EdgeInsets.only(right: 16, bottom: 16),
-                                    children: const [
+                                    children: [
                                       SizedBox(height: 140),
-                                      Icon(Icons.storefront_outlined, size: 48, color: AppColors.primary),
+                                      const Icon(Icons.storefront_outlined, size: 48, color: AppColors.primary),
                                       SizedBox(height: 12),
                                       Center(
                                         child: Text(
-                                          'No shop products found',
-                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                          'shop_no_products'.tr,
+                                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                                         ),
                                       ),
                                     ],
@@ -179,7 +179,7 @@ class ShopView extends GetView<ShopController> {
                                       crossAxisCount: 2,
                                       mainAxisSpacing: 12,
                                       crossAxisSpacing: 10,
-                                      mainAxisExtent: 258,
+                                      mainAxisExtent: 230,
                                     ),
                                     itemCount: controller.filteredProducts.length,
                                     itemBuilder: (context, index) {
@@ -330,15 +330,15 @@ class ShopView extends GetView<ShopController> {
   String _categoryLabel(String category) {
     switch (category) {
       case 'all':
-        return 'All';
+        return 'all'.tr;
       case 'feed':
-        return 'Feed';
+        return 'feed'.tr;
       case 'supplements':
-        return 'Supp';
+        return 'supplements'.tr;
       case 'medicine':
-        return 'Meds';
+        return 'medicine'.tr;
       case 'equipment':
-        return 'Tools';
+        return 'equipment'.tr;
       default:
         return category.length > 6 ? category.substring(0, 6) : category;
     }

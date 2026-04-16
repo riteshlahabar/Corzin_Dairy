@@ -43,41 +43,7 @@ class DoctorController extends GetxController {
   List<VetRequestModel> get sortedRequests {
     final copied = requests.toList();
     copied.sort((a, b) => b.sortDate.compareTo(a.sortDate));
-
-    final hasAcceptedByAnimal = <int, bool>{};
-    for (final request in copied) {
-      final status = request.status.toLowerCase();
-      final isAccepted = {
-        'approved',
-        'farmer_approved',
-        'scheduled',
-        'rescheduled',
-        'in_progress',
-      }.contains(status);
-
-      if (isAccepted) {
-        hasAcceptedByAnimal[request.animalId] = true;
-      }
-    }
-
-    final filtered = copied.where((request) {
-      final status = request.status.toLowerCase();
-      final isPendingLike = {
-        'pending',
-        'new',
-        'requested',
-        'proposed',
-        'awaiting_farmer_approval',
-        'awaiting_approval',
-      }.contains(status);
-
-      if (isPendingLike && (hasAcceptedByAnimal[request.animalId] ?? false)) {
-        return false;
-      }
-      return true;
-    }).toList();
-
-    return filtered;
+    return copied;
   }
 
   @override
@@ -292,7 +258,18 @@ class DoctorController extends GetxController {
     required VetAnimalModel animal,
   }) async {
     if (farmerId == 0) {
+      final prefs = await SharedPreferences.getInstance();
+      if (farmerPhone.trim().isNotEmpty) {
+        await _loadFarmerIdFromProfileApi(farmerPhone.trim(), prefs);
+      }
+    }
+
+    if (farmerId == 0) {
       Get.snackbar('Error', 'Farmer session not found. Please login again.');
+      return;
+    }
+    if (animal.id <= 0) {
+      Get.snackbar('Error', 'Animal details not found. Please refresh and try again.');
       return;
     }
     if (selectedDiseaseIds.isEmpty) {
@@ -349,7 +326,7 @@ class DoctorController extends GetxController {
         await fetchFarmerRequests();
         Get.snackbar('Success', data['message']?.toString() ?? 'Appointment created successfully.');
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to submit request.');
+        Get.snackbar('Error', _extractApiMessage(data) ?? 'Failed to submit request.');
       }
     } catch (e) {
       Get.snackbar('Error', e.toString());
@@ -458,6 +435,29 @@ class DoctorController extends GetxController {
     notesController.dispose();
     searchController.dispose();
     super.onClose();
+  }
+
+  String? _extractApiMessage(dynamic payload) {
+    if (payload is! Map) return null;
+    final message = payload['message'];
+    if (message is String && message.trim().isNotEmpty) return message.trim();
+    if (message is Map) {
+      final buffer = <String>[];
+      for (final entry in message.entries) {
+        final value = entry.value;
+        if (value is List) {
+          for (final item in value) {
+            final text = item?.toString().trim() ?? '';
+            if (text.isNotEmpty) buffer.add(text);
+          }
+        } else {
+          final text = value?.toString().trim() ?? '';
+          if (text.isNotEmpty) buffer.add(text);
+        }
+      }
+      if (buffer.isNotEmpty) return buffer.join('\n');
+    }
+    return null;
   }
 }
 

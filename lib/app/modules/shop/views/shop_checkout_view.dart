@@ -9,9 +9,11 @@ class ShopCheckoutView extends StatefulWidget {
   const ShopCheckoutView({
     super.key,
     required this.items,
+    this.clearCartOnSuccess = false,
   });
 
   final List<CartItemModel> items;
+  final bool clearCartOnSuccess;
 
   @override
   State<ShopCheckoutView> createState() => _ShopCheckoutViewState();
@@ -35,14 +37,14 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        title: const Text('Checkout'),
+        title: Text('shop_checkout'.tr),
         backgroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         children: [
           _block(
-            title: 'Delivery Address',
+            title: 'shop_delivery_address'.tr,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -52,7 +54,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                   maxLines: 3,
                   enabled: useDifferentAddress,
                   decoration: InputDecoration(
-                    hintText: 'Enter delivery address',
+                    hintText: 'shop_enter_delivery_address'.tr,
                     filled: true,
                     fillColor: useDifferentAddress ? Colors.white : const Color(0xFFF1F5F1),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -62,14 +64,14 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                 TextButton.icon(
                   onPressed: () => setState(() => useDifferentAddress = !useDifferentAddress),
                   icon: const Icon(Icons.edit_location_alt_outlined),
-                  label: Text(useDifferentAddress ? 'Use default address' : 'Add different address'),
+                  label: Text(useDifferentAddress ? 'shop_use_default_address'.tr : 'shop_add_different_address'.tr),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 10),
           _block(
-            title: 'Payment Method',
+            title: 'shop_payment_method'.tr,
             child: Obx(
               () => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -86,13 +88,13 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                       color: AppColors.primary,
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Cash on Delivery', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                          SizedBox(height: 2),
-                          Text('Pay when your order is delivered', style: TextStyle(fontSize: 12, color: AppColors.grey)),
+                          Text('shop_cash_on_delivery'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text('shop_pay_on_delivery'.tr, style: const TextStyle(fontSize: 12, color: AppColors.grey)),
                         ],
                       ),
                     ),
@@ -103,7 +105,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
           ),
           const SizedBox(height: 10),
           _block(
-            title: 'Order Items',
+            title: 'shop_order_items'.tr,
             child: Column(
               children: widget.items
                   .map(
@@ -127,13 +129,13 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
           ),
           const SizedBox(height: 10),
           _block(
-            title: 'Price Details',
+            title: 'shop_price_details'.tr,
             child: Column(
               children: [
-                _priceRow('Subtotal', subtotal),
-                _priceRow('Delivery', 0),
+                _priceRow('shop_subtotal'.tr, subtotal),
+                _priceRow('shop_delivery'.tr, 0),
                 const Divider(),
-                _priceRow('Total', total, isBold: true),
+                _priceRow('shop_total_amount'.tr, total, isBold: true),
               ],
             ),
           ),
@@ -152,6 +154,9 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                     : () async {
                         final ok = await controller.placeOrder(directItems: widget.items);
                         if (!mounted || !ok) return;
+                        if (widget.clearCartOnSuccess) {
+                          controller.cartItems.clear();
+                        }
                         Get.off(() => const ShopOrderSuccessView());
                       },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
@@ -161,7 +166,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                       )
-                    : const Text('Complete Order'),
+                    : Text('shop_complete_order'.tr),
               ),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -30,13 +31,17 @@ class HomeController extends GetxController {
   final Rx<FarmerPlanModel> currentPlan = const FarmerPlanModel(
     name: 'free_plan',
     amount: 'Rs 0',
-    expiryDate: '-',
+    expiryDate: '30 days',
   ).obs;
+  final RxInt planDaysLeft = 30.obs;
+  final RxBool planBlinkOn = false.obs;
   final RxString farmerName = ''.obs;
   final RxString farmerMobile = ''.obs;
+  final RxList<FarmerNotificationItem> notificationHistory = <FarmerNotificationItem>[].obs;
   final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
 
   int farmerId = 0;
+  Timer? _planBlinkTimer;
 
   @override
   void onInit() {
@@ -72,6 +77,7 @@ class HomeController extends GetxController {
     if (farmerId <= 0 && farmerMobile.value.trim().isNotEmpty) {
       await _loadFarmerIdFromProfileApi(farmerMobile.value.trim(), prefs);
     }
+    await _loadNotificationHistory();
   }
 
   Future<void> fetchAnimalTypes() async {
@@ -195,6 +201,10 @@ class HomeController extends GetxController {
         final totalPayment = _asDouble(row['total_payment']);
         final todayMilk = _asDouble(row['today_milk']);
         final totalMilk = _asDouble(row['total_milk']);
+        final pendingFromApi = _asDouble(row['pending_payment']);
+        final pendingPayment = pendingFromApi > 0
+            ? pendingFromApi
+            : (totalPayment - todayPayment).clamp(0, double.infinity).toDouble();
 
         todayMilkTotal += todayMilk;
         totalMilkTotal += totalMilk;
@@ -205,6 +215,7 @@ class HomeController extends GetxController {
               : 'Dairy',
           todayPayment: _formatCurrency(todayPayment),
           totalPayment: _formatCurrency(totalPayment),
+          pendingPayment: _formatCurrency(pendingPayment),
           todayMilk: _formatQuantity(todayMilk, 'L'),
           totalMilk: _formatQuantity(totalMilk, 'L'),
         );
@@ -250,13 +261,23 @@ class HomeController extends GetxController {
       final summary = data['data'] is Map<String, dynamic>
           ? data['data'] as Map<String, dynamic>
           : Map<String, dynamic>.from(data['data'] as Map? ?? {});
-      final unit = (summary['unit']?.toString().trim().isNotEmpty == true)
-          ? summary['unit'].toString()
-          : 'Kg';
+      final unit = _extractUnit(summary);
+      final todayFeeding = _extractSummaryNumber(summary, const [
+        'today_feeding',
+        'today_feed',
+        'today_quantity',
+        'today_total',
+      ]);
+      final totalFeeding = _extractSummaryNumber(summary, const [
+        'total_feeding',
+        'total_feed',
+        'total_quantity',
+        'total',
+      ]);
 
       stats.addAll({
-        'today_feeding': _formatQuantity(_asDouble(summary['today_feeding']), unit),
-        'total_feeding': _formatQuantity(_asDouble(summary['total_feeding']), unit),
+        'today_feeding': _formatQuantity(todayFeeding, unit),
+        'total_feeding': _formatQuantity(totalFeeding, unit),
       });
     } catch (_) {
       stats.addAll({
@@ -288,21 +309,52 @@ class HomeController extends GetxController {
         orElse: () => list.first,
       );
 
-      final durationDays = int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
+      int durationDays = int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
+      final planName = plan['name']?.toString().trim().isNotEmpty == true
+          ? plan['name'].toString()
+          : 'free_plan';
+      final isFreePlan = planName.toLowerCase().contains('free') ||
+          _asDouble(plan['price']) <= 0;
+      if (isFreePlan && durationDays <= 0) {
+        durationDays = 30;
+      }
       final amount = plan['price_label']?.toString().trim().isNotEmpty == true
           ? plan['price_label'].toString()
           : _formatCurrency(_asDouble(plan['price']));
 
       currentPlan.value = FarmerPlanModel(
-        name: plan['name']?.toString().trim().isNotEmpty == true
-            ? plan['name'].toString()
-            : 'free_plan',
+        name: planName,
         amount: amount,
-        expiryDate: durationDays > 0 ? '$durationDays days' : '-',
+        expiryDate: durationDays > 0 ? '$durationDays days' : '30 days',
       );
+      _setPlanDaysLeft(durationDays > 0 ? durationDays : 30);
     } catch (_) {
-      // Keep existing plan data on API failure.
+      _setPlanDaysLeft(30);
+      currentPlan.value = const FarmerPlanModel(
+        name: 'free_plan',
+        amount: 'Rs 0',
+        expiryDate: '30 days',
+      );
     }
+  }
+
+  bool get shouldBlinkPlan => planDaysLeft.value <= 10;
+
+  void _setPlanDaysLeft(int days) {
+    planDaysLeft.value = days <= 0 ? 30 : days;
+    _syncPlanBlinkTimer();
+  }
+
+  void _syncPlanBlinkTimer() {
+    _planBlinkTimer?.cancel();
+    if (!shouldBlinkPlan) {
+      planBlinkOn.value = false;
+      return;
+    }
+
+    _planBlinkTimer = Timer.periodic(const Duration(milliseconds: 650), (_) {
+      planBlinkOn.value = !planBlinkOn.value;
+    });
   }
 
 
@@ -370,26 +422,133 @@ class HomeController extends GetxController {
       farmerId = id;
       await SessionService.saveFarmerId(id);
       await prefs.setInt('farmer_id', id);
+      await _loadNotificationHistory();
     } catch (_) {}
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
-    final title = message.notification?.title?.trim();
-    final body = message.notification?.body?.trim();
+    final title = _resolveNotificationTitle(message);
+    final body = _resolveNotificationBody(message);
     if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
       return;
     }
 
-    LocalNotificationService.instance.showRemoteMessage(message);
+    final finalTitle = title?.isNotEmpty == true ? title! : 'Notification';
+    final finalBody = body?.isNotEmpty == true ? body! : 'You have a new update.';
+    LocalNotificationService.instance.showMessage(
+      title: finalTitle,
+      body: finalBody,
+      id: message.hashCode,
+    );
+
+    final item = FarmerNotificationItem(
+      title: finalTitle,
+      body: finalBody,
+      createdAt: DateTime.now(),
+      type: message.data['type']?.toString() ?? '',
+    );
+    notificationHistory.insert(0, item);
+    _persistNotificationHistory();
 
     Get.snackbar(
-      title?.isNotEmpty == true ? title! : 'Notification',
-      body?.isNotEmpty == true ? body! : 'You have a new update.',
+      finalTitle,
+      finalBody,
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 4),
     );
 
     refreshDashboard();
+  }
+
+  String? _resolveNotificationTitle(RemoteMessage message) {
+    final fromNotification = message.notification?.title?.trim();
+    if (fromNotification != null && fromNotification.isNotEmpty) {
+      return fromNotification;
+    }
+
+    final fromData = message.data['title']?.toString().trim();
+    if (fromData != null && fromData.isNotEmpty) {
+      return fromData;
+    }
+
+    return null;
+  }
+
+  String? _resolveNotificationBody(RemoteMessage message) {
+    var body = message.notification?.body?.trim();
+    if (body == null || body.isEmpty) {
+      final fromData = message.data['body']?.toString().trim();
+      if (fromData != null && fromData.isNotEmpty) {
+        body = fromData;
+      }
+    }
+
+    final otp = message.data['visit_otp']?.toString().trim().isNotEmpty == true
+        ? message.data['visit_otp']!.toString().trim()
+        : (message.data['otp']?.toString().trim().isNotEmpty == true
+            ? message.data['otp']!.toString().trim()
+            : '');
+    if (otp.isNotEmpty) {
+      final otpLine = 'Visit OTP: $otp';
+      if (body == null || body.isEmpty) {
+        body = otpLine;
+      } else if (!body.contains(otp)) {
+        body = '$body\n$otpLine';
+      }
+    }
+
+    return body;
+  }
+
+  Future<void> _loadNotificationHistory() async {
+    if (farmerId <= 0) {
+      notificationHistory.clear();
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('farmer_notifications_$farmerId');
+      if (raw == null || raw.trim().isEmpty) {
+        notificationHistory.clear();
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        notificationHistory.clear();
+        return;
+      }
+
+      notificationHistory.assignAll(
+        decoded
+            .whereType<Map>()
+            .map((item) => FarmerNotificationItem.fromJson(Map<String, dynamic>.from(item)))
+            .toList(),
+      );
+    } catch (_) {
+      notificationHistory.clear();
+    }
+  }
+
+  Future<void> _persistNotificationHistory() async {
+    if (farmerId <= 0) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final trimmed = notificationHistory.take(100).toList();
+      final payload = trimmed.map((item) => item.toJson()).toList();
+      await prefs.setString('farmer_notifications_$farmerId', jsonEncode(payload));
+    } catch (_) {}
+  }
+
+  Future<void> clearNotificationHistory() async {
+    notificationHistory.clear();
+    if (farmerId <= 0) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('farmer_notifications_$farmerId');
+    } catch (_) {}
   }
   Map<String, dynamic> _decodeBody(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
@@ -401,7 +560,28 @@ class HomeController extends GetxController {
 
   double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+    final raw = value?.toString() ?? '';
+    final direct = double.tryParse(raw);
+    if (direct != null) return direct;
+    final match = RegExp(r'-?\d+(\.\d+)?').firstMatch(raw);
+    return double.tryParse(match?.group(0) ?? '') ?? 0;
+  }
+
+  double _extractSummaryNumber(Map<String, dynamic> summary, List<String> keys) {
+    for (final key in keys) {
+      if (summary.containsKey(key)) {
+        return _asDouble(summary[key]);
+      }
+    }
+    return 0;
+  }
+
+  String _extractUnit(Map<String, dynamic> summary) {
+    final unit = summary['unit']?.toString().trim();
+    if (unit != null && unit.isNotEmpty) return unit;
+    final unitLabel = summary['unit_label']?.toString().trim();
+    if (unitLabel != null && unitLabel.isNotEmpty) return unitLabel;
+    return 'Kg';
   }
 
   String _formatCurrency(double amount) {
@@ -434,6 +614,44 @@ class HomeController extends GetxController {
 
     return fallbackName.trim();
   }
+
+  @override
+  void onClose() {
+    _planBlinkTimer?.cancel();
+    super.onClose();
+  }
+}
+
+class FarmerNotificationItem {
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  final String type;
+
+  const FarmerNotificationItem({
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    required this.type,
+  });
+
+  factory FarmerNotificationItem.fromJson(Map<String, dynamic> json) {
+    return FarmerNotificationItem(
+      title: json['title']?.toString() ?? 'Notification',
+      body: json['body']?.toString() ?? '',
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      type: json['type']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'body': body,
+      'created_at': createdAt.toIso8601String(),
+      'type': type,
+    };
+  }
 }
 
 class AnimalTypeOption {
@@ -454,6 +672,7 @@ class HomePaymentModel {
   final String dairyName;
   final String todayPayment;
   final String totalPayment;
+  final String pendingPayment;
   final String todayMilk;
   final String totalMilk;
 
@@ -461,6 +680,7 @@ class HomePaymentModel {
     required this.dairyName,
     required this.todayPayment,
     required this.totalPayment,
+    required this.pendingPayment,
     required this.todayMilk,
     required this.totalMilk,
   });

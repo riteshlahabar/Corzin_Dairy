@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/colors.dart';
 import '../controllers/doctor_controller.dart';
+import '../../home/controllers/home_controller.dart';
 
 class DoctorAppointmentsNearbyView extends StatefulWidget {
   const DoctorAppointmentsNearbyView({super.key});
@@ -18,11 +19,13 @@ class DoctorAppointmentsNearbyView extends StatefulWidget {
 
 class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyView> {
   late final DoctorController controller;
+  late final HomeController homeController;
 
   @override
   void initState() {
     super.initState();
     controller = Get.find<DoctorController>();
+    homeController = Get.find<HomeController>();
   }
 
   @override
@@ -48,6 +51,47 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         ),
                       ),
                     ),
+                    Obx(
+                      () {
+                        final count = homeController.notificationHistory.length;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              onPressed: _openNotificationSheet,
+                              icon: const Icon(Icons.notifications_none_rounded),
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.white,
+                                foregroundColor: AppColors.black,
+                              ),
+                            ),
+                            if (count > 0)
+                              Positioned(
+                                right: 5,
+                                top: 5,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18),
+                                  child: Text(
+                                    count > 99 ? '99+' : '$count',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
                       icon: const Icon(Icons.menu_rounded),
@@ -69,15 +113,17 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   }
 
                   final currentRequests = controller.sortedRequests
-                      .where((request) => request.status.toLowerCase() != 'completed')
+                      .where((request) {
+                        final status = request.status.trim().toLowerCase();
+                        return status == 'pending' ||
+                            status == 'approved' ||
+                            status == 'farmer_approved';
+                      })
                       .toList();
-                  final currentByAnimal = <int, VetRequestModel>{};
-                  for (final request in currentRequests) {
-                    currentByAnimal.putIfAbsent(request.animalId, () => request);
-                  }
-                  final currentCards = currentByAnimal.values.toList();
+                  final currentCards = List<VetRequestModel>.from(currentRequests)
+                    ..sort((a, b) => b.sortDate.compareTo(a.sortDate));
                   final historyRequests = controller.sortedRequests
-                      .where((request) => request.status.toLowerCase() == 'completed')
+                      .where((request) => request.status.trim().toLowerCase() == 'completed')
                       .toList();
 
                   return Column(
@@ -178,6 +224,92 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
           ],
         ),
       ),
+    );
+  }
+
+  void _openNotificationSheet() {
+    Get.bottomSheet(
+      SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await homeController.clearNotificationHistory();
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Obx(() {
+                if (homeController.notificationHistory.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text('No notifications yet.'),
+                  );
+                }
+
+                return SizedBox(
+                  height: Get.height * 0.5,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: homeController.notificationHistory.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) {
+                      final item = homeController.notificationHistory[index];
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7FAF7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE3ECE3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item.body,
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt.toLocal()),
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 
@@ -1036,26 +1168,58 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                   ),
                   const SizedBox(height: 6),
                   if (distanceKm != null && etaMinutes != null) ...[
-                    Text(
-                      'Doctor is ${distanceKm.toStringAsFixed(2)} km away',
-                      style: const TextStyle(fontSize: 12.5),
+                    Row(
+                      children: [
+                        const Icon(Icons.social_distance_rounded, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Doctor is ${distanceKm.toStringAsFixed(2)} km away',
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      'Estimated arrival: $etaMinutes minutes',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Estimated arrival: $etaMinutes minutes',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                     if (appointment.address.trim().isNotEmpty) ...[
                       const SizedBox(height: 3),
-                      Text(
-                        'Farmer address: ${appointment.address}',
-                        style: const TextStyle(fontSize: 12.5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 1),
+                            child: Icon(Icons.home_rounded, size: 16, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Farmer address: ${appointment.address}',
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ] else
-                    const Text(
-                      'Waiting for doctor live location update...',
-                      style: TextStyle(fontSize: 12.5),
+                    Row(
+                      children: const [
+                        Icon(Icons.location_searching_rounded, size: 16, color: AppColors.primary),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Waiting for doctor live location update...',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
+                        ),
+                      ],
                     ),
                   const SizedBox(height: 10),
                   SizedBox(

@@ -3,11 +3,13 @@ import 'package:get/get.dart';
 
 import '../../modules/doctor/controllers/doctor_controller.dart';
 import '../../modules/doctor/views/doctor_appointments_nearby_view.dart';
+import '../../modules/feeding/views/feeding_history_view.dart';
 import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
 import '../../modules/profile/views/profile_view.dart';
 import '../../modules/shop/controllers/shop_controller.dart';
+import '../../modules/shop/views/my_orders_view.dart';
 import '../../modules/shop/views/shop_view.dart';
 import '../../routes/app_pages.dart';
 import '../services/session_service.dart';
@@ -176,8 +178,24 @@ class MainBottomNavView extends StatelessWidget {
                     },
                   ),
                   _drawerTile(
+                    icon: Icons.grass_rounded,
+                    title: 'Feeding History',
+                    onTap: () {
+                      Get.back();
+                      Get.to(() => const FeedingHistoryView());
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'My Orders',
+                    onTap: () {
+                      Get.back();
+                      Get.to(() => const MyOrdersView());
+                    },
+                  ),
+                  _drawerTile(
                     icon: Icons.payments_outlined,
-                    title: 'payments'.tr,
+                    title: 'Dairy Payment',
                     onTap: () {
                       Get.back();
                       Get.toNamed(Routes.PAYMENT);
