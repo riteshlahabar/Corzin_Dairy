@@ -339,7 +339,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       'approved',
       'farmer_approved',
       'scheduled',
-      'rescheduled',
       'in_progress',
       'followup',
       'follow_up',
@@ -457,14 +456,13 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       'approved',
       'farmer_approved',
       'scheduled',
-      'rescheduled',
       'in_progress',
       'followup',
       'follow_up',
     }.contains(normalizedStatus);
     final isFollowup = {'followup', 'follow_up'}.contains(normalizedStatus);
     final statusColor = isApprovedState ? const Color(0xFF2E7D32) : const Color(0xFFE07A00);
-    final statusLabel = isFollowup ? 'Follow-up' : (isApprovedState ? 'Approved' : 'Pending');
+    final statusLabel = isFollowup ? 'Follow-up' : (isApprovedState ? 'Accept' : 'Pending');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -499,6 +497,11 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
             ],
           ),
           const SizedBox(height: 6),
+          Text(
+            'Appointment ID: ${request.displayAppointmentCode}',
+            style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700, color: AppColors.primary),
+          ),
+          const SizedBox(height: 4),
           Text(
             animal == null || animal.tagNumber.trim().isEmpty
                 ? 'Tag: -'

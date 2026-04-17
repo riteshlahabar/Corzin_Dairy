@@ -249,7 +249,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
             const SizedBox(height: 4),
             Text('Schedule: ${request.scheduledAt}', style: const TextStyle(fontSize: 12.2)),
           ],
-          if (status == 'proposed' || status == 'rescheduled') ...[
+          if (status == 'proposed') ...[
             const SizedBox(height: 10),
             Row(
               children: [
@@ -268,7 +268,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                         ? null
                         : () => controller.updateFarmerApproval(request: request, approved: true),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                    child: const Text('Approve', style: TextStyle(fontSize: 12)),
+                    child: const Text('Accept', style: TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
@@ -287,7 +287,6 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
       case 'declined':
       case 'cancelled':
         return const Color(0xFFC62828);
-      case 'rescheduled':
       case 'proposed':
         return const Color(0xFFEF6C00);
       default:

@@ -53,20 +53,12 @@ class DoctorController extends GetxController {
       searchQuery.value = searchController.text;
     });
     initData();
-    _startRequestsPolling();
   }
 
   Future<void> initData() async {
     await _loadFarmerData();
     await Future.wait([loadDoctors(), fetchAnimals(), fetchDiseases()]);
     await fetchFarmerRequests();
-  }
-
-  void _startRequestsPolling() {
-    _requestsPollingTimer?.cancel();
-    _requestsPollingTimer = Timer.periodic(const Duration(seconds: 12), (_) {
-      fetchFarmerRequests();
-    });
   }
 
   Future<void> _loadFarmerData() async {
@@ -398,12 +390,10 @@ class DoctorController extends GetxController {
         return 5;
       case 'approved':
         return 4;
-      case 'rescheduled':
-        return 3;
       case 'proposed':
-        return 2;
+        return 3;
       case 'pending':
-        return 1;
+        return 2;
       case 'declined':
       case 'cancelled':
       case 'rejected':
@@ -554,6 +544,7 @@ class DiseaseOption {
 
 class VetRequestModel {
   final int id;
+  final String appointmentCode;
   final int doctorId;
   final int farmerId;
   final int animalId;
@@ -582,6 +573,7 @@ class VetRequestModel {
 
   VetRequestModel({
     required this.id,
+    required this.appointmentCode,
     required this.doctorId,
     required this.farmerId,
     required this.animalId,
@@ -611,12 +603,18 @@ class VetRequestModel {
 
   bool get canTrackVisit {
     final s = status.toLowerCase();
-    return ['approved', 'in_progress', 'rescheduled', 'followup', 'follow_up'].contains(s);
+    return ['approved', 'in_progress', 'followup', 'follow_up'].contains(s);
   }
 
   DateTime get sortDate {
     final iso = requestedAt.trim().isNotEmpty ? requestedAt : scheduledAt;
     return DateTime.tryParse(iso) ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  String get displayAppointmentCode {
+    final code = appointmentCode.trim();
+    if (code.isNotEmpty) return code;
+    return 'C/APP/${id.toString().padLeft(2, '0')}';
   }
 
   factory VetRequestModel.fromJson(
@@ -651,6 +649,7 @@ class VetRequestModel {
 
     return VetRequestModel(
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      appointmentCode: json['appointment_code']?.toString() ?? '',
       doctorId: int.tryParse(json['doctor_id']?.toString() ?? '') ?? 0,
       farmerId: int.tryParse(json['farmer_id']?.toString() ?? '') ?? 0,
       animalId: int.tryParse(json['animal_id']?.toString() ?? '') ?? 0,
