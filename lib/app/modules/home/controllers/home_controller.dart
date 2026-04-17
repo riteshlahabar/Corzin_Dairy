@@ -42,6 +42,7 @@ class HomeController extends GetxController {
 
   int farmerId = 0;
   Timer? _planBlinkTimer;
+  static const String _globalNotificationKey = 'farmer_notifications_global';
 
   @override
   void onInit() {
@@ -429,11 +430,11 @@ class HomeController extends GetxController {
   void _handleRemoteMessage(RemoteMessage message) {
     final title = _resolveNotificationTitle(message);
     final body = _resolveNotificationBody(message);
-    if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
-      return;
-    }
-
-    final finalTitle = title?.isNotEmpty == true ? title! : 'Notification';
+    final finalTitle = title?.isNotEmpty == true
+        ? title!
+        : (message.data['event']?.toString().trim().isNotEmpty == true
+            ? message.data['event']!.toString().trim()
+            : 'Notification');
     final finalBody = body?.isNotEmpty == true ? body! : 'You have a new update.';
     LocalNotificationService.instance.showMessage(
       title: finalTitle,
@@ -448,6 +449,9 @@ class HomeController extends GetxController {
       type: message.data['type']?.toString() ?? '',
     );
     notificationHistory.insert(0, item);
+    if (notificationHistory.length > 100) {
+      notificationHistory.removeRange(100, notificationHistory.length);
+    }
     _persistNotificationHistory();
 
     Get.snackbar(
@@ -471,6 +475,16 @@ class HomeController extends GetxController {
       return fromData;
     }
 
+    final altFromData = message.data['notification_title']?.toString().trim();
+    if (altFromData != null && altFromData.isNotEmpty) {
+      return altFromData;
+    }
+
+    final fromMessage = message.data['message']?.toString().trim();
+    if (fromMessage != null && fromMessage.isNotEmpty) {
+      return 'Notification';
+    }
+
     return null;
   }
 
@@ -480,6 +494,20 @@ class HomeController extends GetxController {
       final fromData = message.data['body']?.toString().trim();
       if (fromData != null && fromData.isNotEmpty) {
         body = fromData;
+      }
+    }
+
+    if (body == null || body.isEmpty) {
+      final altFromData = message.data['notification_body']?.toString().trim();
+      if (altFromData != null && altFromData.isNotEmpty) {
+        body = altFromData;
+      }
+    }
+
+    if (body == null || body.isEmpty) {
+      final fromMessage = message.data['message']?.toString().trim();
+      if (fromMessage != null && fromMessage.isNotEmpty) {
+        body = fromMessage;
       }
     }
 
@@ -501,54 +529,69 @@ class HomeController extends GetxController {
   }
 
   Future<void> _loadNotificationHistory() async {
-    if (farmerId <= 0) {
-      notificationHistory.clear();
-      return;
-    }
-
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('farmer_notifications_$farmerId');
-      if (raw == null || raw.trim().isEmpty) {
+      final currentKey = _notificationStorageKey();
+      final combined = <FarmerNotificationItem>[];
+
+      void parseRaw(String? raw) {
+        if (raw == null || raw.trim().isEmpty) return;
+        final decoded = jsonDecode(raw);
+        if (decoded is! List) return;
+        combined.addAll(
+          decoded
+              .whereType<Map>()
+              .map((item) => FarmerNotificationItem.fromJson(Map<String, dynamic>.from(item))),
+        );
+      }
+
+      parseRaw(prefs.getString(currentKey));
+      if (currentKey != _globalNotificationKey) {
+        parseRaw(prefs.getString(_globalNotificationKey));
+      }
+
+      if (combined.isEmpty) {
         notificationHistory.clear();
         return;
       }
 
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) {
-        notificationHistory.clear();
-        return;
-      }
-
-      notificationHistory.assignAll(
-        decoded
-            .whereType<Map>()
-            .map((item) => FarmerNotificationItem.fromJson(Map<String, dynamic>.from(item)))
-            .toList(),
-      );
+      combined.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      notificationHistory.assignAll(combined.take(100).toList());
+      await _persistNotificationHistory();
     } catch (_) {
       notificationHistory.clear();
     }
   }
 
   Future<void> _persistNotificationHistory() async {
-    if (farmerId <= 0) return;
-
     try {
       final prefs = await SharedPreferences.getInstance();
-      final trimmed = notificationHistory.take(100).toList();
-      final payload = trimmed.map((item) => item.toJson()).toList();
-      await prefs.setString('farmer_notifications_$farmerId', jsonEncode(payload));
+      if (notificationHistory.length > 100) {
+        notificationHistory.removeRange(100, notificationHistory.length);
+      }
+      final payload = notificationHistory.map((item) => item.toJson()).toList();
+      final encoded = jsonEncode(payload);
+      await prefs.setString(_globalNotificationKey, encoded);
+      if (farmerId > 0) {
+        await prefs.setString('farmer_notifications_$farmerId', encoded);
+      }
     } catch (_) {}
   }
 
   Future<void> clearNotificationHistory() async {
     notificationHistory.clear();
-    if (farmerId <= 0) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('farmer_notifications_$farmerId');
+      await prefs.remove(_globalNotificationKey);
+      if (farmerId > 0) await prefs.remove('farmer_notifications_$farmerId');
     } catch (_) {}
+  }
+
+  String _notificationStorageKey() {
+    if (farmerId > 0) {
+      return 'farmer_notifications_$farmerId';
+    }
+    return _globalNotificationKey;
   }
   Map<String, dynamic> _decodeBody(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};

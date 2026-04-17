@@ -298,7 +298,6 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
     controller.selectedDoctor.value = null;
     controller.selectedDiseaseIds.clear();
     controller.diseaseDetailsController.clear();
-    controller.notesController.clear();
 
     await Get.dialog(
       AlertDialog(
@@ -379,19 +378,6 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Small details of disease',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text('Notes', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: controller.notesController,
-                minLines: 1,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: 'Optional notes',
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),

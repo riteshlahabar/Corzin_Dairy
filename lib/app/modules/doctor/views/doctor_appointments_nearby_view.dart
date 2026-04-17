@@ -614,9 +614,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
 
   Future<void> _openCreateAppointmentDialog(VetAnimalModel animal) async {
     controller.selectedDiseaseIds.clear();
-    controller.concernDescriptionController.clear();
     controller.diseaseDetailsController.clear();
-    controller.notesController.clear();
 
     await Get.dialog(
       AlertDialog(
@@ -667,19 +665,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 },
               ),
               const SizedBox(height: 10),
-              const Text('Description', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: controller.concernDescriptionController,
-                minLines: 1,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: 'Write main issue',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 10),
               const Text('Disease Details', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               TextField(
@@ -688,19 +673,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Small details of disease',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text('Notes', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: controller.notesController,
-                minLines: 1,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: 'Optional notes',
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -978,6 +950,7 @@ class AppointmentTrackingView extends StatefulWidget {
 
 class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
   late final DoctorController controller;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -985,6 +958,22 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
     controller = Get.find<DoctorController>();
     // Refresh in background while showing passed appointment instantly.
     controller.fetchFarmerRequests();
+  }
+
+  Future<void> _refreshTrackingData() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      await controller.fetchFarmerRequests();
+      await controller.loadDoctors();
+      if (mounted) {
+        setState(() {});
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
   }
 
   @override
@@ -1228,9 +1217,15 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                   SizedBox(
                     height: 36,
                     child: ElevatedButton.icon(
-                      onPressed: controller.fetchFarmerRequests,
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text('Refresh'),
+                      onPressed: _isRefreshing ? null : _refreshTrackingData,
+                      icon: _isRefreshing
+                          ? const SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 16),
+                      label: Text(_isRefreshing ? 'Refreshing...' : 'Refresh'),
                     ),
                   ),
                 ],

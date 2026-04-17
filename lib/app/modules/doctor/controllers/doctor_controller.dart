@@ -269,18 +269,15 @@ class DoctorController extends GetxController {
       return;
     }
 
-    final mainDesc = concernDescriptionController.text.trim();
     final details = diseaseDetailsController.text.trim();
     final selectedDiseaseNames = diseases
         .where((disease) => selectedDiseaseIds.contains(disease.id))
         .map((disease) => disease.name)
         .toList();
 
-    final concern = mainDesc.isNotEmpty
-        ? mainDesc
-        : selectedDiseaseNames.isNotEmpty
-            ? selectedDiseaseNames.join(', ')
-            : 'General consultation';
+    final concern = selectedDiseaseNames.isNotEmpty
+        ? selectedDiseaseNames.join(', ')
+        : 'General consultation';
 
     try {
       isSubmittingRequest.value = true;
@@ -295,7 +292,6 @@ class DoctorController extends GetxController {
         'disease_ids': selectedDiseaseIds.toList(),
         'disease_details': details,
         'address': _farmerAddress(),
-        'notes': notesController.text.trim(),
         'requested_at': DateTime.now().toIso8601String(),
       };
       if (gps.$1 != null && gps.$2 != null) {

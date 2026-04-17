@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/animal_details_widget.dart';
@@ -145,7 +146,166 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget _buildTopBar() {
-    return Builder(builder: (context) => Row(children: [Expanded(child: Obx(() => RichText(maxLines: 1, overflow: TextOverflow.ellipsis, text: TextSpan(style: const TextStyle(fontFamily: 'SFPro', color: AppColors.black), children: [TextSpan(text: '${'welcome'.tr} ', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400)), TextSpan(text: controller.farmerName.value.trim().isEmpty ? 'guest'.tr : controller.farmerName.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))])))), IconButton(onPressed: () => Scaffold.of(context).openDrawer(), icon: const Icon(Icons.menu_rounded), style: IconButton.styleFrom(backgroundColor: AppColors.white, foregroundColor: AppColors.black))]));
+    return Builder(
+      builder: (context) => Row(
+        children: [
+          Expanded(
+            child: Obx(
+              () => RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: const TextStyle(fontFamily: 'SFPro', color: AppColors.black),
+                  children: [
+                    TextSpan(
+                      text: '${'welcome'.tr} ',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
+                    ),
+                    TextSpan(
+                      text: controller.farmerName.value.trim().isEmpty ? 'guest'.tr : controller.farmerName.value,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Obx(() {
+            final count = controller.notificationHistory.length;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  onPressed: _openNotificationSheet,
+                  icon: const Icon(Icons.notifications_none_rounded),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.white,
+                    foregroundColor: AppColors.black,
+                  ),
+                ),
+                if (count > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openNotificationSheet() {
+    Get.bottomSheet(
+      SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await controller.clearNotificationHistory();
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Obx(() {
+                if (controller.notificationHistory.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text('No notifications yet.'),
+                  );
+                }
+
+                return SizedBox(
+                  height: Get.height * 0.5,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: controller.notificationHistory.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) {
+                      final item = controller.notificationHistory[index];
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7FAF7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE3ECE3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item.body,
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt.toLocal()),
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
   }
 
   Widget _buildHeroCard() {
