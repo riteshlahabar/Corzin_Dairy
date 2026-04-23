@@ -1,18 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/services/session_service.dart';
 
 class FarmerDetailsController extends GetxController {
   late String lang;
   String mobile = "";
-  var farmerName = "".obs;
+  final farmerName = "".obs;
 
   final firstName = TextEditingController();
   final middleName = TextEditingController();
@@ -25,6 +27,13 @@ class FarmerDetailsController extends GetxController {
   final pincode = TextEditingController();
   final Rxn<XFile> selectedPhoto = Rxn<XFile>();
 
+  final isLocationLoading = false.obs;
+  final states = <String>[].obs;
+  final districts = <String>[].obs;
+  final talukas = <String>[].obs;
+  int _stateRequestToken = 0;
+  int _districtRequestToken = 0;
+
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -32,19 +41,16 @@ class FarmerDetailsController extends GetxController {
     super.onInit();
     state.text = "Maharashtra";
 
-    /// ✅ SAFE ARGUMENT HANDLING
     if (Get.arguments != null) {
       lang = Get.arguments["lang"] ?? "en";
       mobile = Get.arguments["mobile"] ?? "";
     } else {
-      /// WHEN OPENING DIRECTLY (HOME / RESTART)
       lang = "en";
       mobile = "";
     }
 
-    debugPrint("🌐 Lang: $lang");
-    debugPrint("📱 Mobile: $mobile");
     loadFarmerName();
+    _loadLocationCascade();
   }
 
   void loadFarmerName() async {
@@ -61,6 +67,126 @@ class FarmerDetailsController extends GetxController {
     }
   }
 
+  Future<void> _loadLocationCascade() async {
+    isLocationLoading.value = true;
+    try {
+      final stateList = await fetchLocationStates();
+      states.assignAll(_uniqueLocationValues(stateList));
+      if (!states.contains(state.text.trim())) {
+        state.text = states.contains("Maharashtra")
+            ? "Maharashtra"
+            : (states.isNotEmpty ? states.first : "Maharashtra");
+      }
+      await onStateChanged(state.text.trim());
+    } catch (_) {
+      if (states.isEmpty) {
+        states.assignAll(["Maharashtra"]);
+      }
+      state.text = "Maharashtra";
+    } finally {
+      isLocationLoading.value = false;
+    }
+  }
+
+  Future<void> onStateChanged(String value) async {
+    final selected = value.trim();
+    if (selected.isEmpty) return;
+    final token = ++_stateRequestToken;
+    _districtRequestToken++;
+
+    state.text = selected;
+    district.clear();
+    taluka.clear();
+    city.clear();
+    districts.clear();
+    talukas.clear();
+
+    try {
+      final districtList = await fetchLocationDistricts(selected);
+      if (token != _stateRequestToken || state.text.trim() != selected) return;
+      districts.assignAll(_uniqueLocationValues(districtList));
+    } catch (_) {}
+  }
+
+  Future<void> onDistrictChanged(String value) async {
+    final selectedState = state.text.trim();
+    final selectedDistrict = value.trim();
+    if (selectedState.isEmpty || selectedDistrict.isEmpty) return;
+    final token = ++_districtRequestToken;
+
+    district.text = selectedDistrict;
+    taluka.clear();
+    city.clear();
+    talukas.clear();
+
+    try {
+      final talukaList = await fetchLocationTalukas(
+        stateValue: selectedState,
+        districtValue: selectedDistrict,
+      );
+      if (token != _districtRequestToken) return;
+      if (state.text.trim() != selectedState) return;
+      if (district.text.trim() != selectedDistrict) return;
+      talukas.assignAll(_uniqueLocationValues(talukaList));
+    } catch (_) {}
+  }
+
+  void onTalukaChanged(String value) {
+    final selected = value.trim();
+    if (selected.isEmpty) return;
+    taluka.text = selected;
+    city.text = selected;
+  }
+
+  Future<List<String>> fetchLocationStates() async {
+    final response = await http.get(
+      Uri.parse('${Api.baseUrl}/doctor/locations/states'),
+      headers: {"Accept": "application/json"},
+    );
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data["data"] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  Future<List<String>> fetchLocationDistricts(String stateValue) async {
+    final uri = Uri.parse('${Api.baseUrl}/doctor/locations/districts').replace(
+      queryParameters: {"state": stateValue},
+    );
+    final response = await http.get(uri, headers: {"Accept": "application/json"});
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data["data"] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  Future<List<String>> fetchLocationTalukas({
+    required String stateValue,
+    required String districtValue,
+  }) async {
+    final uri = Uri.parse('${Api.baseUrl}/doctor/locations/talukas').replace(
+      queryParameters: {
+        "state": stateValue,
+        "district": districtValue,
+      },
+    );
+    final response = await http.get(uri, headers: {"Accept": "application/json"});
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data["data"] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  List<String> _uniqueLocationValues(List<String> values) {
+    final unique = <String, String>{};
+    for (final raw in values) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      unique.putIfAbsent(value.toLowerCase(), () => value);
+    }
+    return unique.values.toList(growable: false);
+  }
+
   void submit() async {
     if (firstName.text.isEmpty) {
       Get.snackbar("Error", "Enter First Name");
@@ -70,9 +196,9 @@ class FarmerDetailsController extends GetxController {
       Get.snackbar("Error", "Upload farmer photo");
       return;
     }
-    debugPrint("📱 farmer mobile: $mobile");
+
     try {
-      final request = http.MultipartRequest('POST', Uri.parse(Api.addFarmer));
+      final request = http.MultipartRequest("POST", Uri.parse(Api.addFarmer));
       request.headers.addAll({
         "Accept": "application/json",
       });
@@ -82,7 +208,7 @@ class FarmerDetailsController extends GetxController {
         "middle_name": middleName.text.trim(),
         "last_name": lastName.text.trim(),
         "village": village.text.trim(),
-        "city": city.text.trim(),
+        "city": taluka.text.trim(),
         "taluka": taluka.text.trim(),
         "district": district.text.trim(),
         "state": state.text.trim(),
@@ -124,7 +250,7 @@ class FarmerDetailsController extends GetxController {
           middleName: middleName.text.trim(),
           lastName: lastName.text.trim(),
           village: village.text.trim(),
-          city: city.text.trim(),
+          city: taluka.text.trim(),
           taluka: taluka.text.trim(),
           district: district.text.trim(),
           state: state.text.trim(),
@@ -138,7 +264,7 @@ class FarmerDetailsController extends GetxController {
       } else {
         Get.snackbar("Error", data['message'].toString());
       }
-    } catch (e) {
+    } catch (_) {
       Get.snackbar("Error", "Something went wrong");
     }
   }
@@ -157,4 +283,3 @@ class FarmerDetailsController extends GetxController {
     super.onClose();
   }
 }
-

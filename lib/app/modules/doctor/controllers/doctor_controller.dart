@@ -384,6 +384,8 @@ class DoctorController extends GetxController {
         return 7;
       case 'in_progress':
         return 5;
+      case 'accept':
+      case 'accepted':
       case 'approved':
         return 4;
       case 'proposed':
@@ -553,6 +555,9 @@ class VetRequestModel {
   final String completedAt;
   final String nextFollowupDate;
   final String charges;
+  final String fees;
+  final String onSiteMedicineCharges;
+  final String totalCharges;
   final List<String> diseaseNames;
   final String diseaseDetails;
   final String visitOtp;
@@ -582,6 +587,9 @@ class VetRequestModel {
     required this.completedAt,
     required this.nextFollowupDate,
     required this.charges,
+    required this.fees,
+    required this.onSiteMedicineCharges,
+    required this.totalCharges,
     required this.diseaseNames,
     required this.diseaseDetails,
     required this.visitOtp,
@@ -599,7 +607,7 @@ class VetRequestModel {
 
   bool get canTrackVisit {
     final s = status.toLowerCase();
-    return ['approved', 'in_progress', 'followup', 'follow_up'].contains(s);
+    return ['accept', 'accepted', 'approved', 'in_progress', 'followup', 'follow_up'].contains(s);
   }
 
   DateTime get sortDate {
@@ -622,6 +630,24 @@ class VetRequestModel {
     if (chargeRaw != null) {
       final parsed = double.tryParse(chargeRaw.toString());
       chargeLabel = parsed == null ? chargeRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+    }
+    final feeRaw = json['fees'];
+    String feeLabel = '-';
+    if (feeRaw != null) {
+      final parsed = double.tryParse(feeRaw.toString());
+      feeLabel = parsed == null ? feeRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+    }
+    final onSiteRaw = json['on_site_medicine_charges'];
+    String onSiteLabel = '-';
+    if (onSiteRaw != null) {
+      final parsed = double.tryParse(onSiteRaw.toString());
+      onSiteLabel = parsed == null ? onSiteRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+    }
+    final totalRaw = json['total_charges'] ?? json['charges'];
+    String totalLabel = '-';
+    if (totalRaw != null) {
+      final parsed = double.tryParse(totalRaw.toString());
+      totalLabel = parsed == null ? totalRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
     }
 
     final diseaseList = <String>[];
@@ -660,6 +686,9 @@ class VetRequestModel {
       completedAt: json['completed_at']?.toString() ?? '',
       nextFollowupDate: json['next_followup_date']?.toString() ?? '',
       charges: chargeLabel,
+      fees: feeLabel == '-' ? chargeLabel : feeLabel,
+      onSiteMedicineCharges: onSiteLabel,
+      totalCharges: totalLabel == '-' ? chargeLabel : totalLabel,
       diseaseNames: diseaseList,
       diseaseDetails: json['disease_details']?.toString() ?? '',
       visitOtp: json['visit_otp']?.toString() ?? '',

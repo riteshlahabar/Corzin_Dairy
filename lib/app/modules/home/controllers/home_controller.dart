@@ -32,6 +32,8 @@ class HomeController extends GetxController {
     name: 'free_plan',
     amount: 'Rs 0',
     expiryDate: '30 days',
+    startDate: '-',
+    renewDate: '-',
   ).obs;
   final RxInt planDaysLeft = 30.obs;
   final RxBool planBlinkOn = false.obs;
@@ -42,6 +44,8 @@ class HomeController extends GetxController {
 
   int farmerId = 0;
   Timer? _planBlinkTimer;
+  Timer? _planDaysTimer;
+  DateTime? _planRenewAt;
   static const String _globalNotificationKey = 'farmer_notifications_global';
 
   @override
@@ -322,28 +326,123 @@ class HomeController extends GetxController {
       final amount = plan['price_label']?.toString().trim().isNotEmpty == true
           ? plan['price_label'].toString()
           : _formatCurrency(_asDouble(plan['price']));
+      final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
+      final now = DateTime.now();
+      final startAt = _readDate(plan, const [
+            'start_date',
+            'package_start_date',
+            'subscribed_at',
+            'created_at',
+          ]) ??
+          backendStartAt ??
+          now;
+      final renewAt = _readDate(plan, const [
+            'renew_date',
+            'renewal_date',
+            'expiry_date',
+            'expires_at',
+            'end_date',
+          ]) ??
+          startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
+      _planRenewAt = renewAt;
+      final daysLeft = _daysLeftFromNow(renewAt);
 
       currentPlan.value = FarmerPlanModel(
         name: planName,
         amount: amount,
         expiryDate: durationDays > 0 ? '$durationDays days' : '30 days',
+        startDate: DateFormat('dd-MM-yyyy').format(startAt),
+        renewDate: DateFormat('dd-MM-yyyy').format(renewAt),
       );
-      _setPlanDaysLeft(durationDays > 0 ? durationDays : 30);
+      _setPlanDaysLeft(daysLeft > 0 ? daysLeft : 0);
     } catch (_) {
+      final now = DateTime.now();
+      final renewAt = now.add(const Duration(days: 30));
+      _planRenewAt = renewAt;
       _setPlanDaysLeft(30);
       currentPlan.value = const FarmerPlanModel(
         name: 'free_plan',
         amount: 'Rs 0',
         expiryDate: '30 days',
+        startDate: '-',
+        renewDate: '-',
       );
+    }
+    _startPlanDaysTicker();
+  }
+
+  Future<DateTime?> _loadFarmerPlanStartDateFromProfile() async {
+    final mobile = farmerMobile.value.trim();
+    if (mobile.isEmpty) return null;
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) return null;
+
+      final payload = data['data'];
+      if (payload is Map<String, dynamic>) {
+        return _readDate(payload, const [
+          'subscription_start_date',
+          'plan_start_date',
+          'start_date',
+          'created_at',
+        ]);
+      }
+      if (payload is Map) {
+        final mapped = Map<String, dynamic>.from(payload);
+        return _readDate(mapped, const [
+          'subscription_start_date',
+          'plan_start_date',
+          'start_date',
+          'created_at',
+        ]);
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
   bool get shouldBlinkPlan => planDaysLeft.value <= 10;
 
   void _setPlanDaysLeft(int days) {
-    planDaysLeft.value = days <= 0 ? 30 : days;
+    planDaysLeft.value = days < 0 ? 0 : days;
     _syncPlanBlinkTimer();
+  }
+
+  int _daysLeftFromNow(DateTime renewAt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final renewDay = DateTime(renewAt.year, renewAt.month, renewAt.day);
+    return renewDay.difference(today).inDays;
+  }
+
+  DateTime? _readDate(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final raw = source[key]?.toString().trim();
+      if (raw == null || raw.isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed.toLocal();
+      try {
+        return DateFormat('dd-MM-yyyy').parse(raw);
+      } catch (_) {}
+      try {
+        return DateFormat('yyyy-MM-dd').parse(raw);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  void _startPlanDaysTicker() {
+    _planDaysTimer?.cancel();
+    _planDaysTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      final renewAt = _planRenewAt;
+      if (renewAt == null) return;
+      _setPlanDaysLeft(_daysLeftFromNow(renewAt));
+    });
   }
 
   void _syncPlanBlinkTimer() {
@@ -661,6 +760,7 @@ class HomeController extends GetxController {
   @override
   void onClose() {
     _planBlinkTimer?.cancel();
+    _planDaysTimer?.cancel();
     super.onClose();
   }
 }
@@ -733,11 +833,15 @@ class FarmerPlanModel {
   final String name;
   final String amount;
   final String expiryDate;
+  final String startDate;
+  final String renewDate;
 
   const FarmerPlanModel({
     required this.name,
     required this.amount,
     required this.expiryDate,
+    required this.startDate,
+    required this.renewDate,
   });
 }
 

@@ -1,52 +1,21 @@
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../core/theme/colors.dart';
 import '../controllers/farmer_details_controller.dart';
 
 class FarmerDetailsView extends GetView<FarmerDetailsController> {
   const FarmerDetailsView({super.key});
 
-  static const List<String> _states = [
-    'Andhra Pradesh',
-    'Arunachal Pradesh',
-    'Assam',
-    'Bihar',
-    'Chhattisgarh',
-    'Goa',
-    'Gujarat',
-    'Haryana',
-    'Himachal Pradesh',
-    'Jharkhand',
-    'Karnataka',
-    'Kerala',
-    'Madhya Pradesh',
-    'Maharashtra',
-    'Manipur',
-    'Meghalaya',
-    'Mizoram',
-    'Nagaland',
-    'Odisha',
-    'Punjab',
-    'Rajasthan',
-    'Sikkim',
-    'Tamil Nadu',
-    'Telangana',
-    'Tripura',
-    'Uttar Pradesh',
-    'Uttarakhand',
-    'West Bengal',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primary,
-
       body: Column(
         children: [
-          /// 🔰 HEADER
           Container(
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             width: double.infinity,
@@ -59,8 +28,6 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
               ),
             ),
           ),
-
-          /// 📄 FORM CARD
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(20),
@@ -68,67 +35,59 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
-
               child: SingleChildScrollView(
                 child: Column(
                   children: [
                     Obx(() => _photoUploadCard()),
-                    /// 👤 PERSONAL INFO
                     _sectionTitle("personal_info".tr),
-
-                    _field(
-                      "first_name".tr,
-                      controller.firstName,
-                      icon: Icons.person_outline,
-                    ),
-
-                    _field(
-                      "middle_name".tr,
-                      controller.middleName,
-                      icon: Icons.person_outline,
-                    ),
-
-                    _field(
-                      "last_name".tr,
-                      controller.lastName,
-                      icon: Icons.person_outline,
-                    ),
-
-                    /// 📍 LOCATION
+                    _field("first_name".tr, controller.firstName, icon: Icons.person_outline),
+                    _field("middle_name".tr, controller.middleName, icon: Icons.person_outline),
+                    _field("last_name".tr, controller.lastName, icon: Icons.person_outline),
                     _sectionTitle("location".tr),
-
-                    _field(
-                      "village".tr,
-                      controller.village,
-                      icon: Icons.home_outlined,
+                    Obx(
+                      () => _dropdownField(
+                        label: "state".tr,
+                        value: controller.state.text.trim().isEmpty ? null : controller.state.text.trim(),
+                        items: controller.states,
+                        enabled: !controller.isLocationLoading.value,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          controller.onStateChanged(value);
+                        },
+                      ),
                     ),
-
-                    _field(
-                      "city".tr,
-                      controller.city,
-                      icon: Icons.location_city_outlined,
+                    Obx(
+                      () => _dropdownField(
+                        label: "district".tr,
+                        value: controller.district.text.trim().isEmpty ? null : controller.district.text.trim(),
+                        items: controller.districts,
+                        enabled: controller.districts.isNotEmpty,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          controller.onDistrictChanged(value);
+                        },
+                      ),
                     ),
-
-                    _field(
-                      "taluka".tr,
-                      controller.taluka,
-                      icon: Icons.map_outlined,
+                    Obx(
+                      () => _dropdownField(
+                        label: "Taluka/Subdistrict/City",
+                        value: controller.taluka.text.trim().isEmpty ? null : controller.taluka.text.trim(),
+                        items: controller.talukas,
+                        enabled: controller.talukas.isNotEmpty,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          controller.onTalukaChanged(value);
+                        },
+                      ),
                     ),
-
-                    _field("district".tr, controller.district, icon: Icons.map),
-
-                    _stateDropdown(),
-
+                    _field("Address/Village", controller.village, icon: Icons.home_outlined),
                     _field(
                       "pincode".tr,
                       controller.pincode,
                       icon: Icons.pin_drop_outlined,
                       isNumber: true,
                     ),
-
                     const SizedBox(height: 30),
-
-                    /// ✅ SUBMIT BUTTON
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -157,7 +116,6 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
     );
   }
 
-  /// 🔹 SECTION TITLE
   Widget _sectionTitle(String title) {
     return Container(
       alignment: Alignment.centerLeft,
@@ -173,7 +131,6 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
     );
   }
 
-  /// 🔹 INPUT FIELD
   Widget _field(
     String label,
     TextEditingController controller, {
@@ -182,31 +139,20 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-
         style: const TextStyle(fontSize: 14),
-
         decoration: InputDecoration(
           hintText: label,
-
           prefixIcon: Icon(icon, color: AppColors.primary),
-
           filled: true,
           fillColor: Colors.grey.shade100,
-
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 14,
-          ),
-
+          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
-
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: AppColors.primary, width: 1.5),
@@ -216,27 +162,29 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
     );
   }
 
-  Widget _stateDropdown() {
+  Widget _dropdownField({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required bool enabled,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final uniqueItems = LinkedHashSet<String>.from(
+      items.map((item) => item.trim()).where((item) => item.isNotEmpty),
+    ).toList(growable: false);
+    final selectedValue = (value != null && uniqueItems.contains(value.trim()))
+        ? value.trim()
+        : null;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: DropdownButtonFormField<String>(
-        initialValue: controller.state.text.trim().isEmpty
-            ? 'Maharashtra'
-            : controller.state.text.trim(),
-        items: _states
-            .map(
-              (state) => DropdownMenuItem<String>(
-                value: state,
-                child: Text(state, style: const TextStyle(fontSize: 14)),
-              ),
-            )
-            .toList(),
-        onChanged: (value) {
-          controller.state.text = value ?? 'Maharashtra';
-        },
+        key: ValueKey('$label|${uniqueItems.length}|${selectedValue ?? ''}'),
+        initialValue: selectedValue,
+        isExpanded: true,
+        dropdownColor: const Color(0xFFF7FCF7),
         decoration: InputDecoration(
-          hintText: "state".tr,
-          prefixIcon: const Icon(Icons.public, color: AppColors.primary),
+          hintText: label,
+          prefixIcon: const Icon(Icons.map_outlined, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
           contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
@@ -249,6 +197,15 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
             borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
+        items: uniqueItems
+            .map(
+              (item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(item, style: const TextStyle(fontSize: 14)),
+              ),
+            )
+            .toList(),
+        onChanged: enabled ? onChanged : null,
       ),
     );
   }

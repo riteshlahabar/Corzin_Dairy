@@ -336,7 +336,85 @@ class HomeView extends GetView<HomeController> {
           ),
           borderRadius: BorderRadius.circular(24),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(20)), child: Text(plan.name.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))), const Spacer(), Text('current_plan'.tr, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11, fontWeight: FontWeight.w600))]), const SizedBox(height: 8), Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(plan.amount, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text('${'expires_on'.tr}: ${plan.expiryDate}', style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11))])), const SizedBox(width: 10), SizedBox(height: 34, child: ElevatedButton(onPressed: () => Get.toNamed(Routes.UPGRADE), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0), child: Text('upgrade_plan'.tr, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700))))])]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    plan.name.tr,
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'current_plan'.tr,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plan.amount,
+                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Start Date - ${plan.startDate}',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Renew Date - ${plan.renewDate}',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Expire in - ${controller.planDaysLeft.value} days',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.96),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 34,
+                  child: ElevatedButton(
+                    onPressed: () => Get.toNamed(Routes.UPGRADE),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'upgrade_plan'.tr,
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       );
     });
   }

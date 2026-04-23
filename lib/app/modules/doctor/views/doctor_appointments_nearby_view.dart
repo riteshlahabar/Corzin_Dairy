@@ -116,8 +116,11 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       .where((request) {
                         final status = request.status.trim().toLowerCase();
                         return status == 'pending' ||
+                            status == 'accept' ||
+                            status == 'accepted' ||
                             status == 'approved' ||
-                            status == 'farmer_approved';
+                            status == 'farmer_approved' ||
+                            status == 'in_progress';
                       })
                       .toList();
                   final currentCards = List<VetRequestModel>.from(currentRequests)
@@ -125,6 +128,18 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   final historyRequests = controller.sortedRequests
                       .where((request) => request.status.trim().toLowerCase() == 'completed')
                       .toList();
+                  final historyByAnimal = <String, List<VetRequestModel>>{};
+                  for (final request in historyRequests) {
+                    final key = request.animalId > 0
+                        ? 'id_${request.animalId}'
+                        : 'name_${request.animalName.trim().toLowerCase()}';
+                    historyByAnimal.putIfAbsent(key, () => <VetRequestModel>[]).add(request);
+                  }
+                  final historyGroups = historyByAnimal.values.map((group) {
+                    final copied = List<VetRequestModel>.from(group)
+                      ..sort((a, b) => _historySortDate(b).compareTo(_historySortDate(a)));
+                    return copied;
+                  }).toList();
 
                   return Column(
                     children: [
@@ -207,9 +222,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                       padding: EdgeInsets.symmetric(vertical: 8),
                                       child: Center(child: CircularProgressIndicator()),
                                     ),
-                                  if (!controller.isLoadingRequests.value && historyRequests.isEmpty)
+                                  if (!controller.isLoadingRequests.value && historyGroups.isEmpty)
                                     _emptyCard('No treatment history yet.'),
-                                  ...historyRequests.map(_historyRequestCard),
+                                  ...historyGroups.map(_historyAnimalCard),
                                 ],
                               ),
                             ),
@@ -336,6 +351,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     final latestRequest = controller.latestRequestForAnimal(animal.id);
     final normalized = latestRequest?.status.toLowerCase() ?? '';
     final isApprovedState = {
+      'accept',
+      'accepted',
       'approved',
       'farmer_approved',
       'scheduled',
@@ -396,7 +413,11 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       animal.tagNumber.isEmpty
                           ? 'Tag not available'
                           : 'Tag: ${animal.tagNumber}',
-                      style: const TextStyle(fontSize: 12.2, color: AppColors.grey),
+                      style: const TextStyle(
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4E5A4E),
+                      ),
                     ),
                   ],
                 ),
@@ -453,6 +474,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     final animal = controller.animals.firstWhereOrNull((item) => item.id == request.animalId);
     final normalizedStatus = request.status.toLowerCase();
     final isApprovedState = {
+      'accept',
+      'accepted',
       'approved',
       'farmer_approved',
       'scheduled',
@@ -539,66 +562,232 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     );
   }
 
-  Widget _historyRequestCard(VetRequestModel request) {
-    final animal = controller.animals.firstWhereOrNull((item) => item.id == request.animalId);
+  Widget _historyAnimalCard(List<VetRequestModel> requests) {
+    final latest = requests.first;
+    final animal = controller.animals.firstWhereOrNull((item) => item.id == latest.animalId);
+    final historyCount = requests.length;
+    final animalImage = animal?.imageUrl.trim() ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3ECE3)),
+        color: const Color(0xFFF8FCF8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCEADC)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF102A16).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  request.animalName,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: animalImage.isNotEmpty
+                          ? Image.network(
+                              animalImage,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.pets_rounded, color: AppColors.primary, size: 22),
+                            )
+                          : const Icon(Icons.pets_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            latest.animalName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            animal == null || animal.tagNumber.trim().isEmpty
+                                ? 'Tag: -'
+                                : 'Tag: ${animal.tagNumber}',
+                            style: const TextStyle(
+                              fontSize: 12.2,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF4E5A4E),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Latest: ${_formatCardDateTimeLabel(latest.completedAt)}',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: const TextStyle(
+                              fontSize: 11.8,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF4E5A4E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Completed',
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF2E7D32), fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                  color: const Color(0xFFEFF7EF),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  'Completed',
-                  style: TextStyle(fontSize: 11.5, color: Color(0xFF2E7D32), fontWeight: FontWeight.w700),
+                child: Text(
+                  'Total treatments: $historyCount',
+                  style: const TextStyle(
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                height: 30,
+                child: OutlinedButton(
+                  onPressed: () => _openAnimalHistorySheet(requests),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
+                    foregroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  child: const Text(
+                    'View History',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            animal == null || animal.tagNumber.trim().isEmpty
-                ? 'Tag: -'
-                : 'Tag: ${animal.tagNumber}',
-            style: const TextStyle(fontSize: 12.2, color: AppColors.grey),
-          ),
-          const SizedBox(height: 4),
-          Text('Doctor: ${request.doctorName}', style: const TextStyle(fontSize: 12.2)),
-          const SizedBox(height: 4),
-          Text('Treatment Date: ${_formatDateLabel(request.completedAt)}', style: const TextStyle(fontSize: 12.2)),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 34,
-            child: OutlinedButton(
-              onPressed: () => _openTreatmentDetailsSheet(request),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              child: const Text('Treatment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openAnimalHistorySheet(List<VetRequestModel> requests) async {
+    final sorted = List<VetRequestModel>.from(requests)
+      ..sort((a, b) => _historySortDate(b).compareTo(_historySortDate(a)));
+
+    await showModalBottomSheet<void>(
+      context: Get.context!,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFFF1F8F1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF1F8F1),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'History',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      final request = sorted[index];
+                      final doctorName = request.doctorName.trim();
+                      final prefixedName = doctorName.toLowerCase().startsWith('dr.')
+                          ? doctorName
+                          : 'Dr. ${doctorName.isEmpty ? 'Doctor' : doctorName}';
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _openTreatmentDetailsSheet(request);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
+                            foregroundColor: AppColors.primary,
+                            alignment: Alignment.centerLeft,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          child: Text(
+                            '$prefixedName • ${_formatDateTimeLabel(request.completedAt)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -705,8 +894,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     await showModalBottomSheet<void>(
       context: Get.context!,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFFF1F8F1),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         final treatmentText = request.treatmentDetails.trim().isEmpty
@@ -716,30 +906,62 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
         final notes = request.notes.trim();
         final prescriptionItems = _parsePrescriptionItems(treatmentText);
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF1F8F1),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const Text(
                 'Treatment Details',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
+              Text(
+                'Appointment ID: ${request.displayAppointmentCode}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+              ),
+              const SizedBox(height: 6),
               Text('Doctor: ${request.doctorName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
-              Text('Animal: ${request.animalName}', style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 6),
               Text(
-                'Treatment Date: ${_formatDateLabel(request.completedAt)}',
+                'Treatment Date: ${_formatDateTimeLabel(request.completedAt)}',
                 style: const TextStyle(fontSize: 13),
               ),
+              const SizedBox(height: 6),
+              Text('Animal: ${request.animalName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
               Text(
                 'Next Follow-up Date: ${_formatDateLabel(request.nextFollowupDate)}',
                 style: const TextStyle(fontSize: 13),
               ),
+              if (request.fees.trim() != '-' || request.charges.trim() != '-') ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Fees: ${request.fees.trim() != '-' ? request.fees : request.charges}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+              if (request.onSiteMedicineCharges.trim() != '-') ...[
+                const SizedBox(height: 6),
+                Text(
+                  'On Site Medicine Charges: ${request.onSiteMedicineCharges}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+              if (request.totalCharges.trim() != '-' || request.charges.trim() != '-') ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Total: ${request.totalCharges.trim() != '-' ? request.totalCharges : request.charges}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
               if (onsiteTreatment.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -847,7 +1069,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   child: const Text('Close'),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -860,6 +1083,28 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     final parsed = DateTime.tryParse(value);
     if (parsed == null) return value;
     return DateFormat('dd MMM yyyy').format(parsed.toLocal());
+  }
+
+  DateTime _historySortDate(VetRequestModel request) {
+    final completed = DateTime.tryParse(request.completedAt.trim());
+    if (completed != null) return completed;
+    return request.sortDate;
+  }
+
+  String _formatDateTimeLabel(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '-';
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value;
+    return DateFormat('dd MMM yyyy, hh:mm a').format(parsed.toLocal());
+  }
+
+  String _formatCardDateTimeLabel(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '-';
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value;
+    return DateFormat('dd MMM, hh:mm a').format(parsed.toLocal());
   }
 
   List<_PrescriptionItem> _parsePrescriptionItems(String raw) {
