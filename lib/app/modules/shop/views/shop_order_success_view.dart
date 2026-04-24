@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/theme/colors.dart';
 
 class ShopOrderSuccessView extends StatelessWidget {
@@ -38,7 +39,9 @@ class ShopOrderSuccessView extends StatelessWidget {
                 SizedBox(
                   width: 180,
                   child: ElevatedButton(
-                    onPressed: () => Get.back(closeOverlays: true),
+                    onPressed: () {
+                      Get.offAll(() => const MainBottomNavView(initialIndex: 3));
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,

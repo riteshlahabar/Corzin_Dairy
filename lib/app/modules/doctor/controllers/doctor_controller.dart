@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -228,24 +227,6 @@ class DoctorController extends GetxController {
     }
   }
 
-  Future<(double?, double?)> _tryFarmerGps() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return (null, null);
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return (null, null);
-      }
-      final pos = await Geolocator.getCurrentPosition();
-      return (pos.latitude, pos.longitude);
-    } catch (_) {
-      return (null, null);
-    }
-  }
-
   Future<void> requestDoctorVisit({
     required VetAnimalModel animal,
   }) async {
@@ -268,6 +249,11 @@ class DoctorController extends GetxController {
       Get.snackbar('Error', 'Please select at least one disease.');
       return;
     }
+    final locationReady = await _ensureFarmerLocationReadyForAppointment();
+    if (!locationReady) {
+      Get.snackbar('Error', 'First fetch the current location to create appointment.');
+      return;
+    }
 
     final details = diseaseDetailsController.text.trim();
     final selectedDiseaseNames = diseases
@@ -281,7 +267,6 @@ class DoctorController extends GetxController {
 
     try {
       isSubmittingRequest.value = true;
-      final gps = await _tryFarmerGps();
       final payload = <String, dynamic>{
         'farmer_id': farmerId.toString(),
         'animal_id': animal.id.toString(),
@@ -292,12 +277,10 @@ class DoctorController extends GetxController {
         'disease_ids': selectedDiseaseIds.toList(),
         'disease_details': details,
         'address': _farmerAddress(),
+        'latitude': farmerProfile['latitude'],
+        'longitude': farmerProfile['longitude'],
         'requested_at': DateTime.now().toIso8601String(),
       };
-      if (gps.$1 != null && gps.$2 != null) {
-        payload['latitude'] = gps.$1;
-        payload['longitude'] = gps.$2;
-      }
 
       final response = await http.post(
         Uri.parse(Api.doctorAppointments),
@@ -348,6 +331,29 @@ class DoctorController extends GetxController {
     }
   }
 
+  Future<void> cancelFollowup({
+    required VetRequestModel request,
+  }) async {
+    try {
+      isUpdatingRequestStatus.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.doctorCancelFollowup}/${request.id}/cancel-followup'),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+        await fetchFarmerRequests();
+        Get.snackbar('Success', data['message']?.toString() ?? 'Follow-up cancelled.');
+      } else {
+        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to cancel follow-up.');
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    } finally {
+      isUpdatingRequestStatus.value = false;
+    }
+  }
+
   String _farmerAddress() {
     final parts = <String>[
       farmerProfile['village'] ?? '',
@@ -358,6 +364,81 @@ class DoctorController extends GetxController {
       farmerProfile['pincode'] ?? '',
     ].where((part) => part.trim().isNotEmpty).toList();
     return parts.join(', ');
+  }
+
+  Future<bool> _ensureFarmerLocationReadyForAppointment() async {
+    if (_parseCoordinate(farmerProfile['latitude']) != null &&
+        _parseCoordinate(farmerProfile['longitude']) != null) {
+      return true;
+    }
+    await _refreshFarmerProfileFromApi();
+    return _parseCoordinate(farmerProfile['latitude']) != null &&
+        _parseCoordinate(farmerProfile['longitude']) != null;
+  }
+
+  double? _parseCoordinate(String? raw) {
+    final value = (raw ?? '').trim();
+    if (value.isEmpty) return null;
+    return double.tryParse(value);
+  }
+
+  Future<void> _refreshFarmerProfileFromApi() async {
+    final mobile = farmerPhone.trim();
+    if (mobile.isEmpty) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode != 200 || data['status'] != true || data['data'] == null) {
+        return;
+      }
+
+      final payload = Map<String, dynamic>.from(data['data'] as Map);
+      final idRaw = payload['id'];
+      final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
+      if (id > 0) {
+        farmerId = id;
+        await SessionService.saveFarmerId(id);
+      }
+
+      final latestProfile = <String, String>{
+        'first_name': payload['first_name']?.toString() ?? (farmerProfile['first_name'] ?? ''),
+        'middle_name': payload['middle_name']?.toString() ?? (farmerProfile['middle_name'] ?? ''),
+        'last_name': payload['last_name']?.toString() ?? (farmerProfile['last_name'] ?? ''),
+        'village': payload['village']?.toString() ?? (farmerProfile['village'] ?? ''),
+        'city': payload['city']?.toString() ?? (farmerProfile['city'] ?? ''),
+        'taluka': payload['taluka']?.toString() ?? (farmerProfile['taluka'] ?? ''),
+        'district': payload['district']?.toString() ?? (farmerProfile['district'] ?? ''),
+        'state': payload['state']?.toString() ?? (farmerProfile['state'] ?? ''),
+        'pincode': payload['pincode']?.toString() ?? (farmerProfile['pincode'] ?? ''),
+        'farmer_photo': payload['farmer_photo']?.toString() ?? (farmerProfile['farmer_photo'] ?? ''),
+        'latitude': payload['latitude']?.toString() ?? (farmerProfile['latitude'] ?? ''),
+        'longitude': payload['longitude']?.toString() ?? (farmerProfile['longitude'] ?? ''),
+        'current_location_address':
+            payload['current_location_address']?.toString() ?? (farmerProfile['current_location_address'] ?? ''),
+      };
+      farmerProfile = latestProfile;
+      await SessionService.saveFarmerProfile(
+        firstName: latestProfile['first_name'] ?? '',
+        middleName: latestProfile['middle_name'] ?? '',
+        lastName: latestProfile['last_name'] ?? '',
+        village: latestProfile['village'] ?? '',
+        city: latestProfile['city'] ?? '',
+        taluka: latestProfile['taluka'] ?? '',
+        district: latestProfile['district'] ?? '',
+        state: latestProfile['state'] ?? '',
+        pincode: latestProfile['pincode'] ?? '',
+        farmerPhoto: latestProfile['farmer_photo'] ?? '',
+      );
+      await SessionService.saveFarmerLocation(
+        latitude: latestProfile['latitude'] ?? '',
+        longitude: latestProfile['longitude'] ?? '',
+        currentLocationAddress: latestProfile['current_location_address'] ?? '',
+      );
+    } catch (_) {}
   }
 
   VetRequestModel? latestRequestForAnimal(int animalId) {

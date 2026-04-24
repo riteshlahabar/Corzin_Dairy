@@ -158,6 +158,11 @@ class LoginOtpController extends GetxController {
             pincode: farmerData["pincode"]?.toString() ?? "",
             farmerPhoto: farmerData["farmer_photo"]?.toString() ?? "",
           );
+          await SessionService.saveFarmerLocation(
+            latitude: farmerData["latitude"]?.toString() ?? "",
+            longitude: farmerData["longitude"]?.toString() ?? "",
+            currentLocationAddress: farmerData["current_location_address"]?.toString() ?? "",
+          );
 
           /// Existing user -> Home
           Get.offAllNamed(Routes.HOME);

@@ -92,7 +92,7 @@ class _MyOrdersViewState extends State<MyOrdersView> {
                         (item) => Padding(
                           padding: const EdgeInsets.only(bottom: 3),
                           child: Text(
-                            '${item.productName} x ${item.quantity}',
+                            '${item.productName} x ${item.quantity}${item.unit.trim().isEmpty ? '' : ' ${item.unit}'}',
                             style: const TextStyle(fontSize: 12.5),
                           ),
                         ),

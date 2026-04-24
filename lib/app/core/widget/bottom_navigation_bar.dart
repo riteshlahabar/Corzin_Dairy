@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../modules/doctor/controllers/doctor_controller.dart';
 import '../../modules/doctor/views/doctor_appointments_nearby_view.dart';
+import '../../modules/fetch_location/views/fetch_location_view.dart';
 import '../../modules/feeding/views/feeding_history_view.dart';
 import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
@@ -66,11 +67,19 @@ class BottomNavController extends GetxController {
 }
 
 class MainBottomNavView extends StatelessWidget {
-  const MainBottomNavView({super.key});
+  const MainBottomNavView({
+    super.key,
+    this.initialIndex = 0,
+  });
+
+  final int initialIndex;
 
   @override
   Widget build(BuildContext context) {
     final BottomNavController controller = Get.put(BottomNavController());
+    if (controller.currentIndex.value != initialIndex) {
+      controller.currentIndex.value = initialIndex;
+    }
     if (!Get.isRegistered<HomeController>()) Get.put(HomeController());
     if (!Get.isRegistered<DoctorController>()) Get.put(DoctorController());
     if (!Get.isRegistered<ShopController>()) Get.put(ShopController());
@@ -191,6 +200,14 @@ class MainBottomNavView extends StatelessWidget {
                     onTap: () {
                       Get.back();
                       Get.to(() => const MyOrdersView());
+                    },
+                  ),
+                  _drawerTile(
+                    icon: Icons.location_searching_rounded,
+                    title: 'Fetch Location',
+                    onTap: () {
+                      Get.back();
+                      Get.to(() => const FetchLocationView());
                     },
                   ),
                   _drawerTile(

@@ -32,9 +32,49 @@ class ShopController extends GetxController {
   }
 
   int get cartCount => cartItems.fold(0, (sum, item) => sum + item.quantity);
-  double get subtotal => cartItems.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
+  double get subtotal => cartItems.fold(0, (sum, item) => sum + lineTotalForItem(item));
   double get deliveryCharge => 0;
   double get grandTotal => subtotal + deliveryCharge;
+
+  bool supportsQuantityMode(CartItemModel item) => item.product.hasPackPricing;
+
+  bool canUseUnitMode(CartItemModel item) =>
+      item.product.hasPackPricing && item.product.allowPartialUnits;
+
+  double itemUnitPrice(CartItemModel item) {
+    if (item.product.hasPackPricing && item.quantityMode == CartQuantityMode.unit) {
+      return item.product.unitPrice;
+    }
+    return item.product.price;
+  }
+
+  String itemUnitLabel(CartItemModel item) {
+    if (!item.product.hasPackPricing) {
+      return item.product.unit.trim().isEmpty ? 'unit' : item.product.unit.trim();
+    }
+    if (item.quantityMode == CartQuantityMode.pack) {
+      return 'strip';
+    }
+    return item.product.medicineUnitName;
+  }
+
+  double lineTotalForItem(CartItemModel item) {
+    return itemUnitPrice(item) * item.quantity;
+  }
+
+  String itemRateLabel(CartItemModel item) {
+    final unitPrice = itemUnitPrice(item).toStringAsFixed(2);
+    final unitName = itemUnitLabel(item);
+    if (!item.product.hasPackPricing) {
+      return 'Rs $unitPrice / $unitName';
+    }
+    final packInfo = '1 strip = ${item.product.packSize} ${item.product.medicineUnitName}';
+    return 'Rs $unitPrice / $unitName ($packInfo)';
+  }
+
+  String itemQuantityLabel(CartItemModel item) {
+    return '${item.quantity} ${itemUnitLabel(item)}';
+  }
 
   @override
   void onInit() {
@@ -90,15 +130,207 @@ class ShopController extends GetxController {
     }
   }
 
-  void addToCart(ShopProductModel product, {int quantity = 1}) {
+  void addToCart(
+    ShopProductModel product, {
+    int quantity = 1,
+    String? quantityMode,
+    bool showMessage = true,
+  }) {
+    final targetMode = _initialQuantityModeForProduct(
+      product,
+      override: quantityMode,
+    );
     final index = cartItems.indexWhere((item) => item.product.id == product.id);
     if (index >= 0) {
-      cartItems[index] = cartItems[index].copyWith(quantity: cartItems[index].quantity + quantity);
+      var current = cartItems[index];
+      if (current.quantityMode != targetMode && product.hasPackPricing) {
+        final converted = _convertQuantityBetweenModes(
+          quantity: current.quantity,
+          fromMode: current.quantityMode,
+          toMode: targetMode,
+          packSize: product.packSize,
+        );
+        current = current.copyWith(quantity: converted, quantityMode: targetMode);
+      }
+      cartItems[index] = current.copyWith(quantity: current.quantity + quantity);
     } else {
-      cartItems.add(CartItemModel(product: product, quantity: quantity));
+      cartItems.add(
+        CartItemModel(
+          product: product,
+          quantity: quantity,
+          quantityMode: targetMode,
+        ),
+      );
     }
     cartItems.refresh();
-    Get.snackbar('Added', '${product.name} added to cart');
+    if (showMessage) {
+      Get.snackbar('Added', '${product.name} added to cart');
+    }
+  }
+
+  CartItemModel initialCartItemForProduct(
+    ShopProductModel product, {
+    int quantity = 1,
+    String? quantityMode,
+  }) {
+    return CartItemModel(
+      product: product,
+      quantity: quantity <= 0 ? 1 : quantity,
+      quantityMode: _initialQuantityModeForProduct(product, override: quantityMode),
+    );
+  }
+
+  void updateQuantityMode(CartItemModel item, String nextMode) {
+    final index = cartItems.indexWhere((e) => e.product.id == item.product.id);
+    if (index < 0) return;
+    if (!item.product.hasPackPricing) return;
+
+    final normalizedMode =
+        nextMode == CartQuantityMode.unit && item.product.allowPartialUnits
+            ? CartQuantityMode.unit
+            : CartQuantityMode.pack;
+
+    if (cartItems[index].quantityMode == normalizedMode) {
+      return;
+    }
+
+    final convertedQty = _convertQuantityBetweenModes(
+      quantity: cartItems[index].quantity,
+      fromMode: cartItems[index].quantityMode,
+      toMode: normalizedMode,
+      packSize: item.product.packSize,
+    );
+    cartItems[index] = cartItems[index].copyWith(
+      quantity: convertedQty,
+      quantityMode: normalizedMode,
+    );
+    cartItems.refresh();
+  }
+
+  void removeFromCart(CartItemModel item) {
+    final index = cartItems.indexWhere((e) => e.product.id == item.product.id);
+    if (index < 0) return;
+    final removed = cartItems[index].product.name;
+    cartItems.removeAt(index);
+    cartItems.refresh();
+    Get.snackbar('Removed', '$removed removed from cart');
+  }
+
+  String _initialQuantityModeForProduct(
+    ShopProductModel product, {
+    String? override,
+  }) {
+    if (!product.hasPackPricing) return CartQuantityMode.pack;
+
+    if (override == CartQuantityMode.unit && product.allowPartialUnits) {
+      return CartQuantityMode.unit;
+    }
+    if (override == CartQuantityMode.pack) {
+      return CartQuantityMode.pack;
+    }
+
+    return product.allowPartialUnits ? CartQuantityMode.unit : CartQuantityMode.pack;
+  }
+
+  int _convertQuantityBetweenModes({
+    required int quantity,
+    required String fromMode,
+    required String toMode,
+    required int packSize,
+  }) {
+    final safeQty = quantity <= 0 ? 1 : quantity;
+    if (fromMode == toMode) return safeQty;
+    if (packSize <= 0) return safeQty;
+
+    if (fromMode == CartQuantityMode.pack && toMode == CartQuantityMode.unit) {
+      return (safeQty * packSize).clamp(1, 5000);
+    }
+    if (fromMode == CartQuantityMode.unit && toMode == CartQuantityMode.pack) {
+      return (safeQty / packSize).ceil().clamp(1, 5000);
+    }
+    return safeQty;
+  }
+
+  Future<PrescriptionAddToCartResult> addPrescriptionToCart(
+    List<PrescriptionCartRequest> requests,
+  ) async {
+    final cleaned = requests
+        .where((item) => item.name.trim().isNotEmpty)
+        .map((item) => PrescriptionCartRequest(
+              name: item.name.trim(),
+              quantity: _safePrescriptionQty(item.quantity),
+            ))
+        .toList();
+
+    if (cleaned.isEmpty) {
+      Get.snackbar('Unavailable', 'No prescription medicine found.');
+      return const PrescriptionAddToCartResult(addedCount: 0, unmatchedNames: []);
+    }
+
+    List<PrescriptionProductMatch> matches = await _fetchPrescriptionMatches(cleaned);
+    if (matches.isEmpty) {
+      matches = _localPrescriptionMatches(cleaned);
+    }
+
+    if (matches.isEmpty) {
+      Get.snackbar('Unavailable', 'Prescription medicines are not available in shop.');
+      return PrescriptionAddToCartResult(
+        addedCount: 0,
+        unmatchedNames: cleaned.map((item) => item.name).toList(),
+      );
+    }
+
+    final grouped = <int, PrescriptionProductMatch>{};
+    for (final match in matches) {
+      final existing = grouped[match.product.id];
+      if (existing == null) {
+        grouped[match.product.id] = match;
+      } else {
+        grouped[match.product.id] = existing.copyWith(
+          quantity: existing.quantity + match.quantity,
+        );
+      }
+    }
+
+    for (final match in grouped.values) {
+      final useUnitMode = match.product.hasPackPricing && match.product.allowPartialUnits;
+      final qtyToAdd = useUnitMode
+          ? _safePrescriptionQty(match.quantity)
+          : (match.product.hasPackPricing
+              ? (match.quantity / match.product.packSize).ceil().clamp(1, 50)
+              : _safePrescriptionQty(match.quantity));
+      addToCart(
+        match.product,
+        quantity: qtyToAdd,
+        quantityMode: useUnitMode ? CartQuantityMode.unit : CartQuantityMode.pack,
+        showMessage: false,
+      );
+    }
+
+    final matchedNames = matches.map((e) => e.requestedName.toLowerCase()).toSet();
+    final unmatched = cleaned
+        .where((item) => !matchedNames.contains(item.name.toLowerCase()))
+        .map((item) => item.name)
+        .toSet()
+        .toList();
+
+    Get.snackbar(
+      'Added',
+      '${grouped.length} prescription item(s) added to cart',
+    );
+
+    if (unmatched.isNotEmpty) {
+      Get.snackbar(
+        'Some medicines not found',
+        unmatched.join(', '),
+        duration: const Duration(seconds: 4),
+      );
+    }
+
+    return PrescriptionAddToCartResult(
+      addedCount: grouped.length,
+      unmatchedNames: unmatched,
+    );
   }
 
   void increaseQty(CartItemModel item) {
@@ -118,6 +350,122 @@ class ShopController extends GetxController {
       cartItems[index] = cartItems[index].copyWith(quantity: next);
     }
     cartItems.refresh();
+  }
+
+  Future<List<PrescriptionProductMatch>> _fetchPrescriptionMatches(
+    List<PrescriptionCartRequest> requests,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(Api.shopPrescriptionProducts),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'items': requests
+              .map((item) => {
+                    'name': item.name,
+                    'quantity': _safePrescriptionQty(item.quantity),
+                  })
+              .toList(),
+        }),
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final ok = (response.statusCode == 200 || response.statusCode == 201) && data['status'] == true;
+      if (!ok) {
+        return const [];
+      }
+
+      final payload = data['data'];
+      if (payload is! Map) {
+        return const [];
+      }
+
+      final rows = payload['matched'];
+      if (rows is! List) {
+        return const [];
+      }
+
+      return rows
+          .map((row) => row is Map ? Map<String, dynamic>.from(row) : <String, dynamic>{})
+          .map((row) {
+            final productMap = row['product'];
+            if (productMap is! Map) {
+              return null;
+            }
+            final product = ShopProductModel.fromJson(Map<String, dynamic>.from(productMap));
+            if (product.id <= 0) {
+              return null;
+            }
+            return PrescriptionProductMatch(
+              requestedName: row['requested_name']?.toString() ?? '',
+              quantity: _safePrescriptionQty(int.tryParse(row['quantity']?.toString() ?? '1') ?? 1),
+              product: product,
+            );
+          })
+          .whereType<PrescriptionProductMatch>()
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  List<PrescriptionProductMatch> _localPrescriptionMatches(
+    List<PrescriptionCartRequest> requests,
+  ) {
+    final matches = <PrescriptionProductMatch>[];
+    for (final request in requests) {
+      final product = _localFindProductForPrescriptionName(request.name);
+      if (product == null) continue;
+      matches.add(
+        PrescriptionProductMatch(
+          requestedName: request.name,
+          quantity: _safePrescriptionQty(request.quantity),
+          product: product,
+        ),
+      );
+    }
+    return matches;
+  }
+
+  ShopProductModel? _localFindProductForPrescriptionName(String medicineName) {
+    final needle = medicineName.trim().toLowerCase();
+    if (needle.isEmpty) return null;
+
+    ShopProductModel? exactMedicine;
+    ShopProductModel? containsMedicine;
+    ShopProductModel? containsAny;
+
+    for (final product in products) {
+      final name = product.name.trim().toLowerCase();
+      final subtitle = product.subtitle.trim().toLowerCase();
+      final description = product.description.trim().toLowerCase();
+      final aliases = product.medicineAliases.join(' ').toLowerCase();
+      final isMedicine = product.category.trim().toLowerCase() == 'medicine';
+
+      if (name == needle) {
+        if (isMedicine) return product;
+        exactMedicine ??= product;
+      }
+
+      final contains = name.contains(needle) ||
+          needle.contains(name) ||
+          subtitle.contains(needle) ||
+          description.contains(needle) ||
+          aliases.contains(needle);
+      if (!contains) continue;
+      if (isMedicine && containsMedicine == null) {
+        containsMedicine = product;
+      }
+      containsAny ??= product;
+    }
+
+    return exactMedicine ?? containsMedicine ?? containsAny;
+  }
+
+  int _safePrescriptionQty(int value) {
+    if (value <= 0) return 1;
+    if (value > 50) return 50;
+    return value;
   }
 
   Future<bool> placeOrder({List<CartItemModel>? directItems}) async {
@@ -145,6 +493,7 @@ class ShopController extends GetxController {
             .map((item) => {
                   'product_id': item.product.id,
                   'quantity': item.quantity,
+                  'quantity_unit': item.product.hasPackPricing ? item.quantityMode : CartQuantityMode.pack,
                 })
             .toList(),
       };
@@ -200,12 +549,16 @@ class ShopProductModel {
   final int id;
   final String name;
   final String category;
+  final bool isMedicine;
   final String priceLabel;
   final double price;
   final String subtitle;
   final String unit;
   final String description;
   final List<String> features;
+  final List<String> medicineAliases;
+  final int packSize;
+  final bool allowPartialUnits;
   final String imageUrl;
   final List<String> galleryImageUrls;
 
@@ -213,34 +566,69 @@ class ShopProductModel {
     required this.id,
     required this.name,
     required this.category,
+    required this.isMedicine,
     required this.priceLabel,
     required this.price,
     required this.subtitle,
     required this.unit,
     required this.description,
     required this.features,
+    required this.medicineAliases,
+    required this.packSize,
+    required this.allowPartialUnits,
     required this.imageUrl,
     required this.galleryImageUrls,
   });
 
-  String get searchText => [name, category, subtitle, unit, description, priceLabel, ...features].join(' ').toLowerCase();
+  bool get hasPackPricing => isMedicine && packSize > 0;
+
+  double get unitPrice {
+    if (!hasPackPricing) return price;
+    return price / packSize;
+  }
+
+  String get medicineUnitName {
+    final cleaned = unit.trim();
+    if (cleaned.isEmpty) return 'tablet';
+    return cleaned.toLowerCase();
+  }
+
+  String get searchText => [
+        name,
+        category,
+        subtitle,
+        unit,
+        description,
+        priceLabel,
+        ...features,
+        ...medicineAliases,
+      ].join(' ').toLowerCase();
 
   factory ShopProductModel.fromJson(Map<String, dynamic> json) {
     final galleryRaw = json['gallery_image_urls'];
     final List<String> gallery = galleryRaw is List ? galleryRaw.map((e) => e.toString()).toList() : <String>[];
     final featuresRaw = json['features'];
     final List<String> features = featuresRaw is List ? featuresRaw.map((e) => e.toString()).toList() : <String>[];
+    final aliasesRaw = json['medicine_aliases'];
+    final List<String> aliases = aliasesRaw is List ? aliasesRaw.map((e) => e.toString()).toList() : <String>[];
 
     return ShopProductModel(
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
       name: json['name']?.toString() ?? '',
       category: json['category']?.toString().toLowerCase() ?? '',
+      isMedicine: (json['is_medicine']?.toString().toLowerCase() == 'true') ||
+          (json['is_medicine']?.toString() == '1') ||
+          (json['category']?.toString().toLowerCase() == 'medicine'),
       priceLabel: json['price_label']?.toString() ?? 'Rs 0.00',
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
       subtitle: json['subtitle']?.toString() ?? '',
       unit: json['unit']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       features: features,
+      medicineAliases: aliases,
+      packSize: int.tryParse(json['pack_size']?.toString() ?? '0') ?? 0,
+      allowPartialUnits: (json['allow_partial_units']?.toString().toLowerCase() == 'true') ||
+          (json['allow_partial_units']?.toString() == '1'),
       imageUrl: json['image_url']?.toString() ?? '',
       galleryImageUrls: gallery,
     );
@@ -251,18 +639,22 @@ class CartItemModel {
   const CartItemModel({
     required this.product,
     required this.quantity,
+    this.quantityMode = CartQuantityMode.pack,
   });
 
   final ShopProductModel product;
   final int quantity;
+  final String quantityMode;
 
   CartItemModel copyWith({
     ShopProductModel? product,
     int? quantity,
+    String? quantityMode,
   }) {
     return CartItemModel(
       product: product ?? this.product,
       quantity: quantity ?? this.quantity,
+      quantityMode: quantityMode ?? this.quantityMode,
     );
   }
 }
@@ -327,4 +719,55 @@ class ShopOrderItemModel {
       unit: json['unit']?.toString() ?? '',
     );
   }
+}
+
+class PrescriptionCartRequest {
+  const PrescriptionCartRequest({
+    required this.name,
+    required this.quantity,
+  });
+
+  final String name;
+  final int quantity;
+}
+
+class PrescriptionProductMatch {
+  const PrescriptionProductMatch({
+    required this.requestedName,
+    required this.quantity,
+    required this.product,
+  });
+
+  final String requestedName;
+  final int quantity;
+  final ShopProductModel product;
+
+  PrescriptionProductMatch copyWith({
+    String? requestedName,
+    int? quantity,
+    ShopProductModel? product,
+  }) {
+    return PrescriptionProductMatch(
+      requestedName: requestedName ?? this.requestedName,
+      quantity: quantity ?? this.quantity,
+      product: product ?? this.product,
+    );
+  }
+}
+
+class PrescriptionAddToCartResult {
+  const PrescriptionAddToCartResult({
+    required this.addedCount,
+    required this.unmatchedNames,
+  });
+
+  final int addedCount;
+  final List<String> unmatchedNames;
+
+  bool get hasAdded => addedCount > 0;
+}
+
+class CartQuantityMode {
+  static const String pack = 'pack';
+  static const String unit = 'unit';
 }

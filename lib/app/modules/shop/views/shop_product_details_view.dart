@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../controllers/shop_controller.dart';
+import 'shop_cart_view.dart';
 import 'shop_checkout_view.dart';
 
 class ShopProductDetailsView extends StatelessWidget {
@@ -25,6 +26,19 @@ class ShopProductDetailsView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: Text(product.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        actions: [
+          IconButton(
+            onPressed: () => Get.to(() => const ShopCartView()),
+            icon: Obx(
+              () => Badge(
+                isLabelVisible: controller.cartCount > 0,
+                label: Text(controller.cartCount.toString()),
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+            ),
+            tooltip: 'shop_add_to_cart'.tr,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -93,7 +107,11 @@ class ShopProductDetailsView extends StatelessWidget {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    Get.to(() => ShopCheckoutView(items: [CartItemModel(product: product, quantity: 1)]));
+                    Get.to(
+                      () => ShopCheckoutView(
+                        items: [controller.initialCartItemForProduct(product)],
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,

@@ -35,28 +35,61 @@ class ShopCartView extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Text(item.product.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(
+                      controller.itemRateLabel(item),
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Total: Rs ${controller.lineTotalForItem(item).toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.grey),
+                    ),
+                    if (controller.supportsQuantityMode(item)) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
-                          Text(item.product.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 4),
-                          Text(item.product.priceLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ChoiceChip(
+                            label: Text(item.product.medicineUnitName.capitalizeFirst ?? 'Unit'),
+                            selected: item.quantityMode == CartQuantityMode.unit,
+                            onSelected: controller.canUseUnitMode(item)
+                                ? (_) => controller.updateQuantityMode(item, CartQuantityMode.unit)
+                                : null,
+                          ),
+                          ChoiceChip(
+                            label: const Text('Strip'),
+                            selected: item.quantityMode == CartQuantityMode.pack,
+                            onSelected: (_) => controller.updateQuantityMode(item, CartQuantityMode.pack),
+                          ),
                         ],
                       ),
-                    ),
+                    ],
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         IconButton(
                           onPressed: () => controller.decreaseQty(item),
                           icon: const Icon(Icons.remove_circle_outline_rounded),
                         ),
-                        Text(item.quantity.toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        Text(
+                          controller.itemQuantityLabel(item),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                        ),
                         IconButton(
                           onPressed: () => controller.increaseQty(item),
                           icon: const Icon(Icons.add_circle_outline_rounded),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => controller.removeFromCart(item),
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          tooltip: 'Remove',
                         ),
                       ],
                     ),

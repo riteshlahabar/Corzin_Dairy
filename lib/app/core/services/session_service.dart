@@ -17,6 +17,9 @@ class SessionService {
   static const String stateKey = "state";
   static const String pincodeKey = "pincode";
   static const String farmerPhotoKey = "farmer_photo";
+  static const String latitudeKey = "latitude";
+  static const String longitudeKey = "longitude";
+  static const String currentLocationAddressKey = "current_location_address";
 
   static Future<void> setSeenOnboarding(bool value) async {
     final prefs = await SharedPreferences.getInstance();
@@ -108,6 +111,17 @@ class SessionService {
     await prefs.setString(farmerPhotoKey, photo);
   }
 
+  static Future<void> saveFarmerLocation({
+    required String latitude,
+    required String longitude,
+    String currentLocationAddress = "",
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(latitudeKey, latitude);
+    await prefs.setString(longitudeKey, longitude);
+    await prefs.setString(currentLocationAddressKey, currentLocationAddress);
+  }
+
   static Future<String> getFarmerPhoto() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(farmerPhotoKey) ?? "";
@@ -126,6 +140,9 @@ class SessionService {
       "state": prefs.getString(stateKey) ?? "",
       "pincode": prefs.getString(pincodeKey) ?? "",
       "farmer_photo": prefs.getString(farmerPhotoKey) ?? "",
+      "latitude": prefs.getString(latitudeKey) ?? "",
+      "longitude": prefs.getString(longitudeKey) ?? "",
+      "current_location_address": prefs.getString(currentLocationAddressKey) ?? "",
     };
   }
 

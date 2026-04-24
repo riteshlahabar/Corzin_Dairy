@@ -119,7 +119,7 @@ class ShopOrderDetailsView extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  'x${item.quantity}',
+                                  'x${item.quantity}${item.unit.trim().isEmpty ? '' : ' ${item.unit}'}',
                                   style: const TextStyle(fontSize: 13, color: AppColors.grey),
                                 ),
                                 const SizedBox(width: 8),

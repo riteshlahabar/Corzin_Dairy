@@ -72,6 +72,9 @@ class ProfileController extends GetxController {
       'state': saved['state'] ?? '',
       'pincode': saved['pincode'] ?? '',
       'farmer_photo': saved['farmer_photo'] ?? '',
+      'latitude': saved['latitude'] ?? '',
+      'longitude': saved['longitude'] ?? '',
+      'current_location_address': saved['current_location_address'] ?? '',
     });
     _fillControllersFromProfile();
     await _loadLatestProfileFromBackend(mobile);
@@ -168,6 +171,9 @@ class ProfileController extends GetxController {
           'state': stateController.text.trim(),
           'pincode': pincodeController.text.trim(),
           'farmer_photo': farmerPhoto,
+          'latitude': profile['latitude'] ?? '',
+          'longitude': profile['longitude'] ?? '',
+          'current_location_address': profile['current_location_address'] ?? '',
         });
 
         await SessionService.saveFarmerName(firstNameController.text.trim());
@@ -257,6 +263,9 @@ class ProfileController extends GetxController {
         'state': farmer['state']?.toString() ?? '',
         'pincode': farmer['pincode']?.toString() ?? '',
         'farmer_photo': farmerPhoto,
+        'latitude': farmer['latitude']?.toString() ?? (profile['latitude'] ?? ''),
+        'longitude': farmer['longitude']?.toString() ?? (profile['longitude'] ?? ''),
+        'current_location_address': farmer['current_location_address']?.toString() ?? (profile['current_location_address'] ?? ''),
       });
       _fillControllersFromProfile();
 
@@ -272,6 +281,11 @@ class ProfileController extends GetxController {
         state: farmer['state']?.toString() ?? '',
         pincode: farmer['pincode']?.toString() ?? '',
         farmerPhoto: farmerPhoto,
+      );
+      await SessionService.saveFarmerLocation(
+        latitude: farmer['latitude']?.toString() ?? '',
+        longitude: farmer['longitude']?.toString() ?? '',
+        currentLocationAddress: farmer['current_location_address']?.toString() ?? '',
       );
     } catch (_) {
       // Keep local session profile if backend fetch fails.

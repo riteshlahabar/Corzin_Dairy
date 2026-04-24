@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/colors.dart';
 import '../controllers/doctor_controller.dart';
 import '../../home/controllers/home_controller.dart';
+import '../../shop/controllers/shop_controller.dart';
+import '../../shop/views/shop_cart_view.dart';
 
 class DoctorAppointmentsNearbyView extends StatefulWidget {
   const DoctorAppointmentsNearbyView({super.key});
@@ -120,7 +122,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                             status == 'accepted' ||
                             status == 'approved' ||
                             status == 'farmer_approved' ||
-                            status == 'in_progress';
+                            status == 'in_progress' ||
+                            status == 'followup' ||
+                            status == 'follow_up';
                       })
                       .toList();
                   final currentCards = List<VetRequestModel>.from(currentRequests)
@@ -357,8 +361,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       'farmer_approved',
       'scheduled',
       'in_progress',
-      'followup',
-      'follow_up',
     }.contains(normalized);
     final isPendingState = {
       'pending',
@@ -480,11 +482,11 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       'farmer_approved',
       'scheduled',
       'in_progress',
-      'followup',
-      'follow_up',
     }.contains(normalizedStatus);
     final isFollowup = {'followup', 'follow_up'}.contains(normalizedStatus);
-    final statusColor = isApprovedState ? const Color(0xFF2E7D32) : const Color(0xFFE07A00);
+    final statusColor = isFollowup
+        ? const Color(0xFF0D47A1)
+        : (isApprovedState ? const Color(0xFF2E7D32) : const Color(0xFFE07A00));
     final statusLabel = isFollowup ? 'Follow-up' : (isApprovedState ? 'Accept' : 'Pending');
 
     return Container(
@@ -541,7 +543,65 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
             const SizedBox(height: 4),
             Text('Charges: ${request.charges}', style: const TextStyle(fontSize: 12.2)),
           ],
-          if (isApprovedState && request.canTrackVisit) ...[
+          if (isFollowup) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: controller.isUpdatingRequestStatus.value
+                          ? null
+                          : () => controller.cancelFollowup(request: request),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: const Color(0xFFC0392B).withValues(alpha: 0.45)),
+                        foregroundColor: const Color(0xFFC0392B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: const Text(
+                        'Cancel Follow Up',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 34,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final targetAnimal = animal ??
+                            VetAnimalModel(
+                              id: request.animalId,
+                              animalName: request.animalName,
+                              tagNumber: '',
+                              imageUrl: '',
+                            );
+                        if (targetAnimal.id <= 0) {
+                          Get.snackbar('Error', 'Animal not found for follow-up appointment.');
+                          return;
+                        }
+                        _openCreateAppointmentDialog(targetAnimal);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: const Text(
+                        'Create Appointment',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (isApprovedState && request.canTrackVisit) ...[
             const SizedBox(height: 10),
             SizedBox(
               height: 34,
@@ -1003,9 +1063,28 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Prescription',
-                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Prescription',
+                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _addPrescriptionToCart(prescriptionItems),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.shopping_cart_outlined, size: 15),
+                            label: Text(
+                              'shop_add_to_cart'.tr,
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       ...prescriptionItems.map((item) {
@@ -1144,6 +1223,52 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     }
 
     return parsed;
+  }
+
+  Future<void> _addPrescriptionToCart(List<_PrescriptionItem> items) async {
+    if (items.isEmpty) {
+      Get.snackbar('Unavailable', 'No prescription medicine found.');
+      return;
+    }
+
+    final shopController = Get.isRegistered<ShopController>()
+        ? Get.find<ShopController>()
+        : Get.put(ShopController());
+
+    final requests = items
+        .where((item) => item.name.trim().isNotEmpty)
+        .map(
+          (item) => PrescriptionCartRequest(
+            name: item.name.trim(),
+            quantity: _parsePrescriptionQuantity(item.totalTabs),
+          ),
+        )
+        .toList();
+
+    if (requests.isEmpty) {
+      Get.snackbar('Unavailable', 'No prescription medicine found.');
+      return;
+    }
+
+    final result = await shopController.addPrescriptionToCart(requests);
+    if (!result.hasAdded) return;
+
+    if (Get.isBottomSheetOpen ?? false) {
+      Get.back();
+    }
+    Get.to(() => const ShopCartView());
+  }
+
+  int _parsePrescriptionQuantity(String totalTabs) {
+    final value = totalTabs.trim();
+    if (value.isEmpty || value == '-') {
+      return 1;
+    }
+    final match = RegExp(r'\d+').firstMatch(value);
+    final qty = int.tryParse(match?.group(0) ?? '1') ?? 1;
+    if (qty <= 0) return 1;
+    if (qty > 50) return 50;
+    return qty;
   }
 
   Widget _doseChip(String label, bool active) {

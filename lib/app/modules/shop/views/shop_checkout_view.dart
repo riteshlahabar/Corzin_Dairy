@@ -31,7 +31,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
 
   @override
   Widget build(BuildContext context) {
-    final subtotal = widget.items.fold<double>(0, (sum, item) => sum + (item.product.price * item.quantity));
+    final subtotal = widget.items.fold<double>(0, (sum, item) => sum + controller.lineTotalForItem(item));
     final total = subtotal;
 
     return Scaffold(
@@ -114,12 +114,22 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              '${item.product.name} x ${item.quantity}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${item.product.name} x ${controller.itemQuantityLabel(item)}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ),
+                                if (item.product.hasPackPricing)
+                                  Text(
+                                    controller.itemRateLabel(item),
+                                    style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                                  ),
+                              ],
                             ),
                           ),
-                          Text('Rs ${(item.product.price * item.quantity).toStringAsFixed(2)}'),
+                          Text('Rs ${controller.lineTotalForItem(item).toStringAsFixed(2)}'),
                         ],
                       ),
                     ),
