@@ -97,17 +97,90 @@ class MilkView extends GetView<MilkController> {
             ],
           ),
           const SizedBox(height: 14),
-          _fieldLabel('select_animal'.tr),
+          _fieldLabel('select_animal'.tr, requiredField: true),
           const SizedBox(height: 8),
-          Obx(() => _dropdownCard(child: DropdownButtonFormField<MilkAnimalModel>(initialValue: controller.selectedAnimal.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('choose_animal'.tr), items: controller.animals.map((animal) => DropdownMenuItem<MilkAnimalModel>(value: animal, child: Text(animal.displayName, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => controller.selectedAnimal.value = value, validator: (value) => value == null ? 'select_animal_error'.tr : null))),
+          Obx(
+            () => _dropdownCard(
+              child: DropdownButtonFormField<MilkAnimalModel>(
+                initialValue: controller.selectedAnimal.value,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                decoration: _dropdownDecoration('choose_animal'.tr),
+                items: controller.animals
+                    .map(
+                      (animal) => DropdownMenuItem<MilkAnimalModel>(
+                        value: animal,
+                        child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  controller.selectedAnimal.value = value;
+                  if (value != null) {
+                    controller.selectedPan.value = null;
+                  }
+                },
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          _fieldLabel('Select Dairy'),
+          _fieldLabel('Select PAN', requiredField: true),
+          const SizedBox(height: 8),
+          Obx(
+            () => _dropdownCard(
+              child: DropdownButtonFormField<MilkPanModel>(
+                initialValue: controller.selectedPan.value,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                decoration: _dropdownDecoration('Choose PAN'),
+                items: controller.pans
+                    .map(
+                      (pan) => DropdownMenuItem<MilkPanModel>(
+                        value: pan,
+                        child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: controller.pans.isEmpty
+                    ? null
+                    : (value) {
+                        controller.selectedPan.value = value;
+                        if (value != null) {
+                          controller.selectedAnimal.value = null;
+                        }
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _fieldLabel('Select Dairy', requiredField: true)),
+              SizedBox(
+                height: 28,
+                width: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Add Dairy',
+                  onPressed: controller.openAddDairyFromMilk,
+                  icon: const Icon(
+                    Icons.add_circle_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Obx(() => _dropdownCard(child: DropdownButtonFormField<MilkDairyModel>(initialValue: controller.selectedDairy.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('Select dairy'), items: controller.dairies.map((dairy) => DropdownMenuItem<MilkDairyModel>(value: dairy, child: Text(dairy.displayName, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => controller.selectedDairy.value = value, validator: (value) => value == null ? 'Please select a dairy' : null))),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('milk_date'.tr), const SizedBox(height: 8), TextFormField(controller: controller.milkDateController, readOnly: true, onTap: controller.pickMilkDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)), validator: (value) => value == null || value.trim().isEmpty ? 'select_date_error'.tr : null)])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('shift'.tr), const SizedBox(height: 8), Obx(() => _dropdownCard(child: DropdownButtonFormField<String>(initialValue: controller.selectedShift.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('select_shift'.tr), items: controller.shifts.map((shift) => DropdownMenuItem<String>(value: shift, child: Text(shift))).toList(), onChanged: (value) => controller.selectedShift.value = value ?? 'Morning')))]))]),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('milk_date'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.milkDateController, readOnly: true, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)), validator: (value) => value == null || value.trim().isEmpty ? 'select_date_error'.tr : null)])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('shift'.tr, requiredField: true), const SizedBox(height: 8), Obx(() => Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF8FBF8), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)), child: Text(controller.selectedShift.value, style: TextStyle(color: AppColors.grey.shade800, fontSize: 12.5, fontWeight: FontWeight.w600))))]))]),
           const SizedBox(height: 16),
-          _fieldLabel('quantity_liters'.tr),
+          _fieldLabel('quantity_liters'.tr, requiredField: true),
           const SizedBox(height: 8),
           TextFormField(controller: controller.quantityController, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_milk_quantity'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'enter_quantity_error'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'valid_quantity'.tr; return null; }),
           const SizedBox(height: 16),
@@ -135,11 +208,22 @@ class MilkView extends GetView<MilkController> {
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.animals.isEmpty || controller.dairies.isEmpty ? null : controller.submitMilk, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: controller.isSubmitting.value ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))]))));
+    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty ? null : controller.submitMilk, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))]))));
   }
 
   Widget _sectionTitle(String title) => Align(alignment: Alignment.centerLeft, child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.black)));
-  Widget _fieldLabel(String title) => Align(alignment: Alignment.centerLeft, child: Text(title, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.grey.shade800)));
+  Widget _fieldLabel(String title, {bool requiredField = false}) => Align(
+    alignment: Alignment.centerLeft,
+    child: RichText(
+      text: TextSpan(
+        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.grey.shade800),
+        children: [
+          TextSpan(text: title),
+          if (requiredField) const TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
+        ],
+      ),
+    ),
+  );
 
   Widget _dropdownCard({required Widget child}) {
     return Container(
@@ -155,11 +239,12 @@ class MilkView extends GetView<MilkController> {
 
   InputDecoration _dropdownDecoration(String hint) {
     return InputDecoration(
+      isDense: true,
       hintText: hint,
       hintStyle: TextStyle(color: AppColors.grey.shade500, fontSize: 12.5),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: AppColors.primary, width: 1.4)),
@@ -170,11 +255,12 @@ class MilkView extends GetView<MilkController> {
 
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
+      isDense: true,
       hintText: hint,
       hintStyle: TextStyle(color: AppColors.grey.shade500, fontSize: 12.5),
       filled: true,
       fillColor: const Color(0xFFF8FBF8),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),

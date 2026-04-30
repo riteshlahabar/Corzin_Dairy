@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
 import '../../../core/theme/colors.dart';
+import '../../../routes/app_pages.dart';
 
 class AnimalController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -29,6 +30,7 @@ class AnimalController extends GetxController {
   final Rxn<XFile> selectedImage = Rxn<XFile>();
 
   final ImagePicker _picker = ImagePicker();
+  Worker? _animalTypeWorker;
 
   int farmerId = 0;
   bool isNewBornMode = false;
@@ -39,6 +41,7 @@ class AnimalController extends GetxController {
   void onInit() {
     super.onInit();
     _readArguments();
+    _bindAnimalTypeWatcher();
     initData();
   }
 
@@ -47,8 +50,26 @@ class AnimalController extends GetxController {
     if (args is Map) {
       isNewBornMode = args['prefillAnimalTypeName']?.toString().isNotEmpty == true;
       lockedAnimalTypeName = args['prefillAnimalTypeName']?.toString() ?? '';
-      pageTitle = args['title']?.toString() ?? (isNewBornMode ? 'Add New Born Animal' : 'Add Animal');
+      pageTitle = args['title']?.toString() ?? 'Add Animal';
     }
+  }
+
+  void _bindAnimalTypeWatcher() {
+    _animalTypeWorker = ever<AnimalTypeModel?>(selectedAnimalType, (_) {
+      if (!showMotherAnimalDropdown) {
+        selectedMotherAnimal.value = null;
+      }
+    });
+  }
+
+  bool get showMotherAnimalDropdown {
+    final name = selectedAnimalType.value?.name.trim().toLowerCase() ?? '';
+    if (name.isEmpty) return false;
+    return name.contains('calf') ||
+        name.contains('calves') ||
+        name.contains('new born') ||
+        name.contains('बछ') ||
+        name.contains('वासर');
   }
 
   Future<void> initData() async {
@@ -162,11 +183,19 @@ class AnimalController extends GetxController {
       Get.snackbar('Error', 'Farmer ID not found. Please login again.', snackPosition: SnackPosition.BOTTOM);
       return;
     }
+    final duplicateMessage = _duplicateAnimalValidationMessage(
+      animalName: animalNameController.text,
+      tagNumber: tagNumberController.text,
+    );
+    if (duplicateMessage != null) {
+      Get.snackbar('Validation Error', duplicateMessage, snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     if (selectedAnimalType.value == null) {
       Get.snackbar('Error', 'Please select animal type', snackPosition: SnackPosition.BOTTOM);
       return;
     }
-    if (isNewBornMode && selectedMotherAnimal.value == null) {
+    if (showMotherAnimalDropdown && selectedMotherAnimal.value == null) {
       Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
       return;
     }
@@ -179,7 +208,7 @@ class AnimalController extends GetxController {
       request.fields['animal_name'] = animalNameController.text.trim();
       request.fields['tag_number'] = tagNumberController.text.trim();
       request.fields['animal_type_id'] = selectedAnimalType.value!.id.toString();
-      if (isNewBornMode && selectedMotherAnimal.value != null) {
+      if (showMotherAnimalDropdown && selectedMotherAnimal.value != null) {
         request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
       }
       request.fields['birth_date'] = birthDateController.text.trim();
@@ -202,9 +231,18 @@ class AnimalController extends GetxController {
       final response = await http.Response.fromStream(streamedResponse);
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final successMessage = data['message']?.toString() ?? 'Animal created successfully';
+        final String successMessage = (data['message']?.toString().trim().isNotEmpty ?? false)
+            ? data['message'].toString().trim()
+            : 'Animal added successfully';
         clearForm();
-        Get.back(result: {'success': true, 'message': successMessage});
+        Get.offAllNamed(Routes.HOME);
+        Future.delayed(const Duration(milliseconds: 150), () {
+          Get.snackbar(
+            'Success',
+            successMessage,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        });
       } else if (response.statusCode == 422) {
         String errorMessage = 'Validation failed';
         if (data['message'] is Map) {
@@ -224,6 +262,35 @@ class AnimalController extends GetxController {
     }
   }
 
+  String? _duplicateAnimalValidationMessage({
+    required String animalName,
+    required String tagNumber,
+  }) {
+    final normalizedName = animalName.trim().toLowerCase();
+    final normalizedTag = tagNumber.trim().toLowerCase();
+    if (normalizedName.isEmpty || normalizedTag.isEmpty) {
+      return null;
+    }
+
+    final nameExists = motherAnimals.any(
+      (item) => item.animalName.trim().toLowerCase() == normalizedName,
+    );
+    final tagExists = motherAnimals.any(
+      (item) => item.tagNumber.trim().toLowerCase() == normalizedTag,
+    );
+
+    if (nameExists && tagExists) {
+      return 'Animal name and tag number already exist for this farmer.';
+    }
+    if (nameExists) {
+      return 'Animal name already exists for this farmer.';
+    }
+    if (tagExists) {
+      return 'Tag number already exists for this farmer.';
+    }
+    return null;
+  }
+
   void clearForm() {
     animalNameController.clear();
     tagNumberController.clear();
@@ -239,6 +306,7 @@ class AnimalController extends GetxController {
 
   @override
   void onClose() {
+    _animalTypeWorker?.dispose();
     animalNameController.dispose();
     tagNumberController.dispose();
     birthDateController.dispose();

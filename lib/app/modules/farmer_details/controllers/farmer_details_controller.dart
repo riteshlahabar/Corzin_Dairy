@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -257,6 +258,7 @@ class FarmerDetailsController extends GetxController {
           pincode: pincode.text.trim(),
           farmerPhoto: farmerPhoto,
         );
+        await _tryAutoFetchCurrentLocation(farmerId);
 
         farmerName.value = firstName.text.trim();
 
@@ -267,6 +269,60 @@ class FarmerDetailsController extends GetxController {
     } catch (_) {
       Get.snackbar("Error", "Something went wrong");
     }
+  }
+
+  Future<void> _tryAutoFetchCurrentLocation(int farmerId) async {
+    if (farmerId <= 0) return;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      final response = await http.post(
+        Uri.parse('${Api.farmerLocation}/$farmerId'),
+        headers: const {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        }),
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode != 200 || data['status'] != true || data['data'] == null) {
+        return;
+      }
+
+      final payload = Map<String, dynamic>.from(data['data'] as Map);
+      final latText =
+          (payload['latitude']?.toString() ?? position.latitude.toStringAsFixed(7)).trim();
+      final lngText =
+          (payload['longitude']?.toString() ?? position.longitude.toStringAsFixed(7)).trim();
+      final addressText =
+          payload['current_location_address']?.toString().trim().isNotEmpty == true
+              ? payload['current_location_address'].toString().trim()
+              : 'Lat: $latText, Lng: $lngText';
+
+      await SessionService.saveFarmerLocation(
+        latitude: latText,
+        longitude: lngText,
+        currentLocationAddress: addressText,
+      );
+    } catch (_) {}
   }
 
   @override

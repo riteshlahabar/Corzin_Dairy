@@ -18,13 +18,20 @@ class Api {
   static const String animalTypes = "$baseUrl/animal/types";
   static const String animalLifecycle = "$baseUrl/animal/lifecycle";
   static const String animalHistory = "$baseUrl/animal/history";
+  static const String animalPanList = "$baseUrl/animal/pans";
+  static const String animalPanCreate = "$baseUrl/animal/pans";
+  static const String animalPanTransfer = "$baseUrl/animal/pans/transfer";
 
   static const String addMilk = "$baseUrl/milk";
   static const String milkByAnimal = "$baseUrl/milk/animal";
+  static const String milkList = "$baseUrl/milk/list";
+  static const String milkUpdate = "$baseUrl/milk/update";
   static const String milkDashboardSummary = "$baseUrl/milk/dashboard-summary";
 
   static const String addFeeding = "$baseUrl/feeding";
   static const String feedingTypes = "$baseUrl/feeding/types";
+  static const String feedingTypeCreate = "$baseUrl/feeding/types";
+  static const String feedingTypeUpdate = "$baseUrl/feeding/types";
   static const String feedingList = "$baseUrl/feeding/list";
   static const String feedingSummary = "$baseUrl/feeding/summary";
   static const String feedingUpdate = "$baseUrl/feeding/update";
@@ -38,6 +45,7 @@ class Api {
   static const String addDairy = "$baseUrl/dairy";
   static const String dairyList = "$baseUrl/dairy/list";
   static const String dairyPayments = "$baseUrl/dairy/payments";
+  static const String dairyPaymentEntry = "$baseUrl/dairy/payments/entry";
 
   static const String dashboardSummary = "$baseUrl/dashboard/summary";
   static const String doctorList = "$baseUrl/doctor/list";

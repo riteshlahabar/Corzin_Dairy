@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
+import '../../../routes/app_pages.dart';
 
 class MilkController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -22,12 +23,13 @@ class MilkController extends GetxController {
   final RxBool isSubmitting = false.obs;
 
   final RxList<MilkAnimalModel> animals = <MilkAnimalModel>[].obs;
+  final RxList<MilkPanModel> pans = <MilkPanModel>[].obs;
   final RxList<MilkDairyModel> dairies = <MilkDairyModel>[].obs;
   final Rxn<MilkAnimalModel> selectedAnimal = Rxn<MilkAnimalModel>();
+  final Rxn<MilkPanModel> selectedPan = Rxn<MilkPanModel>();
   final Rxn<MilkDairyModel> selectedDairy = Rxn<MilkDairyModel>();
   final RxString selectedShift = 'Morning'.obs;
-
-  final List<String> shifts = ['Morning', 'Afternoon', 'Evening'];
+  final RxBool isScheduleLoading = false.obs;
 
   int farmerId = 0;
 
@@ -40,7 +42,7 @@ class MilkController extends GetxController {
 
   Future<void> initData() async {
     await loadFarmerId();
-    await Future.wait([fetchAnimals(), fetchDairies()]);
+    await Future.wait([fetchAnimals(), fetchDairies(), refreshAutoSchedule()]);
   }
 
   Future<void> loadFarmerId() async {
@@ -56,15 +58,35 @@ class MilkController extends GetxController {
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
-        animals.assignAll(list.map((item) => MilkAnimalModel.fromJson(item)).toList());
+        final fetched = list.map((item) => MilkAnimalModel.fromJson(item)).toList();
+        final milkingOnly = fetched.where((animal) => _isMilkingAnimalType(animal.animalTypeName)).toList();
+        animals.assignAll(milkingOnly);
+        final currentAnimal = selectedAnimal.value;
+        if (currentAnimal != null && !milkingOnly.any((animal) => animal.id == currentAnimal.id)) {
+          selectedAnimal.value = null;
+        }
+        _rebuildPansFromAnimals();
       } else {
         animals.clear();
+        pans.clear();
+        selectedPan.value = null;
       }
     } catch (_) {
       animals.clear();
+      pans.clear();
+      selectedPan.value = null;
     } finally {
       isPageLoading.value = false;
     }
+  }
+
+  bool _isMilkingAnimalType(String typeName) {
+    final value = typeName.trim().toLowerCase();
+    if (value.isEmpty) return false;
+    return value.contains('milking') ||
+        value.contains('milky') ||
+        value.contains('दूध') ||
+        value.contains('दुध');
   }
 
   Future<void> fetchDairies() async {
@@ -83,24 +105,30 @@ class MilkController extends GetxController {
     }
   }
 
-  Future<void> pickMilkDate() async {
-    DateTime initialDate = DateTime.now();
-    if (milkDateController.text.isNotEmpty) {
-      try {
-        initialDate = DateFormat('dd/MM/yyyy').parse(milkDateController.text);
-      } catch (_) {}
-    }
-
-    final DateTime? picked = await showDatePicker(
-      context: Get.context!,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
+  Future<void> openAddDairyFromMilk() async {
+    final result = await Get.toNamed(
+      Routes.DAIRY,
+      arguments: {'opened_from_milk': true},
     );
 
-    if (picked != null) {
-      milkDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+    await fetchDairies();
+
+    final selectedId = _extractDairyIdFromResult(result);
+    if (selectedId != null) {
+      final matched = dairies.firstWhereOrNull((dairy) => dairy.id == selectedId);
+      if (matched != null) {
+        selectedDairy.value = matched;
+        return;
+      }
     }
+
+    if (result is Map && result['dairy_added'] == true && dairies.isNotEmpty) {
+      selectedDairy.value ??= dairies.first;
+    }
+  }
+
+  Future<void> pickMilkDate() async {
+    // Shift/date flow is fully automatic now by farmer entry progression.
   }
 
   Future<void> submitMilk() async {
@@ -110,7 +138,59 @@ class MilkController extends GetxController {
       return;
     }
     if (selectedAnimal.value == null) {
-      Get.snackbar('Error', 'Please select an animal', snackPosition: SnackPosition.BOTTOM);
+      if (selectedPan.value == null) {
+        Get.snackbar('Error', 'Please select an animal or PAN', snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+    }
+    if (selectedPan.value != null) {
+      final pan = selectedPan.value!;
+      final panAnimals = animals.where((animal) => animal.belongsToPan(pan)).toList();
+      if (panAnimals.isEmpty) {
+        Get.snackbar('Error', 'No animals found in selected PAN', snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+
+      final totalQty = double.tryParse(quantityController.text.trim()) ?? 0;
+      if (totalQty <= 0) {
+        Get.snackbar('Error', 'Please enter valid milk quantity', snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+      final perAnimalQty = totalQty / panAnimals.length;
+      final qty = _formatDistributedValue(perAnimalQty);
+      final quantityByAnimal = <int, String>{
+        for (final animal in panAnimals) animal.id: qty,
+      };
+
+      final result = await submitBulkMilk(quantityByAnimal);
+      final successCount = result['success'] ?? 0;
+      final failedCount = result['failed'] ?? 0;
+
+      if (successCount > 0 && failedCount == 0) {
+        final successMessage = 'Milk record saved successfully for $successCount animals in ${pan.name}';
+        await refreshAutoSchedule();
+        clearForm();
+        Get.back(result: {'success': true, 'message': successMessage});
+        Future.delayed(const Duration(milliseconds: 120), () {
+          Get.snackbar(
+            'Success',
+            successMessage,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        });
+      } else if (successCount > 0) {
+        Get.snackbar(
+          'Partial Success',
+          'Saved for $successCount animals, failed for $failedCount.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to save milk for selected PAN.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
       return;
     }
     if (selectedDairy.value == null) {
@@ -143,13 +223,16 @@ class MilkController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final successMessage = data['message']?.toString() ?? 'Milk record saved successfully';
-        Get.snackbar(
-          'Success',
-          successMessage,
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        await refreshAutoSchedule();
         clearForm();
         Get.back(result: {'success': true, 'message': successMessage});
+        Future.delayed(const Duration(milliseconds: 120), () {
+          Get.snackbar(
+            'Success',
+            successMessage,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        });
       } else if (response.statusCode == 422) {
         String errorMessage = 'Validation failed';
         if (data['message'] is Map) {
@@ -254,16 +337,131 @@ class MilkController extends GetxController {
     }
   }
 
+  String _formatDistributedValue(double value) {
+    if (value == value.truncateToDouble()) {
+      return value.toInt().toString();
+    }
+    return value
+        .toStringAsFixed(4)
+        .replaceAll(RegExp(r'0+$'), '')
+        .replaceAll(RegExp(r'\.$'), '');
+  }
+
+  Future<void> refreshAutoSchedule() async {
+    if (farmerId == 0) return;
+    try {
+      isScheduleLoading.value = true;
+      final response = await http.get(
+        Uri.parse('${Api.milkList}/$farmerId'),
+        headers: const {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode != 200 || data['status'] != true) {
+        _setDefaultSchedule();
+        return;
+      }
+
+      final List list = data['data'] ?? [];
+      if (list.isEmpty) {
+        _setDefaultSchedule();
+        return;
+      }
+
+      final rows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      final latestDate = _latestRecordedDate(rows);
+      if (latestDate == null) {
+        _setDefaultSchedule();
+        return;
+      }
+
+      final sameDateRows = rows.where((row) => _isSameDate(_parseApiDate(row['date']), latestDate)).toList();
+      final morningDone = sameDateRows.any((row) => _isShiftValuePresent(row['morning_milk']));
+      final afternoonDone = sameDateRows.any((row) => _isShiftValuePresent(row['afternoon_milk']));
+      final eveningDone = sameDateRows.any((row) => _isShiftValuePresent(row['evening_milk']));
+
+      DateTime targetDate = latestDate;
+      String targetShift = 'Morning';
+
+      if (!morningDone) {
+        targetShift = 'Morning';
+      } else if (!afternoonDone) {
+        targetShift = 'Afternoon';
+      } else if (!eveningDone) {
+        targetShift = 'Evening';
+      } else {
+        targetDate = latestDate.add(const Duration(days: 1));
+        targetShift = 'Morning';
+      }
+
+      milkDateController.text = DateFormat('dd/MM/yyyy').format(targetDate);
+      selectedShift.value = targetShift;
+    } catch (_) {
+      _setDefaultSchedule();
+    } finally {
+      isScheduleLoading.value = false;
+    }
+  }
+
+  void _setDefaultSchedule() {
+    milkDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    selectedShift.value = 'Morning';
+  }
+
+  DateTime? _latestRecordedDate(List<Map<String, dynamic>> rows) {
+    DateTime? latest;
+    for (final row in rows) {
+      final parsed = _parseApiDate(row['date']);
+      if (parsed == null) continue;
+      if (latest == null || parsed.isAfter(latest)) {
+        latest = parsed;
+      }
+    }
+    return latest;
+  }
+
+  DateTime? _parseApiDate(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    if (text.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(text);
+    } catch (_) {}
+    try {
+      return DateFormat('d/M/yyyy').parseStrict(text);
+    } catch (_) {}
+    try {
+      return DateFormat('yyyy-MM-dd').parseStrict(text);
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isSameDate(DateTime? first, DateTime? second) {
+    if (first == null || second == null) return false;
+    return first.year == second.year && first.month == second.month && first.day == second.day;
+  }
+
+  bool _isShiftValuePresent(dynamic value) {
+    final parsed = double.tryParse((value ?? '').toString().trim()) ?? 0;
+    return parsed > 0;
+  }
+
+  int? _extractDairyIdFromResult(dynamic result) {
+    if (result is! Map) return null;
+    final parsed = int.tryParse((result['dairy_id'] ?? '').toString());
+    if (parsed != null && parsed > 0) {
+      return parsed;
+    }
+    return null;
+  }
+
   void clearForm() {
     selectedAnimal.value = null;
+    selectedPan.value = null;
     selectedDairy.value = null;
-    selectedShift.value = 'Morning';
     quantityController.clear();
     fatController.clear();
     snfController.clear();
     rateController.clear();
     notesController.clear();
-    milkDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
   }
 
   @override
@@ -276,6 +474,26 @@ class MilkController extends GetxController {
     notesController.dispose();
     super.onClose();
   }
+
+  void _rebuildPansFromAnimals() {
+    final unique = <String, MilkPanModel>{};
+    for (final animal in animals) {
+      final panName = animal.panName.trim();
+      if (panName.isEmpty) continue;
+      final key = animal.panId > 0 ? 'id_${animal.panId}' : 'name_${panName.toLowerCase()}';
+      unique.putIfAbsent(
+        key,
+        () => MilkPanModel(id: animal.panId, name: panName),
+      );
+    }
+    final next = unique.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    pans.assignAll(next);
+    final current = selectedPan.value;
+    if (current != null && !next.any((pan) => pan.matches(current))) {
+      selectedPan.value = null;
+    }
+  }
 }
 
 class MilkAnimalModel {
@@ -283,8 +501,17 @@ class MilkAnimalModel {
   final String animalName;
   final String tagNumber;
   final String animalTypeName;
+  final int panId;
+  final String panName;
 
-  MilkAnimalModel({required this.id, required this.animalName, required this.tagNumber, required this.animalTypeName});
+  MilkAnimalModel({
+    required this.id,
+    required this.animalName,
+    required this.tagNumber,
+    required this.animalTypeName,
+    required this.panId,
+    required this.panName,
+  });
 
   String get displayName {
     final name = animalName.trim().isEmpty ? 'Unnamed Animal' : animalName;
@@ -292,13 +519,46 @@ class MilkAnimalModel {
     return '$name$tag';
   }
 
+  bool belongsToPan(MilkPanModel pan) {
+    if (panId > 0 && pan.id > 0) {
+      return panId == pan.id;
+    }
+    final animalPan = panName.trim().toLowerCase();
+    final selectedPan = pan.name.trim().toLowerCase();
+    if (animalPan.isEmpty || selectedPan.isEmpty) {
+      return false;
+    }
+    return animalPan == selectedPan;
+  }
+
   factory MilkAnimalModel.fromJson(Map<String, dynamic> json) {
+    final panFromFlat = json['pan_name']?.toString() ?? '';
+    final panFromNested = json['pan'] is Map
+        ? ((json['pan'] as Map)['name']?.toString() ?? '')
+        : '';
+
     return MilkAnimalModel(
       id: int.tryParse(json['id'].toString()) ?? 0,
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
       animalTypeName: json['animal_type_name']?.toString() ?? '',
+      panId: int.tryParse((json['pan_id'] ?? '').toString()) ?? 0,
+      panName: panFromFlat.trim().isNotEmpty ? panFromFlat : panFromNested,
     );
+  }
+}
+
+class MilkPanModel {
+  final int id;
+  final String name;
+
+  MilkPanModel({required this.id, required this.name});
+
+  bool matches(MilkPanModel other) {
+    if (id > 0 && other.id > 0) {
+      return id == other.id;
+    }
+    return name.trim().toLowerCase() == other.name.trim().toLowerCase();
   }
 }
 

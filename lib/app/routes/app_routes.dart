@@ -18,6 +18,7 @@ abstract class Routes {
   static const ANIMAL_HISTORY = _Paths.ANIMAL_HISTORY;
   static const MILK = _Paths.MILK;
   static const FEEDING = _Paths.FEEDING;
+  static const FEED_SETTINGS = _Paths.FEED_SETTINGS;
   static const HEALTH = _Paths.HEALTH;
   static const DOCTOR = _Paths.DOCTOR;
   static const SHOP = _Paths.SHOP;
@@ -43,6 +44,7 @@ abstract class _Paths {
   static const ANIMAL_HISTORY = '/animal-history';
   static const MILK = '/milk';
   static const FEEDING = '/feeding';
+  static const FEED_SETTINGS = '/feed-settings';
   static const HEALTH = '/health';
   static const DOCTOR = '/doctor';
   static const SHOP = '/shop';

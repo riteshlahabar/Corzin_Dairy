@@ -5,6 +5,9 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../routes/app_pages.dart';
+import '../../feeding/views/feeding_history_view.dart';
+import '../../milk/views/milk_history_view.dart';
 import '../controllers/animal_history_controller.dart';
 
 class AnimalHistoryView extends GetView<AnimalHistoryController> {
@@ -195,6 +198,24 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                                         _row('birth_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate),
                                         _row('gender'.tr, item.gender.isEmpty ? '-' : item.gender),
                                         _row('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg'),
+                                        const SizedBox(height: 2),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: () => _openViewAllHistorySheet(item),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: AppColors.primary,
+                                              textStyle: const TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              minimumSize: const Size(0, 30),
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: const Text('View All'),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   );
@@ -251,6 +272,118 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 12.5))),
         ],
+      ),
+    );
+  }
+
+  void _openViewAllHistorySheet(AnimalHistoryItem item) {
+    Get.bottomSheet(
+      SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                item.animalName.isEmpty ? 'Animal History' : '${item.animalName} History',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              _historyActionTile(
+                icon: Icons.pets_rounded,
+                title: 'Animal History',
+                subtitle: 'Current animal lifecycle details',
+                onTap: Get.back,
+              ),
+              _historyActionTile(
+                icon: Icons.local_drink_rounded,
+                title: 'Milk History',
+                subtitle: 'Open milk records page',
+                onTap: () {
+                  Get.back();
+                  Get.to(() => const MilkHistoryView());
+                },
+              ),
+              _historyActionTile(
+                icon: Icons.grass_rounded,
+                title: 'Feeding History',
+                subtitle: 'Open feeding records page',
+                onTap: () {
+                  Get.back();
+                  Get.to(() => const FeedingHistoryView());
+                },
+              ),
+              _historyActionTile(
+                icon: Icons.local_hospital_rounded,
+                title: 'Treatment History',
+                subtitle: 'Open doctor history tab',
+                onTap: () {
+                  Get.back();
+                  Get.toNamed(
+                    Routes.DOCTOR,
+                    arguments: {'initial_tab': 2},
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _historyActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.grey.shade700)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.black45),
+          ],
+        ),
       ),
     );
   }

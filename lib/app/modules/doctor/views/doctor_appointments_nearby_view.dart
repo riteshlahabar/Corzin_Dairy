@@ -22,12 +22,19 @@ class DoctorAppointmentsNearbyView extends StatefulWidget {
 class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyView> {
   late final DoctorController controller;
   late final HomeController homeController;
+  int _initialTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     controller = Get.find<DoctorController>();
     homeController = Get.find<HomeController>();
+    final args = Get.arguments;
+    if (args is Map) {
+      final raw = args['initial_tab'];
+      final parsed = raw is int ? raw : int.tryParse(raw?.toString() ?? '0') ?? 0;
+      _initialTabIndex = parsed.clamp(0, 2);
+    }
   }
 
   @override
@@ -109,6 +116,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
             Expanded(
               child: DefaultTabController(
                 length: 3,
+                initialIndex: _initialTabIndex,
                 child: Obx(() {
                   if (controller.isLoading.value) {
                     return const Center(child: CircularProgressIndicator());

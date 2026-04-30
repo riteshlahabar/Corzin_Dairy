@@ -19,6 +19,8 @@ import '../modules/farmer_details/bindings/farmer_details_binding.dart';
 import '../modules/farmer_details/views/farmer_details_view.dart';
 import '../modules/feeding/bindings/feeding_binding.dart';
 import '../modules/feeding/views/feeding_view.dart';
+import '../modules/feed_settings/bindings/feed_settings_binding.dart';
+import '../modules/feed_settings/views/feed_settings_view.dart';
 import '../modules/health/bindings/health_binding.dart';
 import '../modules/health/views/health_view.dart';
 import '../modules/home/bindings/home_binding.dart';
@@ -64,6 +66,7 @@ class AppPages {
     GetPage(name: _Paths.ANIMAL_HISTORY, page: () => const AnimalHistoryView(), binding: AnimalHistoryBinding()),
     GetPage(name: _Paths.MILK, page: () => const MilkView(), binding: MilkBinding()),
     GetPage(name: _Paths.FEEDING, page: () => const FeedingView(), binding: FeedingBinding()),
+    GetPage(name: _Paths.FEED_SETTINGS, page: () => const FeedSettingsView(), binding: FeedSettingsBinding()),
     GetPage(name: _Paths.HEALTH, page: () => const HealthView(), binding: HealthBinding()),
     GetPage(name: _Paths.DOCTOR, page: () => const DoctorAppointmentsNearbyView(), binding: DoctorBinding()),
     GetPage(name: _Paths.SHOP, page: () => const ShopView(), binding: ShopBinding()),

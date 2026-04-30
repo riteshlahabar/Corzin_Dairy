@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
+import '../../../routes/app_pages.dart';
 
 class DairyController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -26,6 +27,7 @@ class DairyController extends GetxController {
   final RxString searchQuery = ''.obs;
 
   int farmerId = 0;
+  bool openedFromMilkFlow = false;
 
   List<DairyModel> get filteredDairies {
     final query = searchQuery.value.trim().toLowerCase();
@@ -36,10 +38,18 @@ class DairyController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _readArguments();
     searchController.addListener(() {
       searchQuery.value = searchController.text;
     });
     initData();
+  }
+
+  void _readArguments() {
+    final args = Get.arguments;
+    if (args is Map) {
+      openedFromMilkFlow = args['opened_from_milk'] == true || args['from']?.toString() == 'milk';
+    }
   }
 
   Future<void> initData() async {
@@ -114,15 +124,30 @@ class DairyController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final successMessage = data['message']?.toString() ?? 'Dairy added successfully';
+        final createdDairyId = _extractCreatedDairyId(data);
         clearForm();
         await fetchDairies();
         if (Get.isBottomSheetOpen ?? false) {
           Get.back();
         }
-        Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? 'Dairy added successfully',
-        );
+
+        if (openedFromMilkFlow) {
+          if (Get.currentRoute == Routes.DAIRY) {
+            Get.back(result: {'dairy_added': true, 'dairy_id': createdDairyId});
+          } else {
+            Get.back(result: {'dairy_added': true, 'dairy_id': createdDairyId});
+          }
+          Future.delayed(const Duration(milliseconds: 120), () {
+            Get.snackbar('Success', successMessage);
+          });
+          return;
+        }
+
+        Get.offAllNamed(Routes.HOME);
+        Future.delayed(const Duration(milliseconds: 120), () {
+          Get.snackbar('Success', successMessage);
+        });
       } else {
         Get.snackbar(
           'Error',
@@ -134,6 +159,25 @@ class DairyController extends GetxController {
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  int? _extractCreatedDairyId(dynamic data) {
+    if (data is! Map) return null;
+
+    final direct = int.tryParse((data['id'] ?? '').toString());
+    if (direct != null && direct > 0) {
+      return direct;
+    }
+
+    final payload = data['data'];
+    if (payload is Map) {
+      final fromPayload = int.tryParse((payload['id'] ?? '').toString());
+      if (fromPayload != null && fromPayload > 0) {
+        return fromPayload;
+      }
+    }
+
+    return null;
   }
 
   void clearForm() {

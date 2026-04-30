@@ -98,6 +98,16 @@ class AnimalHistoryController extends GetxController {
     required String weight,
     XFile? imageFile,
   }) async {
+    final duplicateMessage = _duplicateAnimalValidationMessage(
+      currentAnimalId: item.id,
+      animalName: animalName,
+      tagNumber: tagNumber,
+    );
+    if (duplicateMessage != null) {
+      Get.snackbar('Validation Error', duplicateMessage);
+      return false;
+    }
+
     try {
       isSubmitting.value = true;
 
@@ -138,6 +148,33 @@ class AnimalHistoryController extends GetxController {
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  String? _duplicateAnimalValidationMessage({
+    required int currentAnimalId,
+    required String animalName,
+    required String tagNumber,
+  }) {
+    final normalizedName = animalName.trim().toLowerCase();
+    final normalizedTag = tagNumber.trim().toLowerCase();
+    if (normalizedName.isEmpty || normalizedTag.isEmpty) {
+      return null;
+    }
+
+    final others = history.where((item) => item.id != currentAnimalId);
+    final nameExists = others.any((item) => item.animalName.trim().toLowerCase() == normalizedName);
+    final tagExists = others.any((item) => item.tagNumber.trim().toLowerCase() == normalizedTag);
+
+    if (nameExists && tagExists) {
+      return 'Animal name and tag number already exist for this farmer.';
+    }
+    if (nameExists) {
+      return 'Animal name already exists for this farmer.';
+    }
+    if (tagExists) {
+      return 'Tag number already exists for this farmer.';
+    }
+    return null;
   }
 
   Future<bool> sellAnimal(AnimalHistoryItem item) async {

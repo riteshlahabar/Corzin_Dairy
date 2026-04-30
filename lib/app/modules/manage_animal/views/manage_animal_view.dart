@@ -352,11 +352,6 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
   }
 
   void _openManageSheet(ManageAnimalItem animal) {
-    final notesController = TextEditingController();
-    final selectedPan = Rxn<ManageAnimalType>(
-      _matchingPan(animal.animalTypeName),
-    );
-
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -398,7 +393,6 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 final ok = await controller.updateAnimalLifecycle(
                   animalId: animal.id,
                   action: 'active',
-                  notes: notesController.text,
                 );
                 if (ok) Get.back();
               }),
@@ -407,7 +401,6 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 final ok = await controller.updateAnimalLifecycle(
                   animalId: animal.id,
                   action: 'sold',
-                  notes: notesController.text,
                 );
                 if (ok) Get.back();
               }),
@@ -416,60 +409,15 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 final ok = await controller.updateAnimalLifecycle(
                   animalId: animal.id,
                   action: 'death',
-                  notes: notesController.text,
                 );
                 if (ok) Get.back();
               }),
-              const SizedBox(height: 16),
-              Text(
-                'move_to_another_pan'.tr,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 10),
-              Obx(
-                () => DropdownButtonFormField<ManageAnimalType>(
-                  initialValue: selectedPan.value,
-                  isExpanded: true,
-                  decoration: _sheetDecoration('select_pan'.tr),
-                  items: controller.animalTypes
-                      .map(
-                        (type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => selectedPan.value = value,
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: notesController,
-                minLines: 2,
-                maxLines: 3,
-                decoration: _sheetDecoration('optional_notes'.tr),
-              ),
-              const SizedBox(height: 10),
-              _sheetButton(
-                'move_animal_pan'.tr,
-                const Color(0xFF6A1B9A),
-                () async {
-                  if (selectedPan.value == null) return;
-                  final ok = await controller.updateAnimalLifecycle(
-                    animalId: animal.id,
-                    action: 'move_pan',
-                    animalTypeId: selectedPan.value!.id,
-                    notes: notesController.text,
-                  );
-                  if (ok) Get.back();
-                },
-              ),
             ],
           ),
         ),
       ),
       isScrollControlled: true,
-    ).whenComplete(notesController.dispose);
+    );
   }
 
   Widget _sheetButton(String label, Color color, VoidCallback onTap) {
@@ -506,32 +454,4 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     );
   }
 
-  InputDecoration _sheetDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: const Color(0xFFF8FBF8),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.primary),
-      ),
-    );
-  }
-
-  ManageAnimalType? _matchingPan(String currentPan) {
-    for (final type in controller.animalTypes) {
-      if (type.name.toLowerCase() == currentPan.toLowerCase()) {
-        return type;
-      }
-    }
-    return null;
-  }
 }
