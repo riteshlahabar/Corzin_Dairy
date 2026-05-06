@@ -43,11 +43,15 @@ class PaymentController extends GetxController {
             .map((item) => PaymentDairySummary.fromJson(Map<String, dynamic>.from(item)))
             .toList();
         payments.assignAll(items);
+        final seen = <int>{};
+        final options = <PaymentDairyOption>[];
+        for (final item in items) {
+          if (item.id <= 0) continue;
+          if (!seen.add(item.id)) continue;
+          options.add(PaymentDairyOption(id: item.id, dairyName: item.dairyName));
+        }
         dairyOptions.assignAll(
-          items
-              .map((item) => PaymentDairyOption(id: item.id, dairyName: item.dairyName))
-              .toList()
-            ..sort((a, b) => a.dairyName.toLowerCase().compareTo(b.dairyName.toLowerCase())),
+          options..sort((a, b) => a.dairyName.toLowerCase().compareTo(b.dairyName.toLowerCase())),
         );
       } else {
         payments.clear();
@@ -102,6 +106,13 @@ class PaymentController extends GetxController {
     return null;
   }
 
+  PaymentDairyOption? dairyOptionById(int dairyId) {
+    for (final item in dairyOptions) {
+      if (item.id == dairyId) return item;
+    }
+    return null;
+  }
+
   double previousBalanceForDairy(int dairyId) {
     final summary = summaryByDairyId(dairyId);
     if (summary == null || summary.history.isEmpty) {
@@ -112,15 +123,6 @@ class PaymentController extends GetxController {
       return latest.previousBalance;
     }
     return latest.balanceAmount;
-  }
-
-  double previewBalance({
-    required int dairyId,
-    required double totalAmount,
-    required double paidAmount,
-  }) {
-    final previous = previousBalanceForDairy(dairyId);
-    return (previous + totalAmount - paidAmount).clamp(-999999999.0, 999999999.0).toDouble();
   }
 
   String _todayDateIso() {
@@ -229,4 +231,3 @@ class PaymentDayEntry {
     return double.tryParse(value?.toString() ?? '0') ?? 0;
   }
 }
-
