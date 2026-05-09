@@ -47,7 +47,7 @@ class LocalNotificationService {
     await _plugin.show(
       message.hashCode,
       title?.isNotEmpty == true ? title : 'Notification',
-      body?.isNotEmpty == true ? body : 'You have a new update.',
+      body ?? '',
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'doctor_updates',
@@ -68,9 +68,12 @@ class LocalNotificationService {
     required int id,
   }) async {
     await initialise();
+    if (title.trim().isEmpty && body.trim().isEmpty) {
+      return;
+    }
     await _plugin.show(
       id,
-      title,
+      title.trim().isEmpty ? 'Notification' : title,
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(

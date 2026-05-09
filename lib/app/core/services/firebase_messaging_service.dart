@@ -42,8 +42,11 @@ class FirebaseMessagingService {
     required String body,
     String type = '',
   }) async {
+    final cleanBody = body.trim();
+    if (title.trim().isEmpty && cleanBody.isEmpty) {
+      return;
+    }
     final cleanTitle = title.trim().isEmpty ? 'Notification' : title.trim();
-    final cleanBody = body.trim().isEmpty ? 'You have a new update.' : body.trim();
 
     try {
       final prefs = await SharedPreferences.getInstance();

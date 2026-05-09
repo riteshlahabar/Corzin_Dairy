@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
@@ -43,6 +44,22 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     _field("first_name".tr, controller.firstName, icon: Icons.person_outline),
                     _field("middle_name".tr, controller.middleName, icon: Icons.person_outline),
                     _field("last_name".tr, controller.lastName, icon: Icons.person_outline),
+                    _field(
+                      "Doctor Referral Code (Optional)",
+                      controller.referralCode,
+                      icon: Icons.card_giftcard_outlined,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_-]')),
+                        LengthLimitingTextInputFormatter(40),
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          final upper = newValue.text.toUpperCase();
+                          return newValue.copyWith(
+                            text: upper,
+                            selection: TextSelection.collapsed(offset: upper.length),
+                          );
+                        }),
+                      ],
+                    ),
                     _sectionTitle("location".tr),
                     Obx(
                       () => _dropdownField(
@@ -136,12 +153,14 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
     TextEditingController controller, {
     required IconData icon,
     bool isNumber = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        inputFormatters: inputFormatters,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: label,

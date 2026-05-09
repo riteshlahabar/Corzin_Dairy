@@ -360,26 +360,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
   }
 
   Widget _animalCreateCard(VetAnimalModel animal) {
-    final latestRequest = controller.latestRequestForAnimal(animal.id);
-    final normalized = latestRequest?.status.toLowerCase() ?? '';
-    final isApprovedState = {
-      'accept',
-      'accepted',
-      'approved',
-      'farmer_approved',
-      'scheduled',
-      'in_progress',
-    }.contains(normalized);
-    final isPendingState = {
-      'pending',
-      'new',
-      'requested',
-      'proposed',
-      'awaiting_farmer_approval',
-      'awaiting_approval',
-    }.contains(normalized);
-    final hasStatusFlow = latestRequest != null && normalized != 'completed' && (isApprovedState || isPendingState);
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -457,22 +437,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   ),
                 ),
               ),
-              if (hasStatusFlow && isApprovedState) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 36,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openTrackingView(latestRequest),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    icon: const Icon(Icons.map_rounded, size: 16),
-                    label: const Text('Map', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
             ],
           ),
         ],
@@ -609,24 +573,246 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 ),
               ],
             ),
-          ] else if (isApprovedState && request.canTrackVisit) ...[
+          ] else ...[
             const SizedBox(height: 10),
-            SizedBox(
-              height: 34,
-              child: OutlinedButton.icon(
-                onPressed: () => _openTrackingView(request),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+            Row(
+              children: [
+                if (isApprovedState && request.canTrackVisit) ...[
+                  Expanded(
+                    child: SizedBox(
+                      height: 34,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _openTrackingView(request),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        icon: const Icon(Icons.map_rounded, size: 16),
+                        label: const Text('Map', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: SizedBox(
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: controller.isUpdatingRequestStatus.value
+                          ? null
+                          : () => _confirmCancelAppointment(request),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: const Color(0xFFC0392B).withValues(alpha: 0.5)),
+                        foregroundColor: const Color(0xFFC0392B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: const Text(
+                        'Cancel Appointment',
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
                 ),
-                icon: const Icon(Icons.map_rounded, size: 16),
-                label: const Text('Map', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
+              ],
             ),
           ],
         ],
       ),
+    );
+  }
+
+  void _confirmCancelAppointment(VetRequestModel request) {
+    final animalName = request.animalName.trim().isEmpty ? 'this animal' : request.animalName.trim();
+    final doctorName = request.doctorName.trim().isEmpty ? 'Doctor' : request.doctorName.trim();
+
+    Get.dialog<void>(
+      Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF102A16).withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 52,
+                    width: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F1),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.event_busy_rounded,
+                      color: Color(0xFFC0392B),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cancel Appointment?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1D2B1D),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'This will stop the request for every doctor.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.35,
+                            color: AppColors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7FAF7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE3ECE3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _cancelDialogInfoRow(Icons.pets_rounded, 'Animal', animalName),
+                    const SizedBox(height: 9),
+                    _cancelDialogInfoRow(Icons.local_hospital_rounded, 'Doctor', doctorName),
+                    const SizedBox(height: 9),
+                    _cancelDialogInfoRow(
+                      Icons.confirmation_number_rounded,
+                      'Appointment ID',
+                      request.displayAppointmentCode,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E8),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFE1A6)),
+                ),
+                child: const Text(
+                  'After cancellation, this appointment will no longer appear in your current list or any doctor app.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: Color(0xFF8A5A00),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 42,
+                      child: OutlinedButton(
+                        onPressed: Get.back,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF405040),
+                          side: const BorderSide(color: Color(0xFFDDE8DD)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: const Text(
+                          'Keep',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 42,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Get.back();
+                          controller.cancelAppointment(request: request);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: const Color(0xFFC0392B),
+                          foregroundColor: AppColors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: const Text(
+                          'Yes, Cancel',
+                          maxLines: 1,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  Widget _cancelDialogInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12.5, height: 1.25, color: Color(0xFF263326)),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                TextSpan(
+                  text: value.trim().isEmpty ? '-' : value.trim(),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

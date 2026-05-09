@@ -26,6 +26,7 @@ class FarmerDetailsController extends GetxController {
   final district = TextEditingController();
   final state = TextEditingController();
   final pincode = TextEditingController();
+  final referralCode = TextEditingController();
   final Rxn<XFile> selectedPhoto = Rxn<XFile>();
 
   final isLocationLoading = false.obs;
@@ -45,6 +46,7 @@ class FarmerDetailsController extends GetxController {
     if (Get.arguments != null) {
       lang = Get.arguments["lang"] ?? "en";
       mobile = Get.arguments["mobile"] ?? "";
+      referralCode.text = (Get.arguments["referral_code"] ?? "").toString().trim().toUpperCase();
     } else {
       lang = "en";
       mobile = "";
@@ -214,6 +216,7 @@ class FarmerDetailsController extends GetxController {
         "district": district.text.trim(),
         "state": state.text.trim(),
         "pincode": pincode.text.trim(),
+        "referral_code": referralCode.text.trim().toUpperCase(),
       });
       final imagePath = selectedPhoto.value!.path;
       final fileName = imagePath.split(Platform.pathSeparator).last;
@@ -336,6 +339,7 @@ class FarmerDetailsController extends GetxController {
     district.dispose();
     state.dispose();
     pincode.dispose();
+    referralCode.dispose();
     super.onClose();
   }
 }

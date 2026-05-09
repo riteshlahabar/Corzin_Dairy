@@ -331,6 +331,30 @@ class DoctorController extends GetxController {
     }
   }
 
+  Future<void> cancelAppointment({
+    required VetRequestModel request,
+  }) async {
+    try {
+      isUpdatingRequestStatus.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.doctorAppointments}/${request.id}/farmer-approval'),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode({'status': 'cancelled'}),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+        await fetchFarmerRequests();
+        Get.snackbar('Success', data['message']?.toString() ?? 'Appointment cancelled.');
+      } else {
+        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to cancel appointment.');
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    } finally {
+      isUpdatingRequestStatus.value = false;
+    }
+  }
+
   Future<void> cancelFollowup({
     required VetRequestModel request,
   }) async {

@@ -531,10 +531,13 @@ class HomeController extends GetxController {
     final body = _resolveNotificationBody(message);
     final finalTitle = title?.isNotEmpty == true
         ? title!
-        : (message.data['event']?.toString().trim().isNotEmpty == true
-            ? message.data['event']!.toString().trim()
-            : 'Notification');
-    final finalBody = body?.isNotEmpty == true ? body! : 'You have a new update.';
+        : (body?.isNotEmpty == true ? 'Notification' : '');
+    final finalBody = body?.isNotEmpty == true ? body! : '';
+    if (finalTitle.trim().isEmpty && finalBody.trim().isEmpty) {
+      refreshDashboard();
+      return;
+    }
+
     LocalNotificationService.instance.showMessage(
       title: finalTitle,
       body: finalBody,
@@ -649,6 +652,7 @@ class HomeController extends GetxController {
         parseRaw(prefs.getString(_globalNotificationKey));
       }
 
+      combined.removeWhere((item) => _isPlaceholderNotification(item.title, item.body));
       if (combined.isEmpty) {
         notificationHistory.clear();
         return;
@@ -692,6 +696,15 @@ class HomeController extends GetxController {
     }
     return _globalNotificationKey;
   }
+
+  bool _isPlaceholderNotification(String title, String body) {
+    final normalizedTitle = title.trim().toLowerCase();
+    final normalizedBody = body.trim().toLowerCase();
+    return normalizedTitle == 'notification' &&
+        normalizedBody.contains('you have') &&
+        normalizedBody.contains('new update');
+  }
+
   Map<String, dynamic> _decodeBody(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);

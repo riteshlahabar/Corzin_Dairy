@@ -19,20 +19,22 @@ Future<void> _farmerFirebaseBackgroundHandler(RemoteMessage message) async {
           ? message.data['title']!.toString().trim()
           : (message.data['event']?.toString().trim().isNotEmpty == true
               ? message.data['event']!.toString().trim()
-              : 'Notification'));
+              : ''));
   final body = message.notification?.body?.trim().isNotEmpty == true
       ? message.notification!.body!.trim()
       : (message.data['body']?.toString().trim().isNotEmpty == true
           ? message.data['body']!.toString().trim()
           : (message.data['message']?.toString().trim().isNotEmpty == true
               ? message.data['message']!.toString().trim()
-              : 'You have a new update.'));
+              : ''));
 
-  await FirebaseMessagingService.persistGlobalNotification(
-    title: title,
-    body: body,
-    type: message.data['type']?.toString() ?? '',
-  );
+  if (title.isNotEmpty || body.isNotEmpty) {
+    await FirebaseMessagingService.persistGlobalNotification(
+      title: title,
+      body: body,
+      type: message.data['type']?.toString() ?? '',
+    );
+  }
 }
 
 void main() async {

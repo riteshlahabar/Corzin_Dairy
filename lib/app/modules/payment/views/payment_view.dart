@@ -119,7 +119,7 @@ class PaymentView extends GetView<PaymentController> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -793,7 +793,7 @@ class PaymentView extends GetView<PaymentController> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.20),
+        color: Colors.white.withValues(alpha: 0.20),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
