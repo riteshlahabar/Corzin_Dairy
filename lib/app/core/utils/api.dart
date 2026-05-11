@@ -9,12 +9,14 @@ class Api {
   static const String updateFarmer = "$baseUrl/farmer/update";
   static const String farmerFcmToken = "$baseUrl/farmer/fcm-token";
   static const String farmerLocation = "$baseUrl/farmer/location";
+  static const String farmerSettings = "$baseUrl/farmer/settings";
   static const String farmerList = "$baseUrl/farmer";
 
   static const String addAnimal = "$baseUrl/animal/store";
   static const String animalList = "$baseUrl/animal/list";
   static const String animalUpdate = "$baseUrl/animal/update";
   static const String animalSell = "$baseUrl/animal/sell";
+  static const String animalsForSale = "$baseUrl/animal/for-sale";
   static const String animalTypes = "$baseUrl/animal/types";
   static const String animalLifecycle = "$baseUrl/animal/lifecycle";
   static const String animalHistory = "$baseUrl/animal/history";
@@ -40,7 +42,6 @@ class Api {
   static const String healthMastitis = "$baseUrl/health/mastitis";
   static const String healthDmi = "$baseUrl/health/dmi";
 
-  static const String reproductive = "$baseUrl/reproductive";
 
   static const String addDairy = "$baseUrl/dairy";
   static const String dairyList = "$baseUrl/dairy/list";

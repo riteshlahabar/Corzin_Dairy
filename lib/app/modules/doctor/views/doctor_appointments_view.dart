@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/doctor_controller.dart';
 
 class DoctorAppointmentsView extends GetView<DoctorController> {
@@ -12,20 +13,28 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
     return Material(
       color: const Color(0xFFF7FAF7),
       child: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Column(
           children: [
             Builder(
-              builder: (context) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              builder: (context) => Container(
+                width: double.infinity,
+                color: AppColors.primary,
+                padding: EdgeInsets.fromLTRB(4, MediaQuery.of(context).padding.top + 4, 8, 6),
                 child: Row(
                   children: [
+                    IconButton(
+                      onPressed: _goHome,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      color: Colors.white,
+                    ),
                     Expanded(
                       child: Text(
                         'doctor'.tr,
                         style: const TextStyle(
-                          fontSize: 21,
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -33,10 +42,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
                       icon: const Icon(Icons.menu_rounded),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.white,
-                        foregroundColor: AppColors.black,
-                      ),
+                      color: Colors.white,
                     ),
                   ],
                 ),
@@ -49,7 +55,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                     : RefreshIndicator(
                         onRefresh: controller.initData,
                         child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                           children: [
                             _sectionTitle('Animals'),
                             const SizedBox(height: 10),
@@ -79,6 +85,14 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
         ),
       ),
     );
+  }
+
+  void _goHome() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().changeTab(0);
+      return;
+    }
+    Get.back();
   }
 
   Widget _sectionTitle(String text) {

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
@@ -37,6 +38,7 @@ class FarmerDetailsController extends GetxController {
   int _districtRequestToken = 0;
 
   final ImagePicker _picker = ImagePicker();
+  final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
 
   @override
   void onInit() {
@@ -191,8 +193,29 @@ class FarmerDetailsController extends GetxController {
   }
 
   void submit() async {
-    if (firstName.text.isEmpty) {
+    if (firstName.text.trim().isEmpty) {
       Get.snackbar("Error", "Enter First Name");
+      return;
+    }
+    if (state.text.trim().isEmpty) {
+      Get.snackbar("Error", "Select State");
+      return;
+    }
+    if (district.text.trim().isEmpty) {
+      Get.snackbar("Error", "Select District");
+      return;
+    }
+    if (taluka.text.trim().isEmpty) {
+      Get.snackbar("Error", "Select Taluka/Subdistrict/City");
+      return;
+    }
+    if (village.text.trim().isEmpty) {
+      Get.snackbar("Error", "Enter Address/Village");
+      return;
+    }
+    final pin = pincode.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+      Get.snackbar("Error", "Enter valid 6 digit pincode");
       return;
     }
     if (selectedPhoto.value == null) {
@@ -201,6 +224,8 @@ class FarmerDetailsController extends GetxController {
     }
 
     try {
+      final deviceId = await SessionService.getOrCreateDeviceId();
+      final fcmToken = await _loadFcmToken();
       final request = http.MultipartRequest("POST", Uri.parse(Api.addFarmer));
       request.headers.addAll({
         "Accept": "application/json",
@@ -217,6 +242,9 @@ class FarmerDetailsController extends GetxController {
         "state": state.text.trim(),
         "pincode": pincode.text.trim(),
         "referral_code": referralCode.text.trim().toUpperCase(),
+        "device_id": deviceId,
+        "fcm_token": fcmToken,
+        "start_session": "1",
       });
       final imagePath = selectedPhoto.value!.path;
       final fileName = imagePath.split(Platform.pathSeparator).last;
@@ -244,6 +272,7 @@ class FarmerDetailsController extends GetxController {
         await prefs.setInt('farmer_id', farmerId);
 
         await SessionService.saveFarmerId(farmerId);
+        await SessionService.saveActiveSessionToken(data['session_token']?.toString() ?? '');
         await SessionService.setRegistered(true);
         await SessionService.setLoggedIn(true);
         await SessionService.setSeenOnboarding(true);
@@ -271,6 +300,14 @@ class FarmerDetailsController extends GetxController {
       }
     } catch (_) {
       Get.snackbar("Error", "Something went wrong");
+    }
+  }
+
+  Future<String> _loadFcmToken() async {
+    try {
+      return (await _firebaseMessagingService.initialise())?.trim() ?? "";
+    } catch (_) {
+      return "";
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/feeding_controller.dart';
 
 class FeedingView extends GetView<FeedingController> {
@@ -15,14 +16,14 @@ class FeedingView extends GetView<FeedingController> {
         () => controller.isPageLoading.value
             ? const Center(child: CircularProgressIndicator())
             : SafeArea(
-                top: true,
+                top: false,
                 bottom: false,
                 child: Column(
                   children: [
-                    _header(),
+                    _header(context),
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                         child: Form(
                           key: controller.formKey,
                           child: Column(
@@ -44,26 +45,32 @@ class FeedingView extends GetView<FeedingController> {
     );
   }
 
-  Widget _header() => Padding(
-    padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
+  Widget _header(BuildContext context) => Container(
+    width: double.infinity,
+    color: AppColors.primary,
+    padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
     child: Row(
       children: [
         IconButton(
-          onPressed: Get.back,
+          onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.white,
-            foregroundColor: AppColors.black,
-          ),
+          color: Colors.white,
         ),
         const SizedBox(width: 8),
         Text(
           'add_feeding'.tr,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
         ),
       ],
     ),
   );
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
 
   Widget _hero() => Container(
     width: double.infinity,
@@ -119,6 +126,7 @@ class FeedingView extends GetView<FeedingController> {
           () => DropdownButtonFormField<FeedingAnimalModel>(
             initialValue: controller.selectedAnimal.value,
             isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
             decoration: _decoration('choose_animal'.tr),
             items: controller.animals
                 .map(
@@ -128,12 +136,7 @@ class FeedingView extends GetView<FeedingController> {
                   ),
                 )
                 .toList(),
-            onChanged: (value) {
-              controller.selectedAnimal.value = value;
-              if (value != null) {
-                controller.selectedPan.value = null;
-              }
-            },
+            onChanged: controller.selectAnimal,
             validator: (value) {
               if (value == null && controller.selectedPan.value == null) {
                 return 'select_animal_error'.tr;
@@ -149,7 +152,8 @@ class FeedingView extends GetView<FeedingController> {
           () => DropdownButtonFormField<FeedingPanModel>(
             initialValue: controller.selectedPan.value,
             isExpanded: true,
-            decoration: _decoration('Choose PAN'),
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('Select PAN'),
             items: controller.pans
                 .map(
                   (pan) => DropdownMenuItem(
@@ -160,12 +164,7 @@ class FeedingView extends GetView<FeedingController> {
                 .toList(),
             onChanged: controller.pans.isEmpty
                 ? null
-                : (value) {
-                    controller.selectedPan.value = value;
-                    if (value != null) {
-                      controller.selectedAnimal.value = null;
-                    }
-                  },
+                : controller.selectPan,
           ),
         ),
         const SizedBox(height: 12),
@@ -174,7 +173,9 @@ class FeedingView extends GetView<FeedingController> {
         Obx(
           () => DropdownButtonFormField<FeedTypeModel>(
             initialValue: controller.selectedFeedType.value,
+            hint: Text('select_feed_type'.tr),
             isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
             decoration: _decoration('select_feed_type'.tr),
             items: controller.feedTypes
                 .map(
@@ -326,6 +327,7 @@ class FeedingView extends GetView<FeedingController> {
                   TextFormField(
                     controller: controller.dateController,
                     readOnly: true,
+                    onTap: controller.pickDate,
                     decoration: _decoration('select_date'.tr),
                     validator: (value) =>
                         value == null || value.isEmpty ? 'select_date_error'.tr : null,
@@ -341,10 +343,31 @@ class FeedingView extends GetView<FeedingController> {
                   _label('Feeding Time', requiredField: true),
                   const SizedBox(height: 6),
                   Obx(
-                    () => TextFormField(
-                      initialValue: controller.selectedFeedingTime.value,
-                      readOnly: true,
-                      decoration: _decoration('Select feeding time'),
+                    () => DropdownButtonFormField<String>(
+                      initialValue: controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value)
+                          ? controller.selectedFeedingTime.value
+                          : null,
+                      isExpanded: true,
+                      dropdownColor: const Color(0xFFF4FAF4),
+                      decoration: _decoration(
+                        controller.availableFeedingTimes.isEmpty
+                            ? 'No time left'
+                            : 'Select feeding time',
+                      ),
+                      items: controller.availableFeedingTimes
+                          .map(
+                            (time) => DropdownMenuItem<String>(
+                              value: time,
+                              child: Text(time, overflow: TextOverflow.ellipsis),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: controller.availableFeedingTimes.isEmpty
+                          ? null
+                          : (value) => controller.selectedFeedingTime.value = value ?? '',
+                      validator: (value) => value == null || value.trim().isEmpty
+                          ? 'No feeding time available for this date'
+                          : null,
                     ),
                   ),
                 ],
@@ -373,6 +396,7 @@ class FeedingView extends GetView<FeedingController> {
             controller.isSubmitting.value ||
                 controller.isScheduleLoading.value ||
                 controller.animals.isEmpty ||
+                controller.availableFeedingTimes.isEmpty ||
                 controller.feedTypes.isEmpty
             ? null
             : controller.submitFeeding,

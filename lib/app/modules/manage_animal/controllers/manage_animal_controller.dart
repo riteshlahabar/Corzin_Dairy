@@ -135,6 +135,43 @@ class ManageAnimalController extends GetxController {
     }
   }
 
+  Future<bool> sellAnimal(ManageAnimalItem item) async {
+    if (farmerId == 0) {
+      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      return false;
+    }
+
+    try {
+      isSubmitting.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.animalSell}/${item.id}'),
+        headers: {'Accept': 'application/json'},
+        body: {'farmer_id': farmerId.toString()},
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+        await fetchAnimals();
+        Get.snackbar(
+          'Success',
+          data['message']?.toString() ?? '${item.animalName.isEmpty ? 'Animal' : item.animalName} listed for sale',
+        );
+        return true;
+      }
+
+      Get.snackbar(
+        'Error',
+        data['message']?.toString() ?? 'Failed to list animal for sale',
+      );
+      return false;
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
   @override
   void onClose() {
     searchController.dispose();
@@ -154,6 +191,7 @@ class ManageAnimalItem {
   final String birthDate;
   final String weight;
   final String image;
+  final bool isForSale;
 
   ManageAnimalItem({
     required this.id,
@@ -167,6 +205,7 @@ class ManageAnimalItem {
     required this.birthDate,
     required this.weight,
     required this.image,
+    required this.isForSale,
   });
 
   String get searchText => [
@@ -193,6 +232,7 @@ class ManageAnimalItem {
       birthDate: json['birth_date']?.toString() ?? '',
       weight: json['weight']?.toString() ?? '',
       image: json['image']?.toString() ?? '',
+      isForSale: json['is_for_sale'] == true || json['is_for_sale']?.toString() == '1',
     );
   }
 }

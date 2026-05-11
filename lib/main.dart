@@ -7,12 +7,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/core/services/firebase_messaging_service.dart';
 import 'app/core/services/local_notification_service.dart';
+import 'app/core/services/session_service.dart';
 import 'app/core/translations/translations.dart';
 import 'app/routes/app_pages.dart';
 
 @pragma('vm:entry-point')
 Future<void> _farmerFirebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  final type = message.data['type']?.toString().toLowerCase().trim() ?? '';
+  final event = message.data['event']?.toString().toLowerCase().trim() ?? '';
+  if (type == 'force_logout' || event == 'force_logout') {
+    await SessionService.forceLogoutFromAnotherDevice();
+    return;
+  }
+
   final title = message.notification?.title?.trim().isNotEmpty == true
       ? message.notification!.title!.trim()
       : (message.data['title']?.toString().trim().isNotEmpty == true

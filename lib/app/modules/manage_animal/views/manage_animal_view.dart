@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/manage_animal_controller.dart';
 
 class ManageAnimalView extends GetView<ManageAnimalController> {
@@ -12,29 +13,29 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       body: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+            Container(
+              width: double.infinity,
+              color: AppColors.primary,
+              padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: Get.back,
+                    onPressed: _goBack,
                     icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.black,
-                    ),
+                    color: Colors.white,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'manage_animal'.tr,
-                      style: TextStyle(
-                        fontSize: 20,
+                      style: const TextStyle(
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -42,7 +43,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               child: TextField(
                 controller: controller.searchController,
                 decoration: InputDecoration(
@@ -260,6 +261,13 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     );
   }
 
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
+
   Widget _filterChip(String value, String label) {
     final isSelected = controller.selectedFilter.value == value;
     return Padding(
@@ -389,13 +397,20 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 style: TextStyle(fontSize: 13, color: AppColors.grey.shade700),
               ),
               const SizedBox(height: 18),
+              _sheetButton(
+                animal.isForSale ? 'Already Selling' : 'Sell ${animal.animalName.isEmpty ? 'Animal' : animal.animalName}',
+                const Color(0xFFB25E00),
+                animal.isForSale ? null : () => _confirmSellAnimal(animal),
+                icon: Icons.storefront_rounded,
+              ),
+              const SizedBox(height: 10),
               _sheetButton('mark_active'.tr, AppColors.primary, () async {
                 final ok = await controller.updateAnimalLifecycle(
                   animalId: animal.id,
                   action: 'active',
                 );
                 if (ok) Get.back();
-              }),
+              }, icon: Icons.check_circle_rounded),
               const SizedBox(height: 10),
               _sheetButton('mark_sold'.tr, const Color(0xFF1976D2), () async {
                 final ok = await controller.updateAnimalLifecycle(
@@ -403,7 +418,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                   action: 'sold',
                 );
                 if (ok) Get.back();
-              }),
+              }, icon: Icons.verified_rounded),
               const SizedBox(height: 10),
               _sheetButton('record_death'.tr, Colors.red.shade600, () async {
                 final ok = await controller.updateAnimalLifecycle(
@@ -411,7 +426,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                   action: 'death',
                 );
                 if (ok) Get.back();
-              }),
+              }, icon: Icons.warning_amber_rounded),
             ],
           ),
         ),
@@ -420,13 +435,105 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     );
   }
 
-  Widget _sheetButton(String label, Color color, VoidCallback onTap) {
+  void _confirmSellAnimal(ManageAnimalItem animal) {
+    final animalName = animal.animalName.isEmpty ? 'this animal' : animal.animalName;
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 54,
+                width: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB25E00).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.storefront_rounded, color: Color(0xFFB25E00), size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Confirm Sale',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Are you sure you want to sell $animalName?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: Get.back,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.black,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Obx(
+                      () => ElevatedButton(
+                        onPressed: controller.isSubmitting.value
+                            ? null
+                            : () async {
+                                final ok = await controller.sellAnimal(animal);
+                                Get.back();
+                                if (ok) Get.back();
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB25E00),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: controller.isSubmitting.value
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                              )
+                            : const Text('Sell'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetButton(String label, Color color, VoidCallback? onTap, {required IconData icon}) {
     return Obx(
       () => SizedBox(
         width: double.infinity,
         height: 48,
         child: ElevatedButton(
-          onPressed: controller.isSubmitting.value ? null : onTap,
+          onPressed: controller.isSubmitting.value || onTap == null ? null : onTap,
           style: ElevatedButton.styleFrom(
             backgroundColor: color,
             shape: RoundedRectangleBorder(
@@ -442,12 +549,23 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                     color: Colors.white,
                   ),
                 )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
         ),
       ),

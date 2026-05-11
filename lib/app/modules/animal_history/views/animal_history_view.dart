@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
 import '../../feeding/views/feeding_history_view.dart';
 import '../../milk/views/milk_history_view.dart';
@@ -18,39 +19,41 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       body: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+            Container(
+              width: double.infinity,
+              color: AppColors.primary,
+              padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => Get.back(),
+                    onPressed: _goBack,
                     icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.black,
-                    ),
+                    color: Colors.white,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'animal_history'.tr,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                      'Animal List',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               child: TextField(
                 controller: controller.searchController,
                 decoration: InputDecoration(
                   hintText: 'search_animal_tag_action'.tr,
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 38),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -94,131 +97,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                                 itemCount: controller.filteredHistory.length,
                                 itemBuilder: (context, index) {
                                   final item = controller.filteredHistory[index];
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 14),
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(22),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.04),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            _animalImage(item.image),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    item.animalName.isEmpty ? '-' : item.animalName,
-                                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}',
-                                                    style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    item.animalTypeName.isEmpty ? '-' : item.animalTypeName,
-                                                    style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  onPressed: () => _openEditSheet(item),
-                                                  icon: const Icon(Icons.edit_rounded),
-                                                  tooltip: 'Edit',
-                                                  color: AppColors.primary,
-                                                ),
-                                                const SizedBox(height: 2),
-                                                item.isForSale
-                                                    ? Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                          vertical: 5,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.orange.withValues(alpha: 0.14),
-                                                          borderRadius: BorderRadius.circular(99),
-                                                        ),
-                                                        child: const Text(
-                                                          'Selling',
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: Color(0xFFB25E00),
-                                                          ),
-                                                        ),
-                                                      )
-                                                    : SizedBox(
-                                                        height: 30,
-                                                        child: ElevatedButton(
-                                                          onPressed: controller.isSubmitting.value
-                                                              ? null
-                                                              : () => controller.sellAnimal(item),
-                                                          style: ElevatedButton.styleFrom(
-                                                            backgroundColor: AppColors.primary,
-                                                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                            shape: RoundedRectangleBorder(
-                                                              borderRadius: BorderRadius.circular(10),
-                                                            ),
-                                                            elevation: 0,
-                                                          ),
-                                                          child: const Text(
-                                                            'Sell',
-                                                            style: TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 11.5,
-                                                              fontWeight: FontWeight.w700,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _row('birth_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate),
-                                        _row('gender'.tr, item.gender.isEmpty ? '-' : item.gender),
-                                        _row('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg'),
-                                        const SizedBox(height: 2),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: TextButton(
-                                            onPressed: () => _openViewAllHistorySheet(item),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: AppColors.primary,
-                                              textStyle: const TextStyle(
-                                                fontSize: 12.5,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              minimumSize: const Size(0, 30),
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            ),
-                                            child: const Text('View All'),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
+                                  return _animalCard(item);
                                 },
                               ),
                       ),
@@ -226,6 +105,249 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
+
+  Widget _animalCard(AnimalHistoryItem item) {
+    final statusText = item.isForSale
+        ? 'Selling'
+        : (item.isActive ? item.lifecycleStatus.capitalizeFirst ?? 'Active' : 'Inactive');
+    final statusColor = item.isForSale
+        ? const Color(0xFFB25E00)
+        : (item.isActive ? AppColors.primary : Colors.redAccent);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _animalImage(item.image),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.animalName.isEmpty ? '-' : item.animalName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _statusPill(statusText, statusColor),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _miniChip(Icons.confirmation_number_outlined, item.uniqueId.isEmpty ? '-' : item.uniqueId),
+                        _miniChip(Icons.sell_outlined, '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}'),
+                        _miniChip(Icons.category_outlined, item.animalTypeName.isEmpty ? '-' : item.animalTypeName),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _detailTile('PAN', item.panName.isEmpty ? '-' : item.panName, Icons.grid_view_rounded),
+              _detailTile('Gender', item.gender.isEmpty ? '-' : item.gender, Icons.female_rounded),
+              _detailTile('Birth/Purchase', item.birthDate.isEmpty ? '-' : item.birthDate, Icons.event_rounded),
+              _detailTile('Age', item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
+              _detailTile('Weight', item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
+              _detailTile('Breed', item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
+              _detailTile('Lactation', item.lactationNumber.isEmpty ? '-' : item.lactationNumber, Icons.local_drink_rounded),
+              _detailTile('AI Date', item.aiDate.isEmpty ? '-' : item.aiDate, Icons.calendar_month_rounded),
+              _detailTile('Mother', item.motherLabel.isEmpty ? '-' : item.motherLabel, Icons.family_restroom_rounded),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _actionButton(
+                  label: 'View All',
+                  icon: Icons.visibility_rounded,
+                  onTap: () => _openViewAllHistorySheet(item),
+                  filled: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _squareActionButton(
+                icon: Icons.edit_rounded,
+                color: AppColors.primary,
+                onTap: () => _openEditSheet(item),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F7F1),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: AppColors.primary),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.black),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusPill(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+      ),
+    );
+  }
+
+  Widget _detailTile(String label, String value, IconData icon) {
+    return Container(
+      width: 145,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBF8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool filled = false,
+    Color color = AppColors.primary,
+  }) {
+    return SizedBox(
+      height: 40,
+      child: filled
+          ? ElevatedButton.icon(
+              onPressed: onTap,
+              icon: Icon(icon, size: 16, color: Colors.white),
+              label: Text(label),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: onTap,
+              icon: Icon(icon, size: 16),
+              label: Text(label),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: color,
+                side: BorderSide(color: color.withValues(alpha: 0.35)),
+                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+              ),
+            ),
+    );
+  }
+
+  Widget _squareActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        height: 40,
+        width: 42,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Icon(icon, color: color, size: 18),
       ),
     );
   }
@@ -251,28 +373,6 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
     return Container(
       color: AppColors.primary.withValues(alpha: 0.08),
       child: const Icon(Icons.pets_rounded, color: AppColors.primary, size: 30),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: AppColors.grey.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12.5))),
-        ],
-      ),
     );
   }
 

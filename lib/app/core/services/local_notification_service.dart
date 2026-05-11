@@ -89,6 +89,16 @@ class LocalNotificationService {
     );
   }
 
+  Future<void> cancel(int id) async {
+    await initialise();
+    await _plugin.cancel(id);
+  }
+
+  Future<void> cancelAll() async {
+    await initialise();
+    await _plugin.cancelAll();
+  }
+
   String? _resolveTitle(RemoteMessage message) {
     final notificationTitle = message.notification?.title?.trim();
     if (notificationTitle != null && notificationTitle.isNotEmpty) return notificationTitle;

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
 
 class FeedingController extends GetxController {
@@ -27,6 +28,7 @@ class FeedingController extends GetxController {
   final Rxn<FeedTypeModel> selectedFeedType = Rxn<FeedTypeModel>();
   final RxString selectedUnit = 'Kg'.obs;
   final RxString selectedFeedingTime = 'Morning'.obs;
+  final RxList<String> availableFeedingTimes = <String>['Morning'].obs;
   final RxDouble packageQuantity = 0.0.obs;
   final RxDouble totalSubtypeQuantity = 0.0.obs;
   final RxDouble balanceQuantity = 0.0.obs;
@@ -35,6 +37,8 @@ class FeedingController extends GetxController {
   final Map<int, TextEditingController> subtypeQuantityControllers = {};
 
   int farmerId = 0;
+  List<Map<String, dynamic>> _feedingRows = <Map<String, dynamic>>[];
+  static const List<String> _allFeedingTimes = <String>['Morning', 'Afternoon', 'Evening'];
 
   @override
   void onInit() {
@@ -72,15 +76,18 @@ class FeedingController extends GetxController {
           list.map((item) => FeedingAnimalModel.fromJson(item)).toList(),
         );
         _rebuildPansFromAnimals();
+        updateAvailableFeedingTimes();
       } else {
         animals.clear();
         pans.clear();
         selectedPan.value = null;
+        updateAvailableFeedingTimes();
       }
     } catch (_) {
       animals.clear();
       pans.clear();
       selectedPan.value = null;
+      updateAvailableFeedingTimes();
     } finally {
       isPageLoading.value = false;
     }
@@ -101,10 +108,11 @@ class FeedingController extends GetxController {
         feedTypes.assignAll(
           list.map((item) => FeedTypeModel.fromJson(item)).toList(),
         );
-        if (feedTypes.isNotEmpty) {
-          onFeedTypeChanged(selectedFeedType.value ?? feedTypes.first);
+        if (selectedFeedType.value != null &&
+            feedTypes.any((type) => type.id == selectedFeedType.value!.id)) {
+          onFeedTypeChanged(selectedFeedType.value);
         } else {
-          _clearSubtypeInputs();
+          onFeedTypeChanged(null);
         }
       } else {
         feedTypes.clear();
@@ -117,7 +125,58 @@ class FeedingController extends GetxController {
   }
 
   Future<void> pickDate() async {
-    // Feeding date and time are automatically managed in sequence.
+    final today = DateTime.now();
+    final current = _selectedFeedingDate() ?? today;
+    final initialDate = current.isAfter(today) ? today : current;
+    final picked = await showDatePicker(
+      context: Get.context!,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: today,
+      helpText: 'Select feeding date',
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        const softGreen = Color(0xFFF4FAF4);
+
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF95BE95),
+              onPrimary: AppColors.black,
+              surface: softGreen,
+              onSurface: AppColors.black,
+            ),
+            dialogTheme: theme.dialogTheme.copyWith(backgroundColor: softGreen),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: softGreen,
+              headerBackgroundColor: const Color(0xFFDDEEDC),
+              headerForegroundColor: AppColors.black,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked == null) return;
+
+    dateController.text = DateFormat('dd/MM/yyyy').format(picked);
+    updateAvailableFeedingTimes();
+  }
+
+  void selectAnimal(FeedingAnimalModel? value) {
+    selectedAnimal.value = value;
+    if (value != null) {
+      selectedPan.value = null;
+    }
+    updateAvailableFeedingTimes();
+  }
+
+  void selectPan(FeedingPanModel? value) {
+    selectedPan.value = value;
+    if (value != null) {
+      selectedAnimal.value = null;
+    }
+    updateAvailableFeedingTimes();
   }
 
   Future<void> submitFeeding() async {
@@ -128,6 +187,10 @@ class FeedingController extends GetxController {
     }
     if (selectedFeedType.value == null) {
       Get.snackbar('Error', 'Please select feed type');
+      return;
+    }
+    if (selectedFeedingTime.value.trim().isEmpty || !availableFeedingTimes.contains(selectedFeedingTime.value)) {
+      Get.snackbar('Info', 'No feeding time is available for selected date.');
       return;
     }
 
@@ -380,66 +443,84 @@ class FeedingController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode != 200 || data['status'] != true) {
-        _setDefaultSchedule();
+        _feedingRows = <Map<String, dynamic>>[];
+        updateAvailableFeedingTimes();
         return;
       }
 
       final List list = data['data'] ?? [];
-      if (list.isEmpty) {
-        _setDefaultSchedule();
-        return;
-      }
-
-      final rows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
-      final latestDate = _latestRecordedDate(rows);
-      if (latestDate == null) {
-        _setDefaultSchedule();
-        return;
-      }
-
-      final sameDateRows = rows.where((row) => _isSameDate(_parseApiDate(row['date']), latestDate)).toList();
-      final morningDone = sameDateRows.any((row) => (row['feeding_time'] ?? '').toString().trim().toLowerCase() == 'morning');
-      final afternoonDone = sameDateRows.any((row) => (row['feeding_time'] ?? '').toString().trim().toLowerCase() == 'afternoon');
-      final eveningDone = sameDateRows.any((row) => (row['feeding_time'] ?? '').toString().trim().toLowerCase() == 'evening');
-
-      DateTime targetDate = latestDate;
-      String targetShift = 'Morning';
-
-      if (!morningDone) {
-        targetShift = 'Morning';
-      } else if (!afternoonDone) {
-        targetShift = 'Afternoon';
-      } else if (!eveningDone) {
-        targetShift = 'Evening';
-      } else {
-        targetDate = latestDate.add(const Duration(days: 1));
-        targetShift = 'Morning';
-      }
-
-      dateController.text = DateFormat('dd/MM/yyyy').format(targetDate);
-      selectedFeedingTime.value = targetShift;
+      _feedingRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      updateAvailableFeedingTimes();
     } catch (_) {
-      _setDefaultSchedule();
+      _feedingRows = <Map<String, dynamic>>[];
+      updateAvailableFeedingTimes();
     } finally {
       isScheduleLoading.value = false;
     }
   }
 
-  void _setDefaultSchedule() {
-    dateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
-    selectedFeedingTime.value = 'Morning';
-  }
+  void updateAvailableFeedingTimes() {
+    final date = _selectedFeedingDate() ?? DateTime.now();
+    final rows = _rowsForSelectedTarget(date);
+    final done = <String, bool>{
+      'Morning': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Morning')),
+      'Afternoon': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Afternoon')),
+      'Evening': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Evening')),
+    };
 
-  DateTime? _latestRecordedDate(List<Map<String, dynamic>> rows) {
-    DateTime? latest;
-    for (final row in rows) {
-      final parsed = _parseApiDate(row['date']);
-      if (parsed == null) continue;
-      if (latest == null || parsed.isAfter(latest)) {
-        latest = parsed;
+    if (!done.values.any((value) => value)) {
+      availableFeedingTimes.assignAll(<String>['Morning']);
+      if (selectedFeedingTime.value != 'Morning') {
+        selectedFeedingTime.value = 'Morning';
+      }
+      return;
+    }
+
+    var lastDoneIndex = -1;
+    for (var index = 0; index < _allFeedingTimes.length; index++) {
+      if (done[_allFeedingTimes[index]] == true) {
+        lastDoneIndex = index;
       }
     }
-    return latest;
+
+    final next = _allFeedingTimes
+        .asMap()
+        .entries
+        .where((entry) => entry.key > lastDoneIndex)
+        .map((entry) => entry.value)
+        .toList();
+    availableFeedingTimes.assignAll(next);
+    if (!next.contains(selectedFeedingTime.value)) {
+      selectedFeedingTime.value = next.isEmpty ? '' : next.first;
+    }
+  }
+
+  List<Map<String, dynamic>> _rowsForSelectedTarget(DateTime date) {
+    final animal = selectedAnimal.value;
+    final pan = selectedPan.value;
+    final animalIds = <int>{};
+
+    if (animal != null) {
+      animalIds.add(animal.id);
+    } else if (pan != null) {
+      animalIds.addAll(animals.where((item) => item.belongsToPan(pan)).map((item) => item.id));
+    }
+
+    if (animalIds.isEmpty) return <Map<String, dynamic>>[];
+    return _feedingRows.where((row) {
+      final rowAnimalId = int.tryParse((row['animal_id'] ?? '').toString()) ?? 0;
+      return animalIds.contains(rowAnimalId) && _isSameDate(_parseApiDate(row['date']), date);
+    }).toList();
+  }
+
+  DateTime? _selectedFeedingDate() {
+    final text = dateController.text.trim();
+    if (text.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(text);
+    } catch (_) {
+      return _parseApiDate(text);
+    }
   }
 
   DateTime? _parseApiDate(dynamic value) {
@@ -460,6 +541,10 @@ class FeedingController extends GetxController {
   bool _isSameDate(DateTime? first, DateTime? second) {
     if (first == null || second == null) return false;
     return first.year == second.year && first.month == second.month && first.day == second.day;
+  }
+
+  bool _isFeedingTime(dynamic value, String expected) {
+    return (value ?? '').toString().trim().toLowerCase() == expected.toLowerCase();
   }
 
   String _formatDate(String value) {
@@ -565,17 +650,14 @@ class FeedingController extends GetxController {
   void clearForm() {
     selectedAnimal.value = null;
     selectedPan.value = null;
-    selectedFeedType.value = feedTypes.isNotEmpty ? feedTypes.first : null;
-    if (selectedFeedType.value != null) {
-      onFeedTypeChanged(selectedFeedType.value);
-    } else {
-      selectedUnit.value = 'Kg';
-      packageQuantity.value = 0;
-      _clearSubtypeInputs();
-    }
+    selectedFeedType.value = null;
+    selectedUnit.value = 'Kg';
+    packageQuantity.value = 0;
+    _clearSubtypeInputs();
     quantityController.clear();
     notesController.clear();
     balanceQuantity.value = packageQuantity.value;
+    updateAvailableFeedingTimes();
   }
 
   void _rebuildPansFromAnimals() {

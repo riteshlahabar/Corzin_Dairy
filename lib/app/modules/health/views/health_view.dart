@@ -2,6 +2,7 @@
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/health_controller.dart';
 
 class HealthView extends GetView<HealthController> {
@@ -17,29 +18,29 @@ class HealthView extends GetView<HealthController> {
           builder: (context) => _addButton(context),
         ),
         body: SafeArea(
-          top: true,
+          top: false,
           bottom: false,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+              Container(
+                width: double.infinity,
+                color: AppColors.primary,
+                padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
                 child: Row(
                   children: [
                     IconButton(
-                      onPressed: Get.back,
+                      onPressed: _goBack,
                       icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.black,
-                      ),
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'health'.tr,
-                        style: TextStyle(
-                          fontSize: 20,
+                        style: const TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -47,7 +48,7 @@ class HealthView extends GetView<HealthController> {
                 ),
               ),
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
+                margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -82,6 +83,13 @@ class HealthView extends GetView<HealthController> {
         ),
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 
   Widget _addButton(BuildContext context) {

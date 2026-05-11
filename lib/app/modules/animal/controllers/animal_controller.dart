@@ -16,6 +16,9 @@ class AnimalController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController animalNameController = TextEditingController();
   final TextEditingController tagNumberController = TextEditingController();
+  final TextEditingController lactationNumberController = TextEditingController();
+  final TextEditingController aiDateController = TextEditingController();
+  final TextEditingController breedNameController = TextEditingController();
   final TextEditingController birthDateController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
 
@@ -170,6 +173,46 @@ class AnimalController extends GetxController {
     }
   }
 
+  Future<void> pickAiDate() async {
+    DateTime initialDate = DateTime.now();
+    if (aiDateController.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy').parse(aiDateController.text);
+      } catch (_) {}
+    }
+    final DateTime? picked = await showDatePicker(
+      context: Get.context!,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        const softGreen = Color(0xFFF4FAF4);
+
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF95BE95),
+              onPrimary: AppColors.black,
+              surface: softGreen,
+              onSurface: AppColors.black,
+            ),
+            dialogTheme: theme.dialogTheme.copyWith(backgroundColor: softGreen),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: softGreen,
+              headerBackgroundColor: const Color(0xFFDDEEDC),
+              headerForegroundColor: AppColors.black,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked != null) {
+      aiDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+    }
+  }
+
   Future<void> pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (image != null) {
@@ -207,6 +250,15 @@ class AnimalController extends GetxController {
       request.fields['farmer_id'] = farmerId.toString();
       request.fields['animal_name'] = animalNameController.text.trim();
       request.fields['tag_number'] = tagNumberController.text.trim();
+      if (lactationNumberController.text.trim().isNotEmpty) {
+        request.fields['lactation_number'] = lactationNumberController.text.trim();
+      }
+      if (aiDateController.text.trim().isNotEmpty) {
+        request.fields['ai_date'] = aiDateController.text.trim();
+      }
+      if (breedNameController.text.trim().isNotEmpty) {
+        request.fields['breed_name'] = breedNameController.text.trim();
+      }
       request.fields['animal_type_id'] = selectedAnimalType.value!.id.toString();
       if (showMotherAnimalDropdown && selectedMotherAnimal.value != null) {
         request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
@@ -294,6 +346,9 @@ class AnimalController extends GetxController {
   void clearForm() {
     animalNameController.clear();
     tagNumberController.clear();
+    lactationNumberController.clear();
+    aiDateController.clear();
+    breedNameController.clear();
     birthDateController.clear();
     weightController.clear();
     selectedGender.value = '';
@@ -309,6 +364,9 @@ class AnimalController extends GetxController {
     _animalTypeWorker?.dispose();
     animalNameController.dispose();
     tagNumberController.dispose();
+    lactationNumberController.dispose();
+    aiDateController.dispose();
+    breedNameController.dispose();
     birthDateController.dispose();
     weightController.dispose();
     super.onClose();

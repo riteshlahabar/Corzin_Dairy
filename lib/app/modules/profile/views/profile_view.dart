@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/profile_controller.dart';
 
 class ProfileView extends GetView<ProfileController> {
@@ -14,128 +15,169 @@ class ProfileView extends GetView<ProfileController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       body: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
-        child: Obx(
-          () => controller.isLoading.value
-              ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                  children: [
-                    Text(
-                      'profile'.tr,
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildHeaderCard(),
-                    const SizedBox(height: 18),
-                    _editableInfoCard(
-                      title: 'farmer_information'.tr,
-                      isEditing: controller.isEditingFarmerInfo.value,
-                      onEditTap: controller.toggleFarmerInfoEdit,
-                      children: [
-                        _buildEditableField(
-                          label: 'first_name'.tr,
-                          controller: controller.firstNameController,
-                          enabled: controller.isEditingFarmerInfo.value,
-                        ),
-                        _buildEditableField(
-                          label: 'middle_name'.tr,
-                          controller: controller.middleNameController,
-                          enabled: controller.isEditingFarmerInfo.value,
-                        ),
-                        _buildEditableField(
-                          label: 'last_name'.tr,
-                          controller: controller.lastNameController,
-                          enabled: controller.isEditingFarmerInfo.value,
-                        ),
-                        _buildReadOnlyRow(
-                          label: 'mobile_number'.tr,
-                          value: controller.profile['mobile'] ?? '-',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _editableInfoCard(
-                      title: 'location'.tr,
-                      isEditing: controller.isEditingLocation.value,
-                      onEditTap: controller.toggleLocationEdit,
-                      children: [
-                        _buildEditableField(
-                          label: 'village'.tr,
-                          controller: controller.villageController,
-                          enabled: controller.isEditingLocation.value,
-                        ),
-                        _buildEditableField(
-                          label: 'city'.tr,
-                          controller: controller.cityController,
-                          enabled: controller.isEditingLocation.value,
-                        ),
-                        _buildEditableField(
-                          label: 'taluka'.tr,
-                          controller: controller.talukaController,
-                          enabled: controller.isEditingLocation.value,
-                        ),
-                        _buildEditableField(
-                          label: 'district'.tr,
-                          controller: controller.districtController,
-                          enabled: controller.isEditingLocation.value,
-                        ),
-                        _buildEditableField(
-                          label: 'state'.tr,
-                          controller: controller.stateController,
-                          enabled: controller.isEditingLocation.value,
-                        ),
-                        _buildEditableField(
-                          label: 'pincode'.tr,
-                          controller: controller.pincodeController,
-                          enabled: controller.isEditingLocation.value,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    if (controller.isEditingAny || controller.selectedPhoto.value != null)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: controller.isSaving.value
-                              ? null
-                              : controller.saveProfile,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: Obx(
+                () => controller.isLoading.value
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                        children: [
+                          _buildHeaderCard(),
+                          const SizedBox(height: 18),
+                          _editableInfoCard(
+                            title: 'farmer_information'.tr,
+                            isEditing: controller.isEditingFarmerInfo.value,
+                            onEditTap: controller.toggleFarmerInfoEdit,
+                            children: [
+                              _buildEditableField(
+                                label: 'first_name'.tr,
+                                controller: controller.firstNameController,
+                                enabled: controller.isEditingFarmerInfo.value,
+                              ),
+                              _buildEditableField(
+                                label: 'middle_name'.tr,
+                                controller: controller.middleNameController,
+                                enabled: controller.isEditingFarmerInfo.value,
+                              ),
+                              _buildEditableField(
+                                label: 'last_name'.tr,
+                                controller: controller.lastNameController,
+                                enabled: controller.isEditingFarmerInfo.value,
+                              ),
+                              _buildReadOnlyRow(
+                                label: 'mobile_number'.tr,
+                                value: controller.profile['mobile'] ?? '-',
+                              ),
+                            ],
                           ),
-                          child: controller.isSaving.value
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Save',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
+                          const SizedBox(height: 14),
+                          _editableInfoCard(
+                            title: 'location'.tr,
+                            isEditing: controller.isEditingLocation.value,
+                            onEditTap: controller.toggleLocationEdit,
+                            children: [
+                              _buildEditableField(
+                                label: 'village'.tr,
+                                controller: controller.villageController,
+                                enabled: controller.isEditingLocation.value,
+                              ),
+                              _buildEditableField(
+                                label: 'city'.tr,
+                                controller: controller.cityController,
+                                enabled: controller.isEditingLocation.value,
+                              ),
+                              _buildEditableField(
+                                label: 'taluka'.tr,
+                                controller: controller.talukaController,
+                                enabled: controller.isEditingLocation.value,
+                              ),
+                              _buildEditableField(
+                                label: 'district'.tr,
+                                controller: controller.districtController,
+                                enabled: controller.isEditingLocation.value,
+                              ),
+                              _buildEditableField(
+                                label: 'state'.tr,
+                                controller: controller.stateController,
+                                enabled: controller.isEditingLocation.value,
+                              ),
+                              _buildEditableField(
+                                label: 'pincode'.tr,
+                                controller: controller.pincodeController,
+                                enabled: controller.isEditingLocation.value,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          if (controller.isEditingAny || controller.selectedPhoto.value != null)
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: controller.isSaving.value
+                                    ? null
+                                    : controller.saveProfile,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
                                   ),
                                 ),
-                        ),
+                                child: controller.isSaving.value
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Save',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: EdgeInsets.fromLTRB(4, MediaQuery.of(context).padding.top + 4, 8, 6),
+      child: Builder(
+        builder: (context) => Row(
+          children: [
+            IconButton(
+              onPressed: _goHome,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              color: Colors.white,
+            ),
+            Expanded(
+              child: Text(
+                'profile'.tr,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Get.find<BottomNavController>().openRootDrawer(),
+              icon: const Icon(Icons.menu_rounded),
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _goHome() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().changeTab(0);
+      return;
+    }
+    Get.back();
   }
 
   Widget _buildHeaderCard() {

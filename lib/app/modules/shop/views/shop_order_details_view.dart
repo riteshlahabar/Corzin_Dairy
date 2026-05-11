@@ -70,12 +70,17 @@ class ShopOrderDetailsView extends StatelessWidget {
       child: Scaffold(
         backgroundColor: const Color(0xFFF7FAF7),
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          title: Text('${'shop_order_prefix'.tr} #${order.id}'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            '${'shop_order_prefix'.tr} #${order.id}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
           bottom: TabBar(
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.grey,
-            indicatorColor: AppColors.primary,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'shop_order_details'.tr),
               Tab(text: 'shop_delivery_status'.tr),

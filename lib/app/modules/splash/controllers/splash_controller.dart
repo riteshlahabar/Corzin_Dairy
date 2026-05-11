@@ -46,13 +46,19 @@ class SplashController extends GetxController {
     /// already logged in -> verify from backend
     if (isLoggedIn && mobile.isNotEmpty) {
       try {
+        final deviceId = await SessionService.getOrCreateDeviceId();
+        final sessionToken = await SessionService.getActiveSessionToken();
         final response = await http.post(
           Uri.parse(Api.checkUser),
           headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          body: jsonEncode({"mobile": mobile}),
+          body: jsonEncode({
+            "mobile": mobile,
+            "device_id": deviceId,
+            "session_token": sessionToken,
+          }),
         );
 
         debugPrint("✅ Splash check response code: ${response.statusCode}");
@@ -60,10 +66,18 @@ class SplashController extends GetxController {
 
         final data = jsonDecode(response.body);
 
+        if (response.statusCode == 401 && data["force_logout"] == true) {
+          debugPrint("Session active on another device -> logout");
+          await SessionService.forceLogoutFromAnotherDevice();
+          Get.offAllNamed(Routes.LOGIN);
+          return;
+        }
+
         if (response.statusCode == 200 &&
             data["status"] == true &&
             data["is_registered"] == true) {
           /// ✅ ADD THIS BLOCK HERE
+          await SessionService.saveActiveSessionToken(data["session_token"]?.toString() ?? sessionToken);
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt(
             'farmer_id',

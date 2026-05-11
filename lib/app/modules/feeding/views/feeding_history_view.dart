@@ -7,10 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
 
 class FeedingHistoryView extends StatefulWidget {
-  const FeedingHistoryView({super.key});
+  const FeedingHistoryView({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<FeedingHistoryView> createState() => _FeedingHistoryViewState();
@@ -27,6 +30,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   @override
   void initState() {
     super.initState();
+    _selectedTab = widget.initialTab.clamp(0, 1).toInt();
     _initialize();
   }
 
@@ -389,7 +393,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Edit Feed Type Content',
+                        'Diet Plan',
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),
@@ -631,9 +635,17 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feeding History'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: Text(
+          _selectedTab == 0 ? 'Feeding Record' : 'Diet Plan',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: Column(
         children: [
@@ -644,7 +656,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
               children: [
                 Expanded(
                   child: _segmentButton(
-                    title: 'Feeding History',
+                    title: 'Feeding Record',
                     selected: _selectedTab == 0,
                     onTap: () => setState(() => _selectedTab = 0),
                   ),
@@ -652,7 +664,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _segmentButton(
-                    title: 'Edit Feed Type Content',
+                    title: 'Diet Plan',
                     selected: _selectedTab == 1,
                     onTap: () => setState(() => _selectedTab = 1),
                   ),
@@ -667,6 +679,13 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         ],
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 
   Widget _buildHistoryTab() {

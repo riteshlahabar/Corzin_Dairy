@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/shop_controller.dart';
 import 'shop_cart_view.dart';
 import 'shop_product_details_view.dart';
@@ -14,20 +15,28 @@ class ShopView extends GetView<ShopController> {
     return Material(
       color: const Color(0xFFF7FAF7),
       child: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Column(
           children: [
             Builder(
-              builder: (context) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              builder: (context) => Container(
+                width: double.infinity,
+                color: AppColors.primary,
+                padding: EdgeInsets.fromLTRB(4, MediaQuery.of(context).padding.top + 4, 8, 6),
                 child: Row(
                   children: [
+                    IconButton(
+                      onPressed: _goHome,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      color: Colors.white,
+                    ),
                     Expanded(
                       child: Text(
                         'shop'.tr,
                         style: const TextStyle(
-                          fontSize: 21,
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -44,19 +53,13 @@ class ShopView extends GetView<ShopController> {
                               child: const Icon(Icons.shopping_cart_outlined),
                             ),
                           ),
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.white,
-                            foregroundColor: AppColors.black,
-                          ),
+                          color: Colors.white,
                         ),
                         const SizedBox(width: 6),
                         IconButton(
                           onPressed: () => Scaffold.of(context).openDrawer(),
                           icon: const Icon(Icons.menu_rounded),
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.white,
-                            foregroundColor: AppColors.black,
-                          ),
+                          color: Colors.white,
                         ),
                       ],
                     ),
@@ -65,7 +68,7 @@ class ShopView extends GetView<ShopController> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
               child: TextField(
                 controller: controller.searchController,
                 decoration: InputDecoration(
@@ -308,6 +311,14 @@ class ShopView extends GetView<ShopController> {
         ),
       ),
     );
+  }
+
+  void _goHome() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().changeTab(0);
+      return;
+    }
+    Get.back();
   }
 
   IconData _categoryIcon(String category) {

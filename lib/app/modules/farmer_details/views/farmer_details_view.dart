@@ -41,7 +41,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                   children: [
                     Obx(() => _photoUploadCard()),
                     _sectionTitle("personal_info".tr),
-                    _field("first_name".tr, controller.firstName, icon: Icons.person_outline),
+                    _field("first_name".tr, controller.firstName, icon: Icons.person_outline, requiredField: true),
                     _field("middle_name".tr, controller.middleName, icon: Icons.person_outline),
                     _field("last_name".tr, controller.lastName, icon: Icons.person_outline),
                     _field(
@@ -64,6 +64,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     Obx(
                       () => _dropdownField(
                         label: "state".tr,
+                        requiredField: true,
                         value: controller.state.text.trim().isEmpty ? null : controller.state.text.trim(),
                         items: controller.states,
                         enabled: !controller.isLocationLoading.value,
@@ -76,6 +77,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     Obx(
                       () => _dropdownField(
                         label: "district".tr,
+                        requiredField: true,
                         value: controller.district.text.trim().isEmpty ? null : controller.district.text.trim(),
                         items: controller.districts,
                         enabled: controller.districts.isNotEmpty,
@@ -88,6 +90,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     Obx(
                       () => _dropdownField(
                         label: "Taluka/Subdistrict/City",
+                        requiredField: true,
                         value: controller.taluka.text.trim().isEmpty ? null : controller.taluka.text.trim(),
                         items: controller.talukas,
                         enabled: controller.talukas.isNotEmpty,
@@ -97,12 +100,17 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                         },
                       ),
                     ),
-                    _field("Address/Village", controller.village, icon: Icons.home_outlined),
+                    _field("Address/Village", controller.village, icon: Icons.home_outlined, requiredField: true),
                     _field(
                       "pincode".tr,
                       controller.pincode,
                       icon: Icons.pin_drop_outlined,
                       isNumber: true,
+                      requiredField: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
                     ),
                     const SizedBox(height: 30),
                     SizedBox(
@@ -153,6 +161,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
     TextEditingController controller, {
     required IconData icon,
     bool isNumber = false,
+    bool requiredField = false,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
@@ -164,6 +173,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: label,
+          label: _fieldLabel(label, requiredField: requiredField),
           prefixIcon: Icon(icon, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
@@ -183,6 +193,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
 
   Widget _dropdownField({
     required String label,
+    bool requiredField = false,
     required String? value,
     required List<String> items,
     required bool enabled,
@@ -203,6 +214,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
         dropdownColor: const Color(0xFFF7FCF7),
         decoration: InputDecoration(
           hintText: label,
+          label: _fieldLabel(label, requiredField: requiredField),
           prefixIcon: const Icon(Icons.map_outlined, color: AppColors.primary),
           filled: true,
           fillColor: Colors.grey.shade100,
@@ -225,6 +237,18 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
             )
             .toList(),
         onChanged: enabled ? onChanged : null,
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String text, {required bool requiredField}) {
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+        children: [
+          TextSpan(text: text),
+          if (requiredField) const TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
+        ],
       ),
     );
   }
@@ -264,12 +288,17 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Upload farmer photo',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.black,
+                    RichText(
+                      text: const TextSpan(
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.black,
+                        ),
+                        children: [
+                          TextSpan(text: 'Upload farmer photo'),
+                          TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 4),

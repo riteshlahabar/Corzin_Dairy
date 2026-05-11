@@ -217,48 +217,96 @@ class AnimalHistoryController extends GetxController {
 
 class AnimalHistoryItem {
   final int id;
+  final String uniqueId;
   final String animalName;
   final String tagNumber;
   final int animalTypeId;
   final String animalTypeName;
+  final String panName;
+  final String motherAnimalName;
+  final String motherTagNumber;
+  final String lactationNumber;
+  final String aiDate;
+  final String breedName;
+  final String age;
   final String birthDate;
   final String gender;
   final String weight;
+  final String lifecycleStatus;
+  final bool isActive;
   final String image;
   final bool isForSale;
 
   AnimalHistoryItem({
     required this.id,
+    required this.uniqueId,
     required this.animalName,
     required this.tagNumber,
     required this.animalTypeId,
     required this.animalTypeName,
+    required this.panName,
+    required this.motherAnimalName,
+    required this.motherTagNumber,
+    required this.lactationNumber,
+    required this.aiDate,
+    required this.breedName,
+    required this.age,
     required this.birthDate,
     required this.gender,
     required this.weight,
+    required this.lifecycleStatus,
+    required this.isActive,
     required this.image,
     required this.isForSale,
   });
 
+  String get motherLabel {
+    final name = motherAnimalName.trim();
+    final tag = motherTagNumber.trim();
+    if (name.isEmpty && tag.isEmpty) return '';
+    if (tag.isEmpty) return name;
+    if (name.isEmpty) return tag;
+    return '$name ($tag)';
+  }
+
   String get searchText => [
+        uniqueId,
         animalName,
         tagNumber,
         animalTypeName,
+        panName,
+        motherAnimalName,
+        motherTagNumber,
+        lactationNumber,
+        aiDate,
+        breedName,
+        age,
         birthDate,
         gender,
         weight,
+        lifecycleStatus,
       ].join(' ').toLowerCase();
 
   factory AnimalHistoryItem.fromJson(Map<String, dynamic> json) {
     return AnimalHistoryItem(
       id: int.tryParse(json['id'].toString()) ?? 0,
+      uniqueId: json['unique_id']?.toString() ?? '',
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
       animalTypeId: int.tryParse(json['animal_type_id'].toString()) ?? 0,
       animalTypeName: json['animal_type_name']?.toString() ?? '',
+      panName: json['pan_name']?.toString() ?? '',
+      motherAnimalName: json['mother_animal_name']?.toString() ?? '',
+      motherTagNumber: json['mother_tag_number']?.toString() ?? '',
+      lactationNumber: json['lactation_number']?.toString() ?? '',
+      aiDate: json['ai_date']?.toString() ?? '',
+      breedName: json['breed_name']?.toString() ?? '',
+      age: json['age']?.toString() ?? '',
       birthDate: json['birth_date']?.toString() ?? '',
       gender: json['gender']?.toString() ?? '',
       weight: json['weight']?.toString() ?? '',
+      lifecycleStatus: json['lifecycle_status']?.toString() ?? 'active',
+      isActive: json['is_active'] == true || json['is_active']?.toString() == '1',
       image: json['image']?.toString() ?? '',
       isForSale: json['is_for_sale'] == true || json['is_for_sale']?.toString() == '1',
     );

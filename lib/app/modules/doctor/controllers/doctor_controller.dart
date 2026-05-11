@@ -378,6 +378,39 @@ class DoctorController extends GetxController {
     }
   }
 
+  Future<void> rateDoctor({
+    required VetRequestModel request,
+    required int rating,
+  }) async {
+    if (rating < 1 || rating > 5) {
+      Get.snackbar('Error', 'Please select a rating.');
+      return;
+    }
+
+    try {
+      isUpdatingRequestStatus.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.doctorAppointments}/${request.id}/rating'),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'farmer_id': farmerId.toString(),
+          'rating': rating.toString(),
+        }),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+        await fetchFarmerRequests();
+        Get.snackbar('Success', data['message']?.toString() ?? 'Thank you for rating the doctor.');
+      } else {
+        Get.snackbar('Error', _extractApiMessage(data) ?? 'Failed to submit rating.');
+      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    } finally {
+      isUpdatingRequestStatus.value = false;
+    }
+  }
+
   String _farmerAddress() {
     final parts = <String>[
       farmerProfile['village'] ?? '',
@@ -670,6 +703,7 @@ class VetRequestModel {
   final String treatmentDetails;
   final String onsiteTreatment;
   final String notes;
+  final int rating;
   final String address;
   final double? destLatitude;
   final double? destLongitude;
@@ -702,6 +736,7 @@ class VetRequestModel {
     required this.treatmentDetails,
     required this.onsiteTreatment,
     required this.notes,
+    required this.rating,
     required this.address,
     this.destLatitude,
     this.destLongitude,
@@ -714,6 +749,8 @@ class VetRequestModel {
     final s = status.toLowerCase();
     return ['accept', 'accepted', 'approved', 'in_progress', 'followup', 'follow_up'].contains(s);
   }
+
+  bool get isRated => rating > 0;
 
   DateTime get sortDate {
     final iso = requestedAt.trim().isNotEmpty ? requestedAt : scheduledAt;
@@ -801,6 +838,7 @@ class VetRequestModel {
       treatmentDetails: json['treatment_details']?.toString() ?? '',
       onsiteTreatment: json['onsite_treatment']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
+      rating: int.tryParse((json['rating'] ?? '').toString()) ?? 0,
       address: json['address']?.toString() ?? '',
       destLatitude: pDouble(json['latitude'] ?? json['lat']),
       destLongitude: pDouble(json['longitude'] ?? json['lng']),

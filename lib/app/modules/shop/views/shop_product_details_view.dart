@@ -24,7 +24,9 @@ class ShopProductDetailsView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: Text(product.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         actions: [
           IconButton(

@@ -12,6 +12,7 @@ import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
+import '../../../routes/app_pages.dart';
 
 class HomeController extends GetxController {
   static final NumberFormat _numberFormat = NumberFormat('#,##0.##');
@@ -20,6 +21,9 @@ class HomeController extends GetxController {
   final RxBool isLoadingDashboard = false.obs;
   final RxBool isUpdatingLifecycle = false.obs;
   final RxList<dynamic> animals = <dynamic>[].obs;
+  final RxList<HomeSaleAnimalModel> saleAnimals = <HomeSaleAnimalModel>[].obs;
+  final RxList<HomeAdminBannerModel> farmerBanners = <HomeAdminBannerModel>[].obs;
+  final RxInt heroBannerIndex = 0.obs;
   final RxList<AnimalTypeOption> animalTypes = <AnimalTypeOption>[].obs;
   final RxMap<String, String> stats = <String, String>{
     'today_milk': '0 L',
@@ -45,19 +49,29 @@ class HomeController extends GetxController {
   int farmerId = 0;
   Timer? _planBlinkTimer;
   Timer? _planDaysTimer;
+  Timer? _heroBannerTimer;
   DateTime? _planRenewAt;
   static const String _globalNotificationKey = 'farmer_notifications_global';
+
+  List<HomeSaleAnimalModel> get publicSaleAnimals =>
+      saleAnimals.where((animal) => animal.farmerId != farmerId).toList();
+
+  List<HomeSaleAnimalModel> get mySellingAnimals =>
+      saleAnimals.where((animal) => animal.farmerId == farmerId).toList();
+
+  int get heroBannerCount => publicSaleAnimals.length + farmerBanners.length;
 
   @override
   void onInit() {
     super.onInit();
+    unawaited(LocalNotificationService.instance.cancelAll());
     initHome();
     initialiseNotifications();
   }
 
   Future<void> initHome() async {
     await loadBaseData();
-    await Future.wait([fetchAnimalTypes(), fetchAnimals(), loadDashboard()]);
+    await Future.wait([fetchAnimalTypes(), fetchAnimals(), fetchSaleAnimals(), fetchFarmerBanners(), loadDashboard()]);
   }
 
   Future<void> loadBaseData() async {
@@ -117,6 +131,58 @@ class HomeController extends GetxController {
     }
   }
 
+  Future<void> fetchSaleAnimals() async {
+    try {
+      final response = await http.get(
+        Uri.parse(Api.animalsForSale),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode == 200 && data['status'] == true && data['data'] is List) {
+        saleAnimals.assignAll(
+          (data['data'] as List)
+              .whereType<Map>()
+              .map((item) => HomeSaleAnimalModel.fromJson(Map<String, dynamic>.from(item)))
+              .toList(),
+        );
+        _syncHeroBannerTimer();
+      } else {
+        saleAnimals.clear();
+        _syncHeroBannerTimer();
+      }
+    } catch (_) {
+      saleAnimals.clear();
+      _syncHeroBannerTimer();
+    }
+  }
+
+  Future<void> fetchFarmerBanners() async {
+    try {
+      final response = await http.get(
+        Uri.parse(Api.farmerSettings),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      final banners = data['data'] is Map ? (data['data']['banners'] ?? []) : [];
+      if (response.statusCode == 200 && data['status'] == true && banners is List) {
+        farmerBanners.assignAll(
+          banners
+              .whereType<Map>()
+              .map((item) => HomeAdminBannerModel.fromJson(Map<String, dynamic>.from(item)))
+              .where((banner) => banner.imageUrl.trim().isNotEmpty)
+              .toList(),
+        );
+        _syncHeroBannerTimer();
+      } else {
+        farmerBanners.clear();
+        _syncHeroBannerTimer();
+      }
+    } catch (_) {
+      farmerBanners.clear();
+      _syncHeroBannerTimer();
+    }
+  }
+
   Future<void> loadDashboard() async {
     try {
       isLoadingDashboard.value = true;
@@ -165,7 +231,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> refreshDashboard() async {
-    await Future.wait([fetchAnimals(), loadDashboard()]);
+    await Future.wait([fetchAnimals(), fetchSaleAnimals(), fetchFarmerBanners(), loadDashboard()]);
   }
 
   Future<void> _loadDairyPaymentsAndMilk() async {
@@ -457,6 +523,36 @@ class HomeController extends GetxController {
     });
   }
 
+  void _syncHeroBannerTimer() {
+    final total = heroBannerCount;
+    if (total <= 0) {
+      heroBannerIndex.value = 0;
+      _heroBannerTimer?.cancel();
+      _heroBannerTimer = null;
+      return;
+    }
+
+    if (heroBannerIndex.value >= total) {
+      heroBannerIndex.value = 0;
+    }
+
+    if (total == 1) {
+      _heroBannerTimer?.cancel();
+      _heroBannerTimer = null;
+      return;
+    }
+
+    if (_heroBannerTimer != null) return;
+    _heroBannerTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      final currentTotal = heroBannerCount;
+      if (currentTotal <= 1) {
+        _syncHeroBannerTimer();
+        return;
+      }
+      heroBannerIndex.value = (heroBannerIndex.value + 1) % currentTotal;
+    });
+  }
+
 
   Future<void> initialiseNotifications() async {
     try {
@@ -489,14 +585,27 @@ class HomeController extends GetxController {
       return;
     }
 
+    final deviceId = await SessionService.getOrCreateDeviceId();
+    final sessionToken = await SessionService.getActiveSessionToken();
     final response = await http.post(
       Uri.parse('${Api.farmerFcmToken}/$farmerId'),
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({'fcm_token': token}),
+      body: jsonEncode({
+        'fcm_token': token,
+        'device_id': deviceId,
+        'session_token': sessionToken,
+      }),
     );
+    if (response.statusCode == 401) {
+      final payload = _safeDecodeBody(response.body);
+      if (payload['force_logout'] == true) {
+        await _forceLogoutFromAnotherDevice();
+        return;
+      }
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       debugPrint('[FCM][Farmer] token update failed status=${response.statusCode} body=${response.body}');
       return;
@@ -527,6 +636,11 @@ class HomeController extends GetxController {
   }
 
   void _handleRemoteMessage(RemoteMessage message) {
+    if (_isForceLogoutMessage(message)) {
+      _forceLogoutFromAnotherDevice();
+      return;
+    }
+
     final title = _resolveNotificationTitle(message);
     final body = _resolveNotificationBody(message);
     final finalTitle = title?.isNotEmpty == true
@@ -538,10 +652,11 @@ class HomeController extends GetxController {
       return;
     }
 
+    final notificationId = _notificationIdForMessage(message);
     LocalNotificationService.instance.showMessage(
       title: finalTitle,
       body: finalBody,
-      id: message.hashCode,
+      id: notificationId,
     );
 
     final item = FarmerNotificationItem(
@@ -549,6 +664,8 @@ class HomeController extends GetxController {
       body: finalBody,
       createdAt: DateTime.now(),
       type: message.data['type']?.toString() ?? '',
+      notificationId: notificationId,
+      appointmentId: int.tryParse(message.data['appointment_id']?.toString() ?? ''),
     );
     notificationHistory.insert(0, item);
     if (notificationHistory.length > 100) {
@@ -564,6 +681,51 @@ class HomeController extends GetxController {
     );
 
     refreshDashboard();
+  }
+
+  int _notificationIdForMessage(RemoteMessage message) {
+    final appointmentId = int.tryParse(message.data['appointment_id']?.toString() ?? '');
+    if (appointmentId != null && appointmentId > 0) {
+      return 800000 + appointmentId;
+    }
+    return message.hashCode;
+  }
+
+  Future<void> clearAppointmentScreenNotifications() async {
+    final appointmentNotifications = notificationHistory.where((item) {
+      final type = item.type.toLowerCase();
+      return item.appointmentId != null ||
+          type.contains('appointment') ||
+          item.title.toLowerCase().contains('appointment') ||
+          item.body.toLowerCase().contains('appointment');
+    }).toList();
+
+    for (final item in appointmentNotifications) {
+      if (item.notificationId != null) {
+        await LocalNotificationService.instance.cancel(item.notificationId!);
+      }
+    }
+
+    // Also clear any FCM/system-posted app notifications that do not expose
+    // the local notification id to Flutter.
+    await LocalNotificationService.instance.cancelAll();
+  }
+
+  bool _isForceLogoutMessage(RemoteMessage message) {
+    final type = message.data['type']?.toString().toLowerCase().trim() ?? '';
+    final event = message.data['event']?.toString().toLowerCase().trim() ?? '';
+    return type == 'force_logout' || event == 'force_logout';
+  }
+
+  Future<void> _forceLogoutFromAnotherDevice() async {
+    await SessionService.forceLogoutFromAnotherDevice();
+    Get.snackbar(
+      'Logged out',
+      'Your account was logged in on another mobile.',
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 4),
+    );
+    Get.offAllNamed(Routes.LOGIN);
   }
 
   String? _resolveNotificationTitle(RemoteMessage message) {
@@ -713,6 +875,14 @@ class HomeController extends GetxController {
     return <String, dynamic>{};
   }
 
+  Map<String, dynamic> _safeDecodeBody(String body) {
+    try {
+      return _decodeBody(body);
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
   double _asDouble(dynamic value) {
     if (value is num) return value.toDouble();
     final raw = value?.toString() ?? '';
@@ -774,6 +944,7 @@ class HomeController extends GetxController {
   void onClose() {
     _planBlinkTimer?.cancel();
     _planDaysTimer?.cancel();
+    _heroBannerTimer?.cancel();
     super.onClose();
   }
 }
@@ -783,12 +954,16 @@ class FarmerNotificationItem {
   final String body;
   final DateTime createdAt;
   final String type;
+  final int? notificationId;
+  final int? appointmentId;
 
   const FarmerNotificationItem({
     required this.title,
     required this.body,
     required this.createdAt,
     required this.type,
+    this.notificationId,
+    this.appointmentId,
   });
 
   factory FarmerNotificationItem.fromJson(Map<String, dynamic> json) {
@@ -797,6 +972,8 @@ class FarmerNotificationItem {
       body: json['body']?.toString() ?? '',
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       type: json['type']?.toString() ?? '',
+      notificationId: int.tryParse(json['notification_id']?.toString() ?? ''),
+      appointmentId: int.tryParse(json['appointment_id']?.toString() ?? ''),
     );
   }
 
@@ -806,6 +983,8 @@ class FarmerNotificationItem {
       'body': body,
       'created_at': createdAt.toIso8601String(),
       'type': type,
+      'notification_id': notificationId,
+      'appointment_id': appointmentId,
     };
   }
 }
@@ -840,6 +1019,85 @@ class HomePaymentModel {
     required this.todayMilk,
     required this.totalMilk,
   });
+}
+
+class HomeSaleAnimalModel {
+  final int id;
+  final int farmerId;
+  final String animalName;
+  final String uniqueId;
+  final String tagNumber;
+  final String animalTypeName;
+  final String panName;
+  final String gender;
+  final String age;
+  final String birthDate;
+  final String weight;
+  final String breedName;
+  final String lactationNumber;
+  final String aiDate;
+  final String image;
+  final String listedAt;
+
+  const HomeSaleAnimalModel({
+    required this.id,
+    required this.farmerId,
+    required this.animalName,
+    required this.uniqueId,
+    required this.tagNumber,
+    required this.animalTypeName,
+    required this.panName,
+    required this.gender,
+    required this.age,
+    required this.birthDate,
+    required this.weight,
+    required this.breedName,
+    required this.lactationNumber,
+    required this.aiDate,
+    required this.image,
+    required this.listedAt,
+  });
+
+  factory HomeSaleAnimalModel.fromJson(Map<String, dynamic> json) {
+    return HomeSaleAnimalModel(
+      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      farmerId: int.tryParse(json['farmer_id']?.toString() ?? '') ?? 0,
+      animalName: json['animal_name']?.toString() ?? '',
+      uniqueId: json['unique_id']?.toString() ?? '',
+      tagNumber: json['tag_number']?.toString() ?? '',
+      animalTypeName: json['animal_type_name']?.toString() ?? '',
+      panName: json['pan_name']?.toString() ?? '',
+      gender: json['gender']?.toString() ?? '',
+      age: json['age']?.toString() ?? '',
+      birthDate: json['birth_date']?.toString() ?? '',
+      weight: json['weight']?.toString() ?? '',
+      breedName: json['breed_name']?.toString() ?? '',
+      lactationNumber: json['lactation_number']?.toString() ?? '',
+      aiDate: json['ai_date']?.toString() ?? '',
+      image: json['image']?.toString() ?? '',
+      listedAt: json['listed_for_sale_at']?.toString() ?? '',
+    );
+  }
+}
+
+class HomeAdminBannerModel {
+  final int id;
+  final String title;
+  final String imageUrl;
+
+  const HomeAdminBannerModel({
+    required this.id,
+    required this.title,
+    required this.imageUrl,
+  });
+
+  factory HomeAdminBannerModel.fromJson(Map<String, dynamic> json) {
+    return HomeAdminBannerModel(
+      id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      title: json['title']?.toString() ?? '',
+      imageUrl: (json['image_url'] ?? json['image'] ?? '').toString(),
+    );
+  }
 }
 
 class FarmerPlanModel {

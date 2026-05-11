@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
 
 class MilkHistoryView extends StatefulWidget {
@@ -282,9 +283,17 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Milk History'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: const Text(
+          'Milk History',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _loadHistory,
@@ -364,6 +373,13 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                   ),
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 }
 

@@ -14,8 +14,13 @@ class ShopCartView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        title: Text('shop_cart'.tr),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'shop_cart'.tr,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: Obx(() {
         if (controller.cartItems.isEmpty) {

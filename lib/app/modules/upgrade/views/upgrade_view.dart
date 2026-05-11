@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/upgrade_controller.dart';
 
 class UpgradeView extends GetView<UpgradeController> {
@@ -12,10 +13,17 @@ class UpgradeView extends GetView<UpgradeController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.primary,
         elevation: 0,
-        foregroundColor: AppColors.black,
-        title: Text('upgrade_plan'.tr),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: Text(
+          'upgrade_plan'.tr,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: Obx(
         () => controller.isLoading.value
@@ -104,5 +112,12 @@ class UpgradeView extends GetView<UpgradeController> {
               ),
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 }

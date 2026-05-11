@@ -17,6 +17,8 @@ class PanManagementController extends GetxController {
   final RxList<PanAnimalItem> animals = <PanAnimalItem>[].obs;
   final RxList<PanGroupItem> pans = <PanGroupItem>[].obs;
   final RxList<int> selectedAnimalIds = <int>[].obs;
+  final RxList<String> selectedMilkShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
+  static const List<String> milkShiftOptions = <String>['Morning', 'Afternoon', 'Evening'];
 
   int farmerId = 0;
 
@@ -106,6 +108,19 @@ class PanManagementController extends GetxController {
     }
   }
 
+  void toggleMilkShift(String shift) {
+    if (selectedMilkShifts.contains(shift)) {
+      if (selectedMilkShifts.length == 1) {
+        Get.snackbar('Info', 'Please keep at least one milk shift selected.');
+        return;
+      }
+      selectedMilkShifts.remove(shift);
+    } else {
+      selectedMilkShifts.add(shift);
+      selectedMilkShifts.sort((a, b) => milkShiftOptions.indexOf(a).compareTo(milkShiftOptions.indexOf(b)));
+    }
+  }
+
   Future<bool> createPan() async {
     final panName = panNameController.text.trim();
     if (farmerId == 0) {
@@ -133,12 +148,14 @@ class PanManagementController extends GetxController {
           'farmer_id': farmerId,
           'name': panName,
           'animal_ids': selectedAnimalIds.toList(),
+          'milk_shifts': selectedMilkShifts.toList(),
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         panNameController.clear();
         selectedAnimalIds.clear();
+        selectedMilkShifts.assignAll(milkShiftOptions);
         await refreshAll();
         Get.snackbar('Success', data['message']?.toString() ?? 'PAN created successfully.');
         return true;
@@ -158,6 +175,7 @@ class PanManagementController extends GetxController {
     required int panId,
     required String name,
     required List<int> animalIds,
+    required List<String> milkShifts,
   }) async {
     final panName = name.trim();
     if (farmerId == 0) {
@@ -181,6 +199,7 @@ class PanManagementController extends GetxController {
           'farmer_id': farmerId,
           'name': panName,
           'animal_ids': animalIds,
+          'milk_shifts': milkShifts.isEmpty ? milkShiftOptions : milkShifts,
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -255,6 +274,7 @@ class PanAnimalItem {
   final String lifecycleStatus;
   final int? panId;
   final String panName;
+  final String animalTypeName;
 
   PanAnimalItem({
     required this.id,
@@ -264,6 +284,7 @@ class PanAnimalItem {
     required this.lifecycleStatus,
     required this.panId,
     required this.panName,
+    required this.animalTypeName,
   });
 
   factory PanAnimalItem.fromJson(Map<String, dynamic> json) {
@@ -275,6 +296,7 @@ class PanAnimalItem {
       lifecycleStatus: (json['lifecycle_status'] ?? 'active').toString(),
       panId: int.tryParse('${json['pan_id'] ?? ''}'),
       panName: (json['pan_name'] ?? '').toString(),
+      animalTypeName: (json['animal_type_name'] ?? '').toString(),
     );
   }
 }
@@ -283,12 +305,14 @@ class PanGroupItem {
   final int id;
   final String name;
   final int animalsCount;
+  final List<String> milkShifts;
   final List<PanAnimalItem> animals;
 
   PanGroupItem({
     required this.id,
     required this.name,
     required this.animalsCount,
+    required this.milkShifts,
     required this.animals,
   });
 
@@ -298,11 +322,18 @@ class PanGroupItem {
       id: int.tryParse('${json['id'] ?? 0}') ?? 0,
       name: (json['name'] ?? '').toString(),
       animalsCount: int.tryParse('${json['animals_count'] ?? 0}') ?? 0,
+      milkShifts: _parseMilkShifts(json['milk_shifts']),
       animals: rawAnimals
           .whereType<Map>()
           .map((item) => PanAnimalItem.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
     );
   }
-}
 
+  static List<String> _parseMilkShifts(dynamic value) {
+    const allowed = ['Morning', 'Afternoon', 'Evening'];
+    if (value is! List) return allowed;
+    final parsed = value.map((item) => item.toString().trim()).where((item) => allowed.contains(item)).toList();
+    return parsed.isEmpty ? allowed : parsed;
+  }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/payment_controller.dart';
 
 class PaymentView extends GetView<PaymentController> {
@@ -12,13 +13,17 @@ class PaymentView extends GetView<PaymentController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F7F4),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.2,
-        surfaceTintColor: Colors.white,
-        foregroundColor: AppColors.black,
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        surfaceTintColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
         title: const Text(
           'Dairy Payment',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
       body: Obx(
@@ -36,7 +41,7 @@ class PaymentView extends GetView<PaymentController> {
           return RefreshIndicator(
             onRefresh: controller.loadPayments,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
               children: [
                 _overviewCard(
                   dairyCount: items.length,
@@ -55,6 +60,13 @@ class PaymentView extends GetView<PaymentController> {
         },
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 
   Widget _overviewCard({

@@ -20,11 +20,14 @@ import '../services/session_service.dart';
 import '../theme/colors.dart';
 
 class BottomNavController extends GetxController {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   final RxInt currentIndex = 0.obs;
+  final Rx<Widget?> activeDrawerPage = Rx<Widget?>(null);
   final List<int> _tabBackStack = <int>[0];
 
   void changeTab(int index) {
     if (index == 2) return;
+    activeDrawerPage.value = null;
     if (currentIndex.value == index) return;
     currentIndex.value = index;
     if (_tabBackStack.isEmpty || _tabBackStack.last != index) {
@@ -41,7 +44,15 @@ class BottomNavController extends GetxController {
       ..add(currentIndex.value);
   }
 
+  void openRootDrawer() {
+    scaffoldKey.currentState?.openDrawer();
+  }
+
   bool handleRootBackPress() {
+    if (closeDrawerPage()) {
+      return true;
+    }
+
     if (_tabBackStack.length > 1) {
       _tabBackStack.removeLast();
       currentIndex.value = _tabBackStack.last;
@@ -59,23 +70,62 @@ class BottomNavController extends GetxController {
     return false;
   }
 
+  bool closeDrawerPage() {
+    if (activeDrawerPage.value == null) return false;
+    activeDrawerPage.value = null;
+    return true;
+  }
+
   void openAddAction() {
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        decoration: const BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(height: 4, width: 54, margin: const EdgeInsets.only(bottom: 18), decoration: BoxDecoration(color: AppColors.grey, borderRadius: BorderRadius.circular(12)))),
-            Text('quick_add'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Center(
+              child: Container(
+                height: 4,
+                width: 54,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: AppColors.grey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            Text(
+              'quick_add'.tr,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 6),
-            Text('quick_add_desc'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700)),
+            Text(
+              'quick_add_desc'.tr,
+              style: TextStyle(fontSize: 13, color: AppColors.grey.shade700),
+            ),
             const SizedBox(height: 18),
-            _sheetAction(icon: Icons.local_drink_rounded, title: 'add_milk'.tr, onTap: () { Get.back(); Get.toNamed(Routes.MILK); }),
+            _sheetAction(
+              icon: Icons.local_drink_rounded,
+              title: 'add_milk'.tr,
+              onTap: () {
+                Get.back();
+                openDrawerRoute(Routes.MILK);
+              },
+            ),
             const SizedBox(height: 12),
-            _sheetAction(icon: Icons.grass_rounded, title: 'add_feeding'.tr, onTap: () { Get.back(); Get.toNamed(Routes.FEEDING); }),
+            _sheetAction(
+              icon: Icons.grass_rounded,
+              title: 'add_feeding'.tr,
+              onTap: () {
+                Get.back();
+                openDrawerRoute(Routes.FEEDING);
+              },
+            ),
           ],
         ),
       ),
@@ -88,24 +138,83 @@ class BottomNavController extends GetxController {
     Get.offAllNamed(Routes.SPLASH);
   }
 
-  Widget _sheetAction({required IconData icon, required String title, required VoidCallback onTap}) {
+  void openDrawerRoute(String routeName) {
+    final route = AppPages.routes.firstWhereOrNull(
+      (item) => item.name == routeName,
+    );
+    if (route == null) {
+      Get.toNamed(routeName);
+      return;
+    }
+
+    final dynamic dynamicRoute = route;
+    try {
+      final binding = dynamicRoute.binding;
+      if (binding is Bindings) {
+        binding.dependencies();
+      }
+    } catch (_) {}
+    try {
+      final bindings = dynamicRoute.bindings;
+      if (bindings is List<Bindings>) {
+        for (final item in bindings) {
+          item.dependencies();
+        }
+      }
+    } catch (_) {}
+
+    activeDrawerPage.value = route.page();
+  }
+
+  void openDrawerPage(Widget page) {
+    activeDrawerPage.value = page;
+  }
+
+  Widget _sheetAction({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Ink(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
-        child: Row(children: [Container(height: 44, width: 44, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))), const Icon(Icons.arrow_forward_ios_rounded, size: 16)]),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+          ],
+        ),
       ),
     );
   }
 }
 
 class MainBottomNavView extends StatefulWidget {
-  const MainBottomNavView({
-    super.key,
-    this.initialIndex = 0,
-  });
+  const MainBottomNavView({super.key, this.initialIndex = 0});
 
   final int initialIndex;
 
@@ -115,9 +224,11 @@ class MainBottomNavView extends StatefulWidget {
 
 class _MainBottomNavViewState extends State<MainBottomNavView> {
   late final BottomNavController controller;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  T _resetAndPut<T extends GetxController>(T Function() builder, {bool permanent = false}) {
+  T _resetAndPut<T extends GetxController>(
+    T Function() builder, {
+    bool permanent = false,
+  }) {
     if (Get.isRegistered<T>()) {
       Get.delete<T>(force: true);
     }
@@ -127,7 +238,10 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
   @override
   void initState() {
     super.initState();
-    controller = _resetAndPut<BottomNavController>(() => BottomNavController(), permanent: true);
+    controller = _resetAndPut<BottomNavController>(
+      () => BottomNavController(),
+      permanent: true,
+    );
     controller.currentIndex.value = widget.initialIndex;
     controller.resetTabHistory();
     _resetAndPut<HomeController>(() => HomeController(), permanent: true);
@@ -138,14 +252,20 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [const HomeView(), const DoctorAppointmentsNearbyView(), const SizedBox(), const ShopView(), const ProfileView()];
+    final List<Widget> pages = [
+      const HomeView(),
+      const DoctorAppointmentsNearbyView(),
+      const SizedBox(),
+      const ShopView(),
+      const ProfileView(),
+    ];
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
 
-        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+        if (controller.scaffoldKey.currentState?.isDrawerOpen ?? false) {
           Navigator.of(context).pop();
           return;
         }
@@ -156,14 +276,89 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         }
       },
       child: Scaffold(
-        key: _scaffoldKey,
+        key: controller.scaffoldKey,
         backgroundColor: AppColors.white,
         resizeToAvoidBottomInset: false,
         drawer: _buildDrawer(context, controller),
-        body: Obx(() => IndexedStack(index: controller.currentIndex.value, children: pages)),
-        floatingActionButton: FloatingActionButton(backgroundColor: AppColors.primary, elevation: 1, onPressed: controller.openAddAction, child: const Icon(Icons.add, color: Colors.white)),
+        body: Obx(() {
+          final drawerPage = controller.activeDrawerPage.value;
+          return Stack(
+            children: [
+              drawerPage ??
+                  IndexedStack(
+                    index: controller.currentIndex.value,
+                    children: pages,
+                  ),
+              if (drawerPage != null)
+                Positioned(
+                  top: MediaQuery.of(context).viewPadding.top + 8,
+                  right: 12,
+                  child: IconButton(
+                    onPressed: controller.openRootDrawer,
+                    icon: const Icon(Icons.menu_rounded),
+                    color: AppColors.white,
+                    splashRadius: 1,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: AppColors.primary,
+          elevation: 1,
+          onPressed: controller.openAddAction,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: Obx(() => BottomAppBar(shape: const CircularNotchedRectangle(), notchMargin: 8, color: AppColors.white, elevation: 10, child: SizedBox(height: 72, child: Row(children: [_navItem(icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'home'.tr, isSelected: controller.currentIndex.value == 0, onTap: () => controller.changeTab(0)), _navItem(icon: Icons.medical_services_outlined, selectedIcon: Icons.medical_services_rounded, label: 'doctor'.tr, isSelected: controller.currentIndex.value == 1, onTap: () => controller.changeTab(1)), const SizedBox(width: 44), _navItem(icon: Icons.storefront_outlined, selectedIcon: Icons.storefront_rounded, label: 'shop'.tr, isSelected: controller.currentIndex.value == 3, onTap: () => controller.changeTab(3)), _navItem(icon: Icons.person_outline_rounded, selectedIcon: Icons.person_rounded, label: 'profile'.tr, isSelected: controller.currentIndex.value == 4, onTap: () => controller.changeTab(4))])))),
+        bottomNavigationBar: Obx(
+          () => BottomAppBar(
+            shape: const CircularNotchedRectangle(),
+            notchMargin: 8,
+            color: AppColors.white,
+            elevation: 10,
+            child: SizedBox(
+              height: 72,
+              child: Row(
+                children: [
+                  _navItem(
+                    icon: Icons.home_outlined,
+                    selectedIcon: Icons.home_rounded,
+                    label: 'home'.tr,
+                    isSelected: controller.currentIndex.value == 0,
+                    onTap: () => controller.changeTab(0),
+                  ),
+                  _navItem(
+                    icon: Icons.medical_services_outlined,
+                    selectedIcon: Icons.medical_services_rounded,
+                    label: 'doctor'.tr,
+                    isSelected: controller.currentIndex.value == 1,
+                    onTap: () => controller.changeTab(1),
+                  ),
+                  const SizedBox(width: 44),
+                  _navItem(
+                    icon: Icons.storefront_outlined,
+                    selectedIcon: Icons.storefront_rounded,
+                    label: 'shop'.tr,
+                    isSelected: controller.currentIndex.value == 3,
+                    onTap: () => controller.changeTab(3),
+                  ),
+                  _navItem(
+                    icon: Icons.person_outline_rounded,
+                    selectedIcon: Icons.person_rounded,
+                    label: 'profile'.tr,
+                    isSelected: controller.currentIndex.value == 4,
+                    onTap: () => controller.changeTab(4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -172,167 +367,171 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     final homeController = Get.find<HomeController>();
     return Drawer(
       width: Get.width * 0.74,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.horizontal(right: Radius.circular(28))),
+      backgroundColor: const Color(0xFFF4FAF4),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+      ),
       child: Column(
         children: [
           _buildDrawerHeader(context, homeController),
           Expanded(
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                children: [
-                  _drawerTile(
-                    icon: Icons.add_circle_outline_rounded,
-                    title: 'add_animal'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.ANIMAL);
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.manage_accounts_outlined,
-                    title: 'manage_animal'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.MANAGE_ANIMAL);
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.account_tree_outlined,
-                    title: 'Create PAN',
-                    onTap: () {
-                      Get.back();
-                      Get.to(() => const PanManagementView());
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.pregnant_woman_outlined,
-                    title: 'manage_pregnancy'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.MANAGE_PREGNANCY);
-                    },
-                  ),
-                  Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      leading: const Icon(Icons.history_rounded, color: AppColors.primary),
-                      title: const Text('History'),
-                      children: [
-                        _drawerSubTile(
-                          icon: Icons.pets_rounded,
-                          title: 'animal_history'.tr,
-                          onTap: () {
-                            Get.back();
-                            Get.toNamed(Routes.ANIMAL_HISTORY);
-                          },
-                        ),
-                        _drawerSubTile(
-                          icon: Icons.local_drink_outlined,
-                          title: 'Milk History',
-                          onTap: () {
-                            Get.back();
-                            Get.to(() => const MilkHistoryView());
-                          },
-                        ),
-                        _drawerSubTile(
-                          icon: Icons.grass_rounded,
-                          title: 'Feeding History',
-                          onTap: () {
-                            Get.back();
-                            Get.to(() => const FeedingHistoryView());
-                          },
-                        ),
-                      ],
+            child: Container(
+              color: const Color(0xFFF4FAF4),
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  children: [
+                    _drawerTile(
+                      icon: Icons.add_circle_outline_rounded,
+                      title: 'add_animal'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.ANIMAL);
+                      },
                     ),
-                  ),
-                  _drawerTile(
-                    icon: Icons.health_and_safety_outlined,
-                    title: 'health'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.HEALTH);
-                    },
-                  ),
-                  Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      leading: const Icon(Icons.settings_rounded, color: AppColors.primary),
-                      title: const Text('Settings'),
-                      children: [
-                        _drawerSubTile(
-                          icon: Icons.tune_rounded,
-                          title: 'Feed Type Settings',
-                          onTap: () {
-                            Get.back();
-                            Get.toNamed(Routes.FEED_SETTINGS);
-                          },
-                        ),
-                        _drawerSubTile(
-                          icon: Icons.translate_rounded,
-                          title: 'change_language'.tr,
-                          onTap: () {
-                            Get.back();
-                            Get.toNamed(
-                              Routes.LANGUAGE,
-                              arguments: {'fromDrawer': true},
-                            );
-                          },
-                        ),
-                      ],
+                    _drawerTile(
+                      icon: Icons.pets_rounded,
+                      title: 'Animal list',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.ANIMAL_HISTORY);
+                      },
                     ),
-                  ),
-                  _drawerTile(
-                    icon: Icons.storefront_outlined,
-                    title: 'add_dairy'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.DAIRY);
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.receipt_long_outlined,
-                    title: 'My Orders',
-                    onTap: () {
-                      Get.back();
-                      Get.to(() => const MyOrdersView());
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.location_searching_rounded,
-                    title: 'Fetch Location',
-                    onTap: () {
-                      Get.back();
-                      Get.to(() => const FetchLocationView());
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.payments_outlined,
-                    title: 'Dairy Payment',
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.PAYMENT);
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.workspace_premium_outlined,
-                    title: 'upgrade_plan'.tr,
-                    onTap: () {
-                      Get.back();
-                      Get.toNamed(Routes.UPGRADE);
-                    },
-                  ),
-                  _drawerTile(
-                    icon: Icons.logout_rounded,
-                    title: 'logout'.tr,
-                    onTap: () async {
-                      Get.back();
-                      await controller.logout();
-                    },
-                  ),
-                ],
+                    _drawerTile(
+                      icon: Icons.manage_accounts_outlined,
+                      title: 'manage_animal'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.MANAGE_ANIMAL);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.account_tree_outlined,
+                      title: 'Create PAN',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const PanManagementView());
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.list_alt_rounded,
+                      title: 'PAN List',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(
+                          const PanManagementView(
+                            mode: PanManagementMode.manage,
+                          ),
+                        );
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.local_drink_outlined,
+                      title: 'Milk Record',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const MilkHistoryView());
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.tune_rounded,
+                      title: 'Add Feed Type',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.FEED_SETTINGS);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.restaurant_menu_rounded,
+                      title: 'Diet Plan',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(
+                          const FeedingHistoryView(initialTab: 1),
+                        );
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.grass_rounded,
+                      title: 'Feeding Record',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(
+                          const FeedingHistoryView(initialTab: 0),
+                        );
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.storefront_outlined,
+                      title: 'add_dairy'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.DAIRY);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.payments_outlined,
+                      title: 'Dairy Payment',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.PAYMENT);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.health_and_safety_outlined,
+                      title: 'health'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.HEALTH);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'My Orders',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const MyOrdersView());
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.translate_rounded,
+                      title: 'change_language'.tr,
+                      onTap: () {
+                        Get.back();
+                        Get.toNamed(
+                          Routes.LANGUAGE,
+                          arguments: {'fromDrawer': true},
+                        );
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.location_searching_rounded,
+                      title: 'Fetch Location',
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const FetchLocationView());
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.workspace_premium_outlined,
+                      title: 'upgrade_plan'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerRoute(Routes.UPGRADE);
+                      },
+                    ),
+                    _drawerTile(
+                      icon: Icons.logout_rounded,
+                      title: 'logout'.tr,
+                      onTap: () async {
+                        Get.back();
+                        await controller.logout();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -341,10 +540,18 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     );
   }
 
-  Widget _buildDrawerHeader(BuildContext context, HomeController homeController) {
+  Widget _buildDrawerHeader(
+    BuildContext context,
+    HomeController homeController,
+  ) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(14, MediaQuery.of(context).viewPadding.top + 14, 14, 10),
+      padding: EdgeInsets.fromLTRB(
+        14,
+        MediaQuery.of(context).viewPadding.top + 14,
+        14,
+        10,
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF1F5F30), Color(0xFF2E7A41)],
@@ -353,7 +560,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         ),
       ),
       child: Obx(() {
-        final farmerName = homeController.farmerName.value.trim().isEmpty ? 'guest'.tr : homeController.farmerName.value;
+        final farmerName = homeController.farmerName.value.trim().isEmpty
+            ? 'guest'.tr
+            : homeController.farmerName.value;
         final farmerMobile = homeController.farmerMobile.value.trim();
         return Container(
           width: double.infinity,
@@ -366,7 +575,10 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.45), width: 2),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    width: 2,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.08),
@@ -375,7 +587,11 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.person_rounded, color: AppColors.primary, size: 30),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: AppColors.primary,
+                  size: 30,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -429,19 +645,48 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     );
   }
 
-  Widget _drawerTile({required IconData icon, required String title, required VoidCallback onTap}) => ListTile(leading: Icon(icon, color: AppColors.primary), title: Text(title), onTap: onTap);
-
-  Widget _drawerSubTile({required IconData icon, required String title, required VoidCallback onTap}) => ListTile(
-    dense: true,
-    contentPadding: const EdgeInsets.only(left: 40, right: 16),
-    leading: Icon(icon, color: AppColors.primary, size: 20),
-    title: Text(title, style: const TextStyle(fontSize: 14)),
+  Widget _drawerTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) => ListTile(
+    leading: Icon(icon, color: AppColors.primary),
+    title: Text(title),
     onTap: onTap,
   );
 
-  Widget _navItem({required IconData icon, required IconData selectedIcon, required String label, required bool isSelected, required VoidCallback onTap}) {
-    return Expanded(child: InkWell(onTap: onTap, child: SizedBox(height: 72, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isSelected ? selectedIcon : icon, color: isSelected ? AppColors.primary : AppColors.grey), const SizedBox(height: 4), Text(label, style: TextStyle(fontSize: 11, color: isSelected ? AppColors.primary : AppColors.grey, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400))]))));
+  Widget _navItem({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 72,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? selectedIcon : icon,
+                color: isSelected ? AppColors.primary : AppColors.grey,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isSelected ? AppColors.primary : AppColors.grey,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
-
-

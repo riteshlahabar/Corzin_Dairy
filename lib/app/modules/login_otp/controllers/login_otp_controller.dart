@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 import '../../../routes/app_pages.dart';
@@ -21,6 +22,7 @@ class LoginOtpController extends GetxController {
   bool isTestNumber = false;
   bool autoVerified = false;
   RxBool isLoading = false.obs;
+  final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
 
   @override
   void onInit() {
@@ -110,19 +112,32 @@ class LoginOtpController extends GetxController {
 
   Future<void> checkUserAndNavigate() async {
     try {
+      final deviceId = await SessionService.getOrCreateDeviceId();
+      final fcmToken = await _loadFcmToken();
       final response = await http.post(
         Uri.parse(Api.checkUser),
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
         },
-        body: jsonEncode({"mobile": mobile}),
+        body: jsonEncode({
+          "mobile": mobile,
+          "device_id": deviceId,
+          "fcm_token": fcmToken,
+          "start_session": true,
+        }),
       );
 
       debugPrint("✅ checkUser statusCode: ${response.statusCode}");
       debugPrint("✅ checkUser response: ${response.body}");
 
       final data = jsonDecode(response.body);
+
+      if (response.statusCode == 401 && data["force_logout"] == true) {
+        await SessionService.forceLogoutFromAnotherDevice();
+        Get.offAllNamed(Routes.LOGIN);
+        return;
+      }
 
       if (response.statusCode == 200 && data["status"] == true) {
         final bool isRegistered = data["is_registered"] == true;
@@ -132,6 +147,7 @@ class LoginOtpController extends GetxController {
 
         if (isRegistered) {
           await SessionService.setRegistered(true);
+          await SessionService.saveActiveSessionToken(data["session_token"]?.toString() ?? "");
 
           final dynamic farmerIdValue = farmerData["id"];
           final int farmerId = farmerIdValue is int
@@ -191,6 +207,14 @@ class LoginOtpController extends GetxController {
 
   Future<void> resendOtp() async {
     Get.snackbar("Info", "OTP Resent to $mobile");
+  }
+
+  Future<String> _loadFcmToken() async {
+    try {
+      return (await _firebaseMessagingService.initialise())?.trim() ?? "";
+    } catch (_) {
+      return "";
+    }
   }
 
   @override

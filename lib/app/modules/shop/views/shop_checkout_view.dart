@@ -37,8 +37,13 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        title: Text('shop_checkout'.tr),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'shop_checkout'.tr,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),

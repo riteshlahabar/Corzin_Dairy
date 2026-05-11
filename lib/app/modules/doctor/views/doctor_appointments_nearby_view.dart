@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/doctor_controller.dart';
 import '../../home/controllers/home_controller.dart';
 import '../../shop/controllers/shop_controller.dart';
@@ -29,6 +30,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     super.initState();
     controller = Get.find<DoctorController>();
     homeController = Get.find<HomeController>();
+    homeController.clearAppointmentScreenNotifications();
     final args = Get.arguments;
     if (args is Map) {
       final raw = args['initial_tab'];
@@ -42,20 +44,28 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     return Material(
       color: const Color(0xFFF7FAF7),
       child: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Column(
           children: [
             Builder(
-              builder: (context) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              builder: (context) => Container(
+                width: double.infinity,
+                color: AppColors.primary,
+                padding: EdgeInsets.fromLTRB(4, MediaQuery.of(context).padding.top + 4, 8, 6),
                 child: Row(
                   children: [
+                    IconButton(
+                      onPressed: _goHome,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      color: Colors.white,
+                    ),
                     Expanded(
                       child: Text(
                         'doctor'.tr,
                         style: const TextStyle(
-                          fontSize: 21,
+                          color: Colors.white,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -69,10 +79,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                             IconButton(
                               onPressed: _openNotificationSheet,
                               icon: const Icon(Icons.notifications_none_rounded),
-                              style: IconButton.styleFrom(
-                                backgroundColor: AppColors.white,
-                                foregroundColor: AppColors.black,
-                              ),
+                              color: Colors.white,
                             ),
                             if (count > 0)
                               Positioned(
@@ -104,15 +111,13 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
                       icon: const Icon(Icons.menu_rounded),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.white,
-                        foregroundColor: AppColors.black,
-                      ),
+                      color: Colors.white,
                     ),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 14),
             Expanded(
               child: DefaultTabController(
                 length: 3,
@@ -252,6 +257,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
         ),
       ),
     );
+  }
+
+  void _goHome() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().changeTab(0);
+      return;
+    }
+    Get.back();
   }
 
   void _openNotificationSheet() {
@@ -941,6 +954,32 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
               const Spacer(),
               SizedBox(
                 height: 30,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openRatingPopup(latest),
+                  icon: Icon(
+                    latest.isRated ? Icons.star_rounded : Icons.star_border_rounded,
+                    size: 15,
+                    color: const Color(0xFFE0A11B),
+                  ),
+                  label: Text(
+                    latest.isRated ? '${'rated'.tr} ${latest.rating}' : 'rating'.tr,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE0A11B),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFE7BD55)),
+                    foregroundColor: const Color(0xFFE0A11B),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 9),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 30,
                 child: OutlinedButton(
                   onPressed: () => _openAnimalHistorySheet(requests),
                   style: OutlinedButton.styleFrom(
@@ -963,6 +1002,71 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openRatingPopup(VetRequestModel request) async {
+    var selectedRating = request.rating > 0 ? request.rating : 0;
+
+    await showDialog<void>(
+      context: Get.context!,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 34),
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FCF8),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: const Color(0xFFDCEADC)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF102A16).withValues(alpha: 0.16),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'rate_doctor'.tr,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final value = index + 1;
+                        final isFilled = value <= selectedRating;
+                        return IconButton(
+                          onPressed: controller.isUpdatingRequestStatus.value
+                              ? null
+                              : () async {
+                                  setDialogState(() => selectedRating = value);
+                                  Navigator.of(context).pop();
+                                  await controller.rateDoctor(request: request, rating: value);
+                                },
+                          icon: Icon(
+                            isFilled ? Icons.star_rounded : Icons.star_border_rounded,
+                            color: const Color(0xFFE0A11B),
+                            size: 34,
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

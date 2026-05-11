@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
 import '../../../routes/app_pages.dart';
 
@@ -29,9 +30,12 @@ class MilkController extends GetxController {
   final Rxn<MilkPanModel> selectedPan = Rxn<MilkPanModel>();
   final Rxn<MilkDairyModel> selectedDairy = Rxn<MilkDairyModel>();
   final RxString selectedShift = 'Morning'.obs;
+  final RxList<String> availableShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
   final RxBool isScheduleLoading = false.obs;
 
   int farmerId = 0;
+  List<Map<String, dynamic>> _milkRows = <Map<String, dynamic>>[];
+  static const List<String> _allShifts = <String>['Morning', 'Afternoon', 'Evening'];
 
   @override
   void onInit() {
@@ -66,15 +70,18 @@ class MilkController extends GetxController {
           selectedAnimal.value = null;
         }
         _rebuildPansFromAnimals();
+        updateAvailableShifts();
       } else {
         animals.clear();
         pans.clear();
         selectedPan.value = null;
+        updateAvailableShifts();
       }
     } catch (_) {
       animals.clear();
       pans.clear();
       selectedPan.value = null;
+      updateAvailableShifts();
     } finally {
       isPageLoading.value = false;
     }
@@ -128,7 +135,58 @@ class MilkController extends GetxController {
   }
 
   Future<void> pickMilkDate() async {
-    // Shift/date flow is fully automatic now by farmer entry progression.
+    final today = DateTime.now();
+    final current = _selectedMilkDate() ?? today;
+    final initialDate = current.isAfter(today) ? today : current;
+    final picked = await showDatePicker(
+      context: Get.context!,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: today,
+      helpText: 'Select milk date',
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        const softGreen = Color(0xFFF4FAF4);
+
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF95BE95),
+              onPrimary: AppColors.black,
+              surface: softGreen,
+              onSurface: AppColors.black,
+            ),
+            dialogTheme: theme.dialogTheme.copyWith(backgroundColor: softGreen),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: softGreen,
+              headerBackgroundColor: const Color(0xFFDDEEDC),
+              headerForegroundColor: AppColors.black,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked == null) return;
+
+    milkDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+    updateAvailableShifts();
+  }
+
+  void selectAnimal(MilkAnimalModel? animal) {
+    selectedAnimal.value = animal;
+    if (animal != null) {
+      selectedPan.value = null;
+    }
+    updateAvailableShifts();
+  }
+
+  void selectPan(MilkPanModel? pan) {
+    selectedPan.value = pan;
+    if (pan != null) {
+      selectedAnimal.value = null;
+    }
+    updateAvailableShifts();
   }
 
   Future<void> submitMilk() async {
@@ -142,6 +200,10 @@ class MilkController extends GetxController {
         Get.snackbar('Error', 'Please select an animal or PAN', snackPosition: SnackPosition.BOTTOM);
         return;
       }
+    }
+    if (selectedShift.value.trim().isEmpty || !availableShifts.contains(selectedShift.value)) {
+      Get.snackbar('Info', 'No milk shift is available for selected date.', snackPosition: SnackPosition.BOTTOM);
+      return;
     }
     if (selectedPan.value != null) {
       final pan = selectedPan.value!;
@@ -158,11 +220,23 @@ class MilkController extends GetxController {
       }
       final perAnimalQty = totalQty / panAnimals.length;
       final qty = _formatDistributedValue(perAnimalQty);
+      final fatPerAnimal = _formatOptionalDistributedValue(
+        fatController.text.trim(),
+        panAnimals.length,
+      );
+      final snfPerAnimal = _formatOptionalDistributedValue(
+        snfController.text.trim(),
+        panAnimals.length,
+      );
       final quantityByAnimal = <int, String>{
         for (final animal in panAnimals) animal.id: qty,
       };
 
-      final result = await submitBulkMilk(quantityByAnimal);
+      final result = await submitBulkMilk(
+        quantityByAnimal,
+        fatPerAnimal: fatPerAnimal,
+        snfPerAnimal: snfPerAnimal,
+      );
       final successCount = result['success'] ?? 0;
       final failedCount = result['failed'] ?? 0;
 
@@ -254,7 +328,10 @@ class MilkController extends GetxController {
 
   Future<Map<String, int>> submitBulkMilk(
     Map<int, String> quantityByAnimal,
-  ) async {
+    {
+    String? fatPerAnimal,
+    String? snfPerAnimal,
+  }) async {
     if (farmerId == 0) {
       Get.snackbar(
         'Error',
@@ -302,8 +379,8 @@ class MilkController extends GetxController {
           'date': _formatDateForApi(milkDateController.text.trim()),
           'shift': selectedShift.value,
           'quantity': entry.value,
-          'fat': fatController.text.trim(),
-          'snf': snfController.text.trim(),
+          'fat': fatPerAnimal ?? fatController.text.trim(),
+          'snf': snfPerAnimal ?? snfController.text.trim(),
           'rate': rateController.text.trim(),
           'notes': notesController.text.trim(),
         };
@@ -347,6 +424,13 @@ class MilkController extends GetxController {
         .replaceAll(RegExp(r'\.$'), '');
   }
 
+  String? _formatOptionalDistributedValue(String value, int divisor) {
+    if (value.isEmpty || divisor <= 0) return null;
+    final parsed = double.tryParse(value);
+    if (parsed == null) return value;
+    return _formatDistributedValue(parsed / divisor);
+  }
+
   Future<void> refreshAutoSchedule() async {
     if (farmerId == 0) return;
     try {
@@ -357,66 +441,90 @@ class MilkController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode != 200 || data['status'] != true) {
-        _setDefaultSchedule();
+        _milkRows = <Map<String, dynamic>>[];
+        updateAvailableShifts();
         return;
       }
 
       final List list = data['data'] ?? [];
-      if (list.isEmpty) {
-        _setDefaultSchedule();
-        return;
-      }
-
-      final rows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
-      final latestDate = _latestRecordedDate(rows);
-      if (latestDate == null) {
-        _setDefaultSchedule();
-        return;
-      }
-
-      final sameDateRows = rows.where((row) => _isSameDate(_parseApiDate(row['date']), latestDate)).toList();
-      final morningDone = sameDateRows.any((row) => _isShiftValuePresent(row['morning_milk']));
-      final afternoonDone = sameDateRows.any((row) => _isShiftValuePresent(row['afternoon_milk']));
-      final eveningDone = sameDateRows.any((row) => _isShiftValuePresent(row['evening_milk']));
-
-      DateTime targetDate = latestDate;
-      String targetShift = 'Morning';
-
-      if (!morningDone) {
-        targetShift = 'Morning';
-      } else if (!afternoonDone) {
-        targetShift = 'Afternoon';
-      } else if (!eveningDone) {
-        targetShift = 'Evening';
-      } else {
-        targetDate = latestDate.add(const Duration(days: 1));
-        targetShift = 'Morning';
-      }
-
-      milkDateController.text = DateFormat('dd/MM/yyyy').format(targetDate);
-      selectedShift.value = targetShift;
+      _milkRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      updateAvailableShifts();
     } catch (_) {
-      _setDefaultSchedule();
+      _milkRows = <Map<String, dynamic>>[];
+      updateAvailableShifts();
     } finally {
       isScheduleLoading.value = false;
     }
   }
 
-  void _setDefaultSchedule() {
-    milkDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
-    selectedShift.value = 'Morning';
-  }
+  void updateAvailableShifts() {
+    final allowed = _allowedShiftsForSelection();
+    final date = _selectedMilkDate() ?? DateTime.now();
+    final rows = _rowsForSelectedTarget(date);
+    final done = <String, bool>{
+      'Morning': rows.any((row) => _isShiftValuePresent(row['morning_milk'])),
+      'Afternoon': rows.any((row) => _isShiftValuePresent(row['afternoon_milk'])),
+      'Evening': rows.any((row) => _isShiftValuePresent(row['evening_milk'])),
+    };
 
-  DateTime? _latestRecordedDate(List<Map<String, dynamic>> rows) {
-    DateTime? latest;
-    for (final row in rows) {
-      final parsed = _parseApiDate(row['date']);
-      if (parsed == null) continue;
-      if (latest == null || parsed.isAfter(latest)) {
-        latest = parsed;
+    if (!done.values.any((value) => value)) {
+      final firstShift = allowed.isEmpty ? <String>[] : <String>[allowed.first];
+      availableShifts.assignAll(firstShift);
+      if (!firstShift.contains(selectedShift.value)) {
+        selectedShift.value = firstShift.isEmpty ? '' : firstShift.first;
+      }
+      return;
+    }
+
+    var lastDoneIndex = -1;
+    for (var index = 0; index < allowed.length; index++) {
+      if (done[allowed[index]] == true) {
+        lastDoneIndex = index;
       }
     }
-    return latest;
+
+    final next = allowed.asMap().entries.where((entry) => entry.key > lastDoneIndex).map((entry) => entry.value).toList();
+    availableShifts.assignAll(next);
+    if (!next.contains(selectedShift.value)) {
+      selectedShift.value = next.isEmpty ? '' : next.first;
+    }
+  }
+
+  List<String> _allowedShiftsForSelection() {
+    final pan = selectedPan.value;
+    if (pan != null) {
+      final allowed = pan.milkShifts.where(_allShifts.contains).toList();
+      return allowed.isEmpty ? _allShifts : allowed;
+    }
+    return _allShifts;
+  }
+
+  List<Map<String, dynamic>> _rowsForSelectedTarget(DateTime date) {
+    final animal = selectedAnimal.value;
+    final pan = selectedPan.value;
+    final animalIds = <int>{};
+
+    if (animal != null) {
+      animalIds.add(animal.id);
+    } else if (pan != null) {
+      animalIds.addAll(animals.where((item) => item.belongsToPan(pan)).map((item) => item.id));
+    }
+
+    if (animalIds.isEmpty) return <Map<String, dynamic>>[];
+    return _milkRows.where((row) {
+      final rowAnimalId = int.tryParse((row['animal_id'] ?? '').toString()) ?? 0;
+      return animalIds.contains(rowAnimalId) && _isSameDate(_parseApiDate(row['date']), date);
+    }).toList();
+  }
+
+  DateTime? _selectedMilkDate() {
+    final text = milkDateController.text.trim();
+    if (text.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(text);
+    } catch (_) {
+      return _parseApiDate(text);
+    }
   }
 
   DateTime? _parseApiDate(dynamic value) {
@@ -462,6 +570,7 @@ class MilkController extends GetxController {
     snfController.clear();
     rateController.clear();
     notesController.clear();
+    updateAvailableShifts();
   }
 
   @override
@@ -483,15 +592,15 @@ class MilkController extends GetxController {
       final key = animal.panId > 0 ? 'id_${animal.panId}' : 'name_${panName.toLowerCase()}';
       unique.putIfAbsent(
         key,
-        () => MilkPanModel(id: animal.panId, name: panName),
+        () => MilkPanModel(id: animal.panId, name: panName, milkShifts: animal.panMilkShifts),
       );
     }
     final next = unique.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     pans.assignAll(next);
     final current = selectedPan.value;
-    if (current != null && !next.any((pan) => pan.matches(current))) {
-      selectedPan.value = null;
+    if (current != null) {
+      selectedPan.value = next.firstWhereOrNull((pan) => pan.matches(current));
     }
   }
 }
@@ -503,6 +612,7 @@ class MilkAnimalModel {
   final String animalTypeName;
   final int panId;
   final String panName;
+  final List<String> panMilkShifts;
 
   MilkAnimalModel({
     required this.id,
@@ -511,6 +621,7 @@ class MilkAnimalModel {
     required this.animalTypeName,
     required this.panId,
     required this.panName,
+    required this.panMilkShifts,
   });
 
   String get displayName {
@@ -544,15 +655,31 @@ class MilkAnimalModel {
       animalTypeName: json['animal_type_name']?.toString() ?? '',
       panId: int.tryParse((json['pan_id'] ?? '').toString()) ?? 0,
       panName: panFromFlat.trim().isNotEmpty ? panFromFlat : panFromNested,
+      panMilkShifts: _parseMilkShifts(json['pan_milk_shifts']),
     );
+  }
+
+  static List<String> _parseMilkShifts(dynamic value) {
+    const allowed = ['Morning', 'Afternoon', 'Evening'];
+    if (value is! List) return allowed;
+    final parsed = value
+        .map((item) => item.toString().trim())
+        .where((item) => allowed.contains(item))
+        .toList();
+    return parsed.isEmpty ? allowed : parsed;
   }
 }
 
 class MilkPanModel {
   final int id;
   final String name;
+  final List<String> milkShifts;
 
-  MilkPanModel({required this.id, required this.name});
+  MilkPanModel({
+    required this.id,
+    required this.name,
+    required this.milkShifts,
+  });
 
   bool matches(MilkPanModel other) {
     if (id > 0 && other.id > 0) {

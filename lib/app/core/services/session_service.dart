@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionService {
@@ -20,6 +22,8 @@ class SessionService {
   static const String latitudeKey = "latitude";
   static const String longitudeKey = "longitude";
   static const String currentLocationAddressKey = "current_location_address";
+  static const String deviceIdKey = "device_id";
+  static const String activeSessionTokenKey = "active_session_token";
 
   static Future<void> setSeenOnboarding(bool value) async {
     final prefs = await SharedPreferences.getInstance();
@@ -79,6 +83,33 @@ class SessionService {
   static Future<int> getFarmerId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(farmerIdKey) ?? 0;
+  }
+
+  static Future<String> getOrCreateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString(deviceIdKey);
+    if (existing != null && existing.trim().isNotEmpty) {
+      return existing;
+    }
+
+    final random = Random();
+    final value = 'farmer_${DateTime.now().microsecondsSinceEpoch}_${random.nextInt(1 << 32)}';
+    await prefs.setString(deviceIdKey, value);
+    return value;
+  }
+
+  static Future<void> saveActiveSessionToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (token.trim().isEmpty) {
+      await prefs.remove(activeSessionTokenKey);
+      return;
+    }
+    await prefs.setString(activeSessionTokenKey, token.trim());
+  }
+
+  static Future<String> getActiveSessionToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(activeSessionTokenKey) ?? "";
   }
 
   static Future<void> saveFarmerProfile({
@@ -156,5 +187,14 @@ class SessionService {
     await prefs.setBool(isLoggedInKey, false);
     await prefs.setBool(isRegisteredKey, true);
     await prefs.setBool(seenOnboardingKey, false);
+    await prefs.remove(activeSessionTokenKey);
+  }
+
+  static Future<void> forceLogoutFromAnotherDevice() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(isLoggedInKey, false);
+    await prefs.setBool(isRegisteredKey, true);
+    await prefs.setBool(seenOnboardingKey, true);
+    await prefs.remove(activeSessionTokenKey);
   }
 }

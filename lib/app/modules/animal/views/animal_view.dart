@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/animal_controller.dart';
 
 class AnimalView extends GetView<AnimalController> {
@@ -19,13 +21,14 @@ class AnimalView extends GetView<AnimalController> {
             : GestureDetector(
                 onTap: () => FocusScope.of(context).unfocus(),
                 child: SafeArea(
+                  top: false,
                   child: Column(
                     children: [
-                      _buildHeader(),
+                      _buildHeader(context),
                       Expanded(
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                           child: Form(
                             key: controller.formKey,
                             child: Column(
@@ -42,17 +45,26 @@ class AnimalView extends GetView<AnimalController> {
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
       child: Row(
         children: [
-          IconButton(onPressed: () => Get.back(), icon: const Icon(Icons.arrow_back_ios_new_rounded), style: IconButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.black, elevation: 0.5)),
+          IconButton(onPressed: _goBack, icon: const Icon(Icons.arrow_back_ios_new_rounded), color: Colors.white),
           const SizedBox(width: 8),
-          Expanded(child: Text(controller.pageTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.black))),
+          Expanded(child: Text(controller.pageTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white))),
         ],
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 
   Widget _buildHeroCard() {
@@ -87,7 +99,7 @@ class AnimalView extends GetView<AnimalController> {
         children: [
           _sectionTitle('Basic Details'),
           const SizedBox(height: 14),
-          _fieldLabel('Animal Type', requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('Select animal type'), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'Please select animal type' : null)), const SizedBox(height: 16),
+          _fieldLabel('Animal Type', requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, hint: const Text('Select animal type'), isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('Select animal type'), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'Please select animal type' : null)), const SizedBox(height: 16),
           _fieldLabel('Animal Name', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter animal name'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter animal name' : null),
           Obx(() => controller.showMotherAnimalDropdown ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,6 +139,10 @@ class AnimalView extends GetView<AnimalController> {
           ) : const SizedBox.shrink()),
           const SizedBox(height: 16),
           _fieldLabel('Tag Number', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.tagNumberController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter tag number'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter tag number' : null),
+          const SizedBox(height: 16),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('Lactation Number'), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter lactation no.'))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('AI Date'), const SizedBox(height: 8), TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)))]))]),
+          const SizedBox(height: 16),
+          _fieldLabel('Breed Name'), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter breed name')),
           const SizedBox(height: 18),
           _sectionTitle('Animal Info'), const SizedBox(height: 14),
           _fieldLabel('Birthdate/Purchase date', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.birthDateController, readOnly: true, onTap: controller.pickBirthDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)), validator: (value) => value == null || value.trim().isEmpty ? 'Please select birthdate/purchase date' : null),
@@ -173,7 +189,7 @@ class AnimalView extends GetView<AnimalController> {
     );
   }
   InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(hintText: hint, hintStyle: TextStyle(color: AppColors.grey.shade500, fontSize: 14), filled: true, fillColor: const Color(0xFFF8FBF8), contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)), errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.red)), focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.red)));
+    return InputDecoration(hintText: hint, hintStyle: TextStyle(color: AppColors.grey.shade500, fontSize: 14), isDense: true, filled: true, fillColor: const Color(0xFFF8FBF8), contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)), errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.red)), focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.red)));
   }
 }
 

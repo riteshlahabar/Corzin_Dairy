@@ -9,8 +9,6 @@ import '../modules/animal_history/bindings/animal_history_binding.dart';
 import '../modules/animal_history/views/animal_history_view.dart';
 import '../modules/manage_animal/bindings/manage_animal_binding.dart';
 import '../modules/manage_animal/views/manage_animal_view.dart';
-import '../modules/manage_pregnancy/bindings/manage_pregnancy_binding.dart';
-import '../modules/manage_pregnancy/views/manage_pregnancy_view.dart';
 import '../modules/dairy/bindings/dairy_binding.dart';
 import '../modules/dairy/views/dairy_view.dart';
 import '../modules/doctor/bindings/doctor_binding.dart';
@@ -62,7 +60,6 @@ class AppPages {
     GetPage(name: _Paths.HOME, page: () => const MainBottomNavView(), binding: HomeBinding()),
     GetPage(name: _Paths.ANIMAL, page: () => AnimalView(), binding: AnimalBinding()),
     GetPage(name: _Paths.MANAGE_ANIMAL, page: () => const ManageAnimalView(), binding: ManageAnimalBinding()),
-    GetPage(name: _Paths.MANAGE_PREGNANCY, page: () => const ManagePregnancyView(), binding: ManagePregnancyBinding()),
     GetPage(name: _Paths.ANIMAL_HISTORY, page: () => const AnimalHistoryView(), binding: AnimalHistoryBinding()),
     GetPage(name: _Paths.MILK, page: () => const MilkView(), binding: MilkBinding()),
     GetPage(name: _Paths.FEEDING, page: () => const FeedingView(), binding: FeedingBinding()),

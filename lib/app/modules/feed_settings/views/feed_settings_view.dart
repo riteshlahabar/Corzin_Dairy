@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/feed_settings_controller.dart';
 
 class FeedSettingsView extends GetView<FeedSettingsController> {
@@ -12,10 +13,17 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.primary,
         elevation: 0,
-        foregroundColor: AppColors.black,
-        title: const Text('Feed Type Settings'),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: const Text(
+          'Add Feed Type',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
@@ -29,17 +37,12 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
             : RefreshIndicator(
                 onRefresh: controller.fetchFeedTypes,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                   children: [
+                    _introCard(),
+                    const SizedBox(height: 14),
                     if (controller.feedTypes.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text('No feed types found. Add your first feed type.'),
-                      ),
+                      _emptyCard(),
                     ...controller.feedTypes.map((type) => _typeCard(type, context)),
                   ],
                 ),
@@ -48,18 +51,100 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
     );
   }
 
-  Widget _typeCard(FeedTypeSettingModel type, BuildContext context) {
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
+
+  Widget _introCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, Color(0xFF4EA857)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: AppColors.primary.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Color(0x22FFFFFF),
+            child: Icon(Icons.grass_rounded, color: Colors.white),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Build Feed Library',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Add feed types, units, and subtypes for farmer feeding entries.',
+                  style: TextStyle(color: Colors.white, fontSize: 12.5, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.10)),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 34),
+          SizedBox(height: 8),
+          Text(
+            'No feed types found',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Tap Add Feed Type to create your first feed group.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _typeCard(FeedTypeSettingModel type, BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -68,28 +153,53 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
         children: [
           Row(
             children: [
+              Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.eco_rounded, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   type.name,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                 ),
               ),
-              IconButton(
-                onPressed: () => _openForm(context, existing: type),
-                icon: const Icon(Icons.edit_rounded, color: AppColors.primary),
+              InkWell(
+                onTap: () => _openForm(context, existing: type),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.edit_rounded, color: AppColors.primary, size: 18),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Unit: ${type.defaultUnit}',
-            style: TextStyle(
-              color: AppColors.grey.shade700,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F6F0),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Unit: ${type.defaultUnit}',
+              style: TextStyle(
+                color: AppColors.grey.shade800,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,

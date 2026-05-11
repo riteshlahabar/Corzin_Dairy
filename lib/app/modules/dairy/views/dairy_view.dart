@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/dairy_controller.dart';
 
 class DairyView extends GetView<DairyController> {
@@ -12,19 +13,19 @@ class DairyView extends GetView<DairyController> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       body: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
         child: Obx(
           () => Column(
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               Expanded(
                 child: controller.isPageLoading.value
                     ? const Center(child: CircularProgressIndicator())
                     : RefreshIndicator(
                         onRefresh: controller.fetchDairies,
                         child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                           children: [
                             _buildHeroCard(),
                             const SizedBox(height: 16),
@@ -45,27 +46,26 @@ class DairyView extends GetView<DairyController> {
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Get.back(),
+            onPressed: _goBack,
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.black,
-            ),
+            color: Colors.white,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'add_dairy'.tr,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppColors.black,
+                color: Colors.white,
               ),
             ),
           ),
@@ -411,5 +411,12 @@ class DairyView extends GetView<DairyController> {
         ),
       ),
     );
+  }
+
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
   }
 }

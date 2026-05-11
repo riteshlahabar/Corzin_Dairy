@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/fetch_location_controller.dart';
 
 class FetchLocationView extends GetView<FetchLocationController> {
@@ -12,7 +13,17 @@ class FetchLocationView extends GetView<FetchLocationController> {
     Get.put(FetchLocationController());
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fetch Location'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: _goBack,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: const Text(
+          'Fetch Location',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -101,5 +112,11 @@ class FetchLocationView extends GetView<FetchLocationController> {
       ),
     );
   }
-}
 
+  void _goBack() {
+    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
+}
