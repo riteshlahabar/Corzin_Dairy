@@ -22,7 +22,8 @@ class HomeController extends GetxController {
   final RxBool isUpdatingLifecycle = false.obs;
   final RxList<dynamic> animals = <dynamic>[].obs;
   final RxList<HomeSaleAnimalModel> saleAnimals = <HomeSaleAnimalModel>[].obs;
-  final RxList<HomeAdminBannerModel> farmerBanners = <HomeAdminBannerModel>[].obs;
+  final RxList<HomeAdminBannerModel> farmerBanners =
+      <HomeAdminBannerModel>[].obs;
   final RxInt heroBannerIndex = 0.obs;
   final RxList<AnimalTypeOption> animalTypes = <AnimalTypeOption>[].obs;
   final RxMap<String, String> stats = <String, String>{
@@ -43,8 +44,11 @@ class HomeController extends GetxController {
   final RxBool planBlinkOn = false.obs;
   final RxString farmerName = ''.obs;
   final RxString farmerMobile = ''.obs;
-  final RxList<FarmerNotificationItem> notificationHistory = <FarmerNotificationItem>[].obs;
-  final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
+  final RxString farmerPhoto = ''.obs;
+  final RxList<FarmerNotificationItem> notificationHistory =
+      <FarmerNotificationItem>[].obs;
+  final FirebaseMessagingService _firebaseMessagingService =
+      FirebaseMessagingService();
 
   int farmerId = 0;
   Timer? _planBlinkTimer;
@@ -71,7 +75,13 @@ class HomeController extends GetxController {
 
   Future<void> initHome() async {
     await loadBaseData();
-    await Future.wait([fetchAnimalTypes(), fetchAnimals(), fetchSaleAnimals(), fetchFarmerBanners(), loadDashboard()]);
+    await Future.wait([
+      fetchAnimalTypes(),
+      fetchAnimals(),
+      fetchSaleAnimals(),
+      fetchFarmerBanners(),
+      loadDashboard(),
+    ]);
   }
 
   Future<void> loadBaseData() async {
@@ -92,6 +102,7 @@ class HomeController extends GetxController {
       fallbackName: savedName,
     );
     farmerMobile.value = await SessionService.getMobile();
+    farmerPhoto.value = (profile['farmer_photo'] ?? '').trim();
 
     if (farmerId <= 0 && farmerMobile.value.trim().isNotEmpty) {
       await _loadFarmerIdFromProfileApi(farmerMobile.value.trim(), prefs);
@@ -101,23 +112,33 @@ class HomeController extends GetxController {
 
   Future<void> fetchAnimalTypes() async {
     try {
-      final response = await http.get(Uri.parse(Api.animalTypes), headers: {'Accept': 'application/json'});
+      final response = await http.get(
+        Uri.parse(Api.animalTypes),
+        headers: {'Accept': 'application/json'},
+      );
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
-        animalTypes.assignAll(list.map((item) => AnimalTypeOption.fromJson(item)).toList());
+        animalTypes.assignAll(
+          list.map((item) => AnimalTypeOption.fromJson(item)).toList(),
+        );
       }
     } catch (_) {
       animalTypes.clear();
     }
   }
 
-  Future<void> fetchAnimals() async {
+  Future<void> fetchAnimals({bool silent = false}) async {
     if (farmerId == 0) return;
 
     try {
-      isLoadingAnimals.value = true;
-      final response = await http.get(Uri.parse('${Api.animalList}/$farmerId'), headers: {'Accept': 'application/json'});
+      if (!silent) {
+        isLoadingAnimals.value = true;
+      }
+      final response = await http.get(
+        Uri.parse('${Api.animalList}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['status'] == true) {
         animals.value = data['data'] ?? [];
@@ -127,7 +148,9 @@ class HomeController extends GetxController {
     } catch (_) {
       animals.clear();
     } finally {
-      isLoadingAnimals.value = false;
+      if (!silent) {
+        isLoadingAnimals.value = false;
+      }
     }
   }
 
@@ -138,11 +161,17 @@ class HomeController extends GetxController {
         headers: {'Accept': 'application/json'},
       );
       final data = _decodeBody(response.body);
-      if (response.statusCode == 200 && data['status'] == true && data['data'] is List) {
+      if (response.statusCode == 200 &&
+          data['status'] == true &&
+          data['data'] is List) {
         saleAnimals.assignAll(
           (data['data'] as List)
               .whereType<Map>()
-              .map((item) => HomeSaleAnimalModel.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) => HomeSaleAnimalModel.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
               .toList(),
         );
         _syncHeroBannerTimer();
@@ -163,12 +192,20 @@ class HomeController extends GetxController {
         headers: {'Accept': 'application/json'},
       );
       final data = _decodeBody(response.body);
-      final banners = data['data'] is Map ? (data['data']['banners'] ?? []) : [];
-      if (response.statusCode == 200 && data['status'] == true && banners is List) {
+      final banners = data['data'] is Map
+          ? (data['data']['banners'] ?? [])
+          : [];
+      if (response.statusCode == 200 &&
+          data['status'] == true &&
+          banners is List) {
         farmerBanners.assignAll(
           banners
               .whereType<Map>()
-              .map((item) => HomeAdminBannerModel.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) => HomeAdminBannerModel.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
               .where((banner) => banner.imageUrl.trim().isNotEmpty)
               .toList(),
         );
@@ -183,16 +220,20 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> loadDashboard() async {
+  Future<void> loadDashboard({bool silent = false}) async {
     try {
-      isLoadingDashboard.value = true;
+      if (!silent) {
+        isLoadingDashboard.value = true;
+      }
       await Future.wait([
         _loadDairyPaymentsAndMilk(),
         _loadFeedingSummary(),
         _loadCurrentPlan(),
       ]);
     } finally {
-      isLoadingDashboard.value = false;
+      if (!silent) {
+        isLoadingDashboard.value = false;
+      }
     }
   }
 
@@ -211,16 +252,25 @@ class HomeController extends GetxController {
       };
       final response = await http.post(
         Uri.parse('${Api.animalLifecycle}/$animalId'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         await fetchAnimals();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Animal lifecycle updated');
+        Get.snackbar(
+          'Success',
+          data['message']?.toString() ?? 'Animal lifecycle updated',
+        );
         return true;
       }
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to update animal lifecycle');
+      Get.snackbar(
+        'Error',
+        data['message']?.toString() ?? 'Failed to update animal lifecycle',
+      );
       return false;
     } catch (e) {
       Get.snackbar('Error', e.toString());
@@ -230,8 +280,13 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> refreshDashboard() async {
-    await Future.wait([fetchAnimals(), fetchSaleAnimals(), fetchFarmerBanners(), loadDashboard()]);
+  Future<void> refreshDashboard({bool silent = false}) async {
+    await Future.wait([
+      fetchAnimals(silent: silent),
+      fetchSaleAnimals(),
+      fetchFarmerBanners(),
+      loadDashboard(silent: silent),
+    ]);
   }
 
   Future<void> _loadDairyPaymentsAndMilk() async {
@@ -268,14 +323,20 @@ class HomeController extends GetxController {
             ? item
             : Map<String, dynamic>.from(item as Map);
 
-        final todayPayment = _asDouble(row['today_payment']);
-        final totalPayment = _asDouble(row['total_payment']);
+        final history = row['history'] is List
+            ? row['history'] as List
+            : <dynamic>[];
+
+        final latest = history.isNotEmpty
+            ? Map<String, dynamic>.from(history.first as Map)
+            : <String, dynamic>{};
+
+        final todayPayment = _asDouble(latest['paid_amount']);
+        final totalPayment = _asDouble(latest['total_amount']);
+        final pendingPayment = _asDouble(latest['balance_amount']);
+
         final todayMilk = _asDouble(row['today_milk']);
         final totalMilk = _asDouble(row['total_milk']);
-        final pendingFromApi = _asDouble(row['pending_payment']);
-        final pendingPayment = pendingFromApi > 0
-            ? pendingFromApi
-            : (totalPayment - todayPayment).clamp(0, double.infinity).toDouble();
 
         todayMilkTotal += todayMilk;
         totalMilkTotal += totalMilk;
@@ -365,7 +426,9 @@ class HomeController extends GetxController {
         headers: {'Accept': 'application/json'},
       );
       final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true || data['data'] is! List) {
+      if (response.statusCode != 200 ||
+          data['status'] != true ||
+          data['data'] is! List) {
         return;
       }
 
@@ -380,11 +443,13 @@ class HomeController extends GetxController {
         orElse: () => list.first,
       );
 
-      int durationDays = int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
+      int durationDays =
+          int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
       final planName = plan['name']?.toString().trim().isNotEmpty == true
           ? plan['name'].toString()
           : 'free_plan';
-      final isFreePlan = planName.toLowerCase().contains('free') ||
+      final isFreePlan =
+          planName.toLowerCase().contains('free') ||
           _asDouble(plan['price']) <= 0;
       if (isFreePlan && durationDays <= 0) {
         durationDays = 30;
@@ -394,7 +459,8 @@ class HomeController extends GetxController {
           : _formatCurrency(_asDouble(plan['price']));
       final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
       final now = DateTime.now();
-      final startAt = _readDate(plan, const [
+      final startAt =
+          _readDate(plan, const [
             'start_date',
             'package_start_date',
             'subscribed_at',
@@ -402,7 +468,8 @@ class HomeController extends GetxController {
           ]) ??
           backendStartAt ??
           now;
-      final renewAt = _readDate(plan, const [
+      final renewAt =
+          _readDate(plan, const [
             'renew_date',
             'renewal_date',
             'expiry_date',
@@ -553,7 +620,6 @@ class HomeController extends GetxController {
     });
   }
 
-
   Future<void> initialiseNotifications() async {
     try {
       final token = await _firebaseMessagingService.initialise();
@@ -567,10 +633,15 @@ class HomeController extends GetxController {
         }
       });
 
-      _firebaseMessagingService.foregroundMessageStream().listen(_handleRemoteMessage);
-      _firebaseMessagingService.messageOpenedAppStream().listen(_handleRemoteMessage);
+      _firebaseMessagingService.foregroundMessageStream().listen(
+        _handleRemoteMessage,
+      );
+      _firebaseMessagingService.messageOpenedAppStream().listen(
+        _handleRemoteMessage,
+      );
 
-      final initialMessage = await _firebaseMessagingService.getInitialMessage();
+      final initialMessage = await _firebaseMessagingService
+          .getInitialMessage();
       if (initialMessage != null) {
         _handleRemoteMessage(initialMessage);
       }
@@ -607,13 +678,20 @@ class HomeController extends GetxController {
       }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      debugPrint('[FCM][Farmer] token update failed status=${response.statusCode} body=${response.body}');
+      debugPrint(
+        '[FCM][Farmer] token update failed status=${response.statusCode} body=${response.body}',
+      );
       return;
     }
-    debugPrint('[FCM][Farmer] token updated successfully for farmerId=$farmerId');
+    debugPrint(
+      '[FCM][Farmer] token updated successfully for farmerId=$farmerId',
+    );
   }
 
-  Future<void> _loadFarmerIdFromProfileApi(String mobile, SharedPreferences prefs) async {
+  Future<void> _loadFarmerIdFromProfileApi(
+    String mobile,
+    SharedPreferences prefs,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
@@ -623,9 +701,13 @@ class HomeController extends GetxController {
 
       final data = _decodeBody(response.body);
       if (data['status'] != true) return;
-      final payload = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : <String, dynamic>{};
+      final payload = data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'])
+          : <String, dynamic>{};
       final idRaw = payload['id'];
-      final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
+      final id = idRaw is int
+          ? idRaw
+          : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
       if (id <= 0) return;
 
       farmerId = id;
@@ -665,7 +747,9 @@ class HomeController extends GetxController {
       createdAt: DateTime.now(),
       type: message.data['type']?.toString() ?? '',
       notificationId: notificationId,
-      appointmentId: int.tryParse(message.data['appointment_id']?.toString() ?? ''),
+      appointmentId: int.tryParse(
+        message.data['appointment_id']?.toString() ?? '',
+      ),
     );
     notificationHistory.insert(0, item);
     if (notificationHistory.length > 100) {
@@ -684,7 +768,9 @@ class HomeController extends GetxController {
   }
 
   int _notificationIdForMessage(RemoteMessage message) {
-    final appointmentId = int.tryParse(message.data['appointment_id']?.toString() ?? '');
+    final appointmentId = int.tryParse(
+      message.data['appointment_id']?.toString() ?? '',
+    );
     if (appointmentId != null && appointmentId > 0) {
       return 800000 + appointmentId;
     }
@@ -778,8 +864,8 @@ class HomeController extends GetxController {
     final otp = message.data['visit_otp']?.toString().trim().isNotEmpty == true
         ? message.data['visit_otp']!.toString().trim()
         : (message.data['otp']?.toString().trim().isNotEmpty == true
-            ? message.data['otp']!.toString().trim()
-            : '');
+              ? message.data['otp']!.toString().trim()
+              : '');
     if (otp.isNotEmpty) {
       final otpLine = 'Visit OTP: $otp';
       if (body == null || body.isEmpty) {
@@ -803,9 +889,11 @@ class HomeController extends GetxController {
         final decoded = jsonDecode(raw);
         if (decoded is! List) return;
         combined.addAll(
-          decoded
-              .whereType<Map>()
-              .map((item) => FarmerNotificationItem.fromJson(Map<String, dynamic>.from(item))),
+          decoded.whereType<Map>().map(
+            (item) => FarmerNotificationItem.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          ),
         );
       }
 
@@ -814,7 +902,9 @@ class HomeController extends GetxController {
         parseRaw(prefs.getString(_globalNotificationKey));
       }
 
-      combined.removeWhere((item) => _isPlaceholderNotification(item.title, item.body));
+      combined.removeWhere(
+        (item) => _isPlaceholderNotification(item.title, item.body),
+      );
       if (combined.isEmpty) {
         notificationHistory.clear();
         return;
@@ -892,7 +982,10 @@ class HomeController extends GetxController {
     return double.tryParse(match?.group(0) ?? '') ?? 0;
   }
 
-  double _extractSummaryNumber(Map<String, dynamic> summary, List<String> keys) {
+  double _extractSummaryNumber(
+    Map<String, dynamic> summary,
+    List<String> keys,
+  ) {
     for (final key in keys) {
       if (summary.containsKey(key)) {
         return _asDouble(summary[key]);
@@ -970,7 +1063,9 @@ class FarmerNotificationItem {
     return FarmerNotificationItem(
       title: json['title']?.toString() ?? 'Notification',
       body: json['body']?.toString() ?? '',
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
       type: json['type']?.toString() ?? '',
       notificationId: int.tryParse(json['notification_id']?.toString() ?? ''),
       appointmentId: int.tryParse(json['appointment_id']?.toString() ?? ''),
@@ -1115,6 +1210,3 @@ class FarmerPlanModel {
     required this.renewDate,
   });
 }
-
-
-

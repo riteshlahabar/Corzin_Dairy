@@ -14,16 +14,14 @@ class HomeView extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.white,
-      child: RefreshIndicator(
-        onRefresh: controller.refreshDashboard,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            _buildTopBar(context),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        children: [
+          _buildTopBar(context),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: controller.refreshDashboard,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                 children: [
                   _buildHeroCard(),
                   const SizedBox(height: 12),
@@ -54,7 +52,7 @@ class HomeView extends GetView<HomeController> {
                         return Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(color: AppColors.grey.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
-                          child: Center(child: Text('No payments yet', style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))),
+                          child: Center(child: Text('no_payments_yet'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))),
                         );
                       }
                       return ListView.builder(
@@ -110,7 +108,7 @@ class HomeView extends GetView<HomeController> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Payment Pending: ${payment.pendingPayment}',
+                                  '${'payment_pending'.tr}: ${payment.pendingPayment}',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.92),
                                     fontSize: 11,
@@ -125,7 +123,7 @@ class HomeView extends GetView<HomeController> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  _sectionTitle('Animals'),
+                  _sectionTitle('animals'.tr),
                   const SizedBox(height: 10),
                   Obx(() {
                     if (controller.animals.isEmpty) {
@@ -147,8 +145,8 @@ class HomeView extends GetView<HomeController> {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -237,7 +235,7 @@ class HomeView extends GetView<HomeController> {
           const SizedBox(width: 6),
           IconButton(
             onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Icons.menu),
             color: Colors.white,
           ),
         ],
@@ -248,9 +246,9 @@ class HomeView extends GetView<HomeController> {
 
   String _currentGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'greeting_morning'.tr;
+    if (hour < 17) return 'greeting_afternoon'.tr;
+    return 'greeting_evening'.tr;
   }
 
   IconData _currentGreetingIcon() {
@@ -275,17 +273,17 @@ class HomeView extends GetView<HomeController> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Notifications',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                        'notifications'.tr,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                     ),
                     TextButton(
                       onPressed: () async {
                         await controller.clearNotificationHistory();
                       },
-                      child: const Text('Clear'),
+                      child: Text('clear'.tr),
                     ),
                   ],
                 ),
@@ -293,9 +291,9 @@ class HomeView extends GetView<HomeController> {
               const Divider(height: 1),
               Obx(() {
                 if (controller.notificationHistory.isEmpty) {
-                  return const Padding(
+                  return Padding(
                     padding: EdgeInsets.all(18),
-                    child: Text('No notifications yet.'),
+                    child: Text('no_notifications_yet'.tr),
                   );
                 }
 
@@ -437,7 +435,7 @@ class HomeView extends GetView<HomeController> {
       child: _saleAnimalCard(
         animal,
         width: double.infinity,
-        title: 'Animal For Sale',
+        title: 'animal_for_sale'.tr,
       ),
     );
   }
@@ -450,9 +448,9 @@ class HomeView extends GetView<HomeController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 14),
-          const Text(
-            'My Selling Animals',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black),
+          Text(
+            'my_selling_animals'.tr,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -464,7 +462,7 @@ class HomeView extends GetView<HomeController> {
                 return _saleAnimalCard(
                   animals[index],
                   width: 292,
-                  title: 'Your Listing',
+                  title: 'your_listing'.tr,
                   margin: const EdgeInsets.only(right: 12),
                 );
               },
@@ -526,14 +524,14 @@ class HomeView extends GetView<HomeController> {
                 Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 10.5, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 Text(
-                  animal.animalName.isEmpty ? 'Animal' : animal.animalName,
+                  animal.animalName.isEmpty ? 'animal'.tr : animal.animalName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Tag: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}  |  Type: ${animal.animalTypeName.trim().isEmpty ? '-' : animal.animalTypeName}',
+                  '${'tag'.tr}: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}  |  ${'type'.tr}: ${animal.animalTypeName.trim().isEmpty ? '-' : animal.animalTypeName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),
@@ -547,7 +545,7 @@ class HomeView extends GetView<HomeController> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
-                      child: const Text('View More', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                      child: Text('view_more'.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ),
@@ -590,11 +588,11 @@ class HomeView extends GetView<HomeController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Animal For Sale', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w800)),
+                          Text('animal_for_sale'.tr, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
-                          Text(animal.animalName.isEmpty ? 'Animal' : animal.animalName, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.black)),
+                          Text(animal.animalName.isEmpty ? 'animal'.tr : animal.animalName, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.black)),
                           const SizedBox(height: 3),
-                          Text('Tag: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}', style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w600)),
+                          Text('${'tag'.tr}: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}', style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -605,17 +603,17 @@ class HomeView extends GetView<HomeController> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _saleDetailChip('Unique ID', animal.uniqueId),
-                    _saleDetailChip('Type', animal.animalTypeName),
-                    _saleDetailChip('PAN', animal.panName),
-                    _saleDetailChip('Gender', animal.gender),
-                    _saleDetailChip('Age', animal.age),
-                    _saleDetailChip('Birth/Purchase', animal.birthDate),
-                    _saleDetailChip('Weight', animal.weight.isEmpty ? '' : '${animal.weight} Kg'),
-                    _saleDetailChip('Breed', animal.breedName),
-                    _saleDetailChip('Lactation', animal.lactationNumber),
-                    _saleDetailChip('AI Date', animal.aiDate),
-                    _saleDetailChip('Listed At', animal.listedAt),
+                    _saleDetailChip('unique_id'.tr, animal.uniqueId),
+                    _saleDetailChip('type'.tr, animal.animalTypeName),
+                    _saleDetailChip('pan'.tr, animal.panName),
+                    _saleDetailChip('gender'.tr, animal.gender),
+                    _saleDetailChip('age'.tr, animal.age),
+                    _saleDetailChip('birth_purchase_date'.tr, animal.birthDate),
+                    _saleDetailChip('weight'.tr, animal.weight.isEmpty ? '' : '${animal.weight} Kg'),
+                    _saleDetailChip('breed_name'.tr, animal.breedName),
+                    _saleDetailChip('lactation'.tr, animal.lactationNumber),
+                    _saleDetailChip('ai_date'.tr, animal.aiDate),
+                    _saleDetailChip('listed_at'.tr, animal.listedAt),
                   ],
                 ),
               ],
@@ -761,8 +759,6 @@ class HomeView extends GetView<HomeController> {
   }
 
   String _formatPaymentLabel(String value) {
-    if (value == 'today_payment'.tr) return 'Today Payment';
-    if (value == 'total_payment'.tr) return 'Total Payment';
     return value;
   }
 
@@ -844,7 +840,7 @@ class HomeView extends GetView<HomeController> {
         height: Get.height * 0.92,
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(color: Color(0xFFF6FAF6), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(children: [Container(height: 4, width: 50, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10))), Align(alignment: Alignment.centerRight, child: IconButton(onPressed: () => Get.back(), icon: const Icon(Icons.close))), Expanded(child: AnimalDetailsWidget(animal: Map<String, dynamic>.from(animal))), const SizedBox(height: 12), SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _openLifecycleSheet(Map<String, dynamic>.from(animal)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), icon: const Icon(Icons.sync_alt_rounded, color: Colors.white), label: const Text('Manage Lifecycle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))))]),
+        child: Column(children: [Container(height: 4, width: 50, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10))), Align(alignment: Alignment.centerRight, child: IconButton(onPressed: () => Get.back(), icon: const Icon(Icons.close))), Expanded(child: AnimalDetailsWidget(animal: Map<String, dynamic>.from(animal))), const SizedBox(height: 12), SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _openLifecycleSheet(Map<String, dynamic>.from(animal)), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), icon: const Icon(Icons.sync_alt_rounded, color: Colors.white), label: Text('manage_lifecycle'.tr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))))]),
       ),
       isScrollControlled: true,
     );
@@ -861,7 +857,7 @@ class HomeView extends GetView<HomeController> {
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Center(child: Container(height: 4, width: 54, margin: const EdgeInsets.only(bottom: 18), decoration: BoxDecoration(color: AppColors.grey, borderRadius: BorderRadius.circular(12)))), Text('Animal Lifecycle', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)), const SizedBox(height: 6), Text('Update status for ${animal['animal_name'] ?? '-'}', style: TextStyle(fontSize: 13, color: AppColors.grey.shade700)), const SizedBox(height: 18), _lifecycleButton(label: 'Mark Active', icon: Icons.check_circle_rounded, color: AppColors.primary, onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'active'); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 10), _lifecycleButton(label: 'Mark Sold', icon: Icons.verified_rounded, color: const Color(0xFF1976D2), onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'sold', notes: notesController.text); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 10), _lifecycleButton(label: 'Record Death', icon: Icons.warning_amber_rounded, color: Colors.red.shade600, onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'death', notes: notesController.text); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 16), const Text('Move To Another Animal Type', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)), const SizedBox(height: 10), if (selectedType != null) Obx(() => DropdownButtonFormField<AnimalTypeOption>(initialValue: selectedType.value, isExpanded: true, decoration: InputDecoration(filled: true, fillColor: const Color(0xFFF8FBF8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300))), items: controller.animalTypes.map((type) => DropdownMenuItem(value: type, child: Text(type.name))).toList(), onChanged: (value) => selectedType.value = value!)), const SizedBox(height: 10), TextField(controller: notesController, minLines: 2, maxLines: 3, decoration: InputDecoration(hintText: 'Optional notes', filled: true, fillColor: const Color(0xFFF8FBF8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)))), const SizedBox(height: 10), _lifecycleButton(label: 'Move Animal Type', icon: Icons.sync_alt_rounded, color: const Color(0xFF6A1B9A), onTap: () async { if (selectedType == null || selectedType.value.id == 0) return; final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'move_type', animalTypeId: selectedType.value.id, notes: notesController.text); if (ok) { Get.back(); Get.back(); }})]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Center(child: Container(height: 4, width: 54, margin: const EdgeInsets.only(bottom: 18), decoration: BoxDecoration(color: AppColors.grey, borderRadius: BorderRadius.circular(12)))), Text('animal_lifecycle'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)), const SizedBox(height: 6), Text('${'update_status_for'.tr} ${animal['animal_name'] ?? '-'}', style: TextStyle(fontSize: 13, color: AppColors.grey.shade700)), const SizedBox(height: 18), _lifecycleButton(label: 'mark_active'.tr, icon: Icons.check_circle_rounded, color: AppColors.primary, onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'active'); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 10), _lifecycleButton(label: 'mark_sold'.tr, icon: Icons.verified_rounded, color: const Color(0xFF1976D2), onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'sold', notes: notesController.text); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 10), _lifecycleButton(label: 'record_death'.tr, icon: Icons.warning_amber_rounded, color: Colors.red.shade600, onTap: () async { final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'death', notes: notesController.text); if (ok) { Get.back(); Get.back(); }}), const SizedBox(height: 16), Text('move_to_another_animal_type'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)), const SizedBox(height: 10), if (selectedType != null) Obx(() => DropdownButtonFormField<AnimalTypeOption>(initialValue: selectedType.value, isExpanded: true, decoration: InputDecoration(filled: true, fillColor: const Color(0xFFF8FBF8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300))), items: controller.animalTypes.map((type) => DropdownMenuItem(value: type, child: Text(type.name))).toList(), onChanged: (value) => selectedType.value = value!)), const SizedBox(height: 10), TextField(controller: notesController, minLines: 2, maxLines: 3, decoration: InputDecoration(hintText: 'optional_notes'.tr, filled: true, fillColor: const Color(0xFFF8FBF8), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)))), const SizedBox(height: 10), _lifecycleButton(label: 'move_animal_type'.tr, icon: Icons.sync_alt_rounded, color: const Color(0xFF6A1B9A), onTap: () async { if (selectedType == null || selectedType.value.id == 0) return; final ok = await controller.updateAnimalLifecycle(animalId: animal['id'], action: 'move_type', animalTypeId: selectedType.value.id, notes: notesController.text); if (ok) { Get.back(); Get.back(); }})]),
           ),
         ),
       ),

@@ -27,6 +27,8 @@ class DoctorController extends GetxController {
   final TextEditingController searchController = TextEditingController();
   final RxString searchQuery = ''.obs;
   Timer? _requestsPollingTimer;
+  bool _isBackgroundPolling = false;
+  int _backgroundTick = 0;
 
   int farmerId = 0;
   String farmerName = '';
@@ -51,7 +53,8 @@ class DoctorController extends GetxController {
     searchController.addListener(() {
       searchQuery.value = searchController.text;
     });
-    initData();
+    unawaited(initData());
+    _startBackgroundPolling();
   }
 
   Future<void> initData() async {
@@ -168,7 +171,7 @@ class DoctorController extends GetxController {
     }
   }
 
-  Future<void> fetchFarmerRequests() async {
+  Future<void> fetchFarmerRequests({bool silent = false}) async {
     if (farmerId == 0) {
       final prefs = await SharedPreferences.getInstance();
       if (farmerPhone.trim().isNotEmpty) {
@@ -181,7 +184,9 @@ class DoctorController extends GetxController {
     }
 
     try {
-      isLoadingRequests.value = true;
+      if (!silent) {
+        isLoadingRequests.value = true;
+      }
       Future<http.Response> getRequests() {
         return http.get(
           Uri.parse('${Api.doctorAppointmentsByFarmer}/$farmerId'),
@@ -223,8 +228,29 @@ class DoctorController extends GetxController {
     } catch (_) {
       requests.clear();
     } finally {
-      isLoadingRequests.value = false;
+      if (!silent) {
+        isLoadingRequests.value = false;
+      }
     }
+  }
+
+  Future<void> silentRefresh() async {
+    await fetchFarmerRequests(silent: true);
+    _backgroundTick++;
+    if (_backgroundTick % 6 == 0) {
+      await fetchAnimals();
+    }
+  }
+
+  void _startBackgroundPolling() {
+    _requestsPollingTimer?.cancel();
+    _requestsPollingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (_isBackgroundPolling) return;
+      _isBackgroundPolling = true;
+      silentRefresh().whenComplete(() {
+        _isBackgroundPolling = false;
+      });
+    });
   }
 
   Future<void> requestDoctorVisit({

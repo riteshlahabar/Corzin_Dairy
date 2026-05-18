@@ -488,7 +488,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                         side: BorderSide(color: Colors.grey.shade300),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Cancel'),
+                      child: Text('cancel'.tr),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -514,7 +514,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                 width: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                               )
-                            : const Text('Sell'),
+                            : Text('sell'.tr),
                       ),
                     ),
                   ),

@@ -21,8 +21,8 @@ class PaymentView extends GetView<PaymentController> {
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
-        title: const Text(
-          'Dairy Payment',
+        title: Text(
+          'dairy_payment'.tr,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
@@ -93,8 +93,8 @@ class PaymentView extends GetView<PaymentController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Payment Overview',
+          Text(
+            'payment_overview'.tr,
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -106,14 +106,14 @@ class PaymentView extends GetView<PaymentController> {
             children: [
               Expanded(
                 child: _overviewMetric(
-                  label: 'Total Dairies',
+                  label: 'total_dairies'.tr,
                   value: dairyCount.toString(),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _overviewMetric(
-                  label: 'Outstanding',
+                  label: 'outstanding'.tr,
                   value: _inr(totalBalance),
                 ),
               ),
@@ -172,7 +172,7 @@ class PaymentView extends GetView<PaymentController> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE1E8E2)),
         ),
-        child: const Row(
+      child: Row(
           children: [
             CircleAvatar(
               radius: 18,
@@ -182,7 +182,7 @@ class PaymentView extends GetView<PaymentController> {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Add New Payment Entry',
+                'add_new_payment_entry'.tr,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
               ),
             ),
@@ -202,7 +202,7 @@ class PaymentView extends GetView<PaymentController> {
         border: Border.all(color: const Color(0xFFE6ECE7)),
       ),
       child: Text(
-        'No dairy payment history yet.',
+        'no_dairy_payment_history'.tr,
         style: TextStyle(
           color: AppColors.grey.shade700,
           fontWeight: FontWeight.w600,
@@ -255,7 +255,7 @@ class PaymentView extends GetView<PaymentController> {
           const SizedBox(height: 10),
           if (latest == null)
             Text(
-              'No payment entry yet.',
+              'no_payment_entry_yet'.tr,
               style: TextStyle(color: AppColors.grey.shade700, fontWeight: FontWeight.w600),
             )
           else ...[
@@ -277,7 +277,7 @@ class PaymentView extends GetView<PaymentController> {
               children: [
                 Expanded(
                   child: _metricCard(
-                    title: 'Total',
+                    title: 'total'.tr,
                     value: _inr(latest.totalAmount),
                     color: AppColors.primary,
                   ),
@@ -285,7 +285,7 @@ class PaymentView extends GetView<PaymentController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _metricCard(
-                    title: 'Paid',
+                    title: 'paid'.tr,
                     value: _inr(latest.paidAmount),
                     color: Colors.blueGrey.shade700,
                   ),
@@ -293,7 +293,7 @@ class PaymentView extends GetView<PaymentController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _metricCard(
-                    title: 'Balance',
+                    title: 'balance'.tr,
                     value: _inr(latest.balanceAmount),
                     color: latest.balanceAmount > 0 ? Colors.orange.shade800 : Colors.green.shade700,
                   ),
@@ -302,7 +302,8 @@ class PaymentView extends GetView<PaymentController> {
             ),
             const SizedBox(height: 8),
             Text(
-              '(${_inr(latest.previousBalance)} previous + ${_inr(latest.dayTotalAmount)} day total)',
+              '${'previous_balance'.tr} + ${'today_balance'.tr} = ${'total_balance'.tr}\n'
+              '${_inr(_remainingPreviousBalance(latest))} + ${_inr(_remainingTodayBalance(latest))} = ${_inr(latest.balanceAmount)}',
               style: TextStyle(
                 color: AppColors.grey.shade700,
                 fontSize: 12,
@@ -319,7 +320,7 @@ class PaymentView extends GetView<PaymentController> {
                 OutlinedButton.icon(
                   onPressed: () => _openAddEntrySheet(context, preselectedDairyId: summary.id),
                   icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Add Entry'),
+                  label: Text('add_entry'.tr),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: Color(0x802E7D32)),
@@ -329,7 +330,7 @@ class PaymentView extends GetView<PaymentController> {
                 ElevatedButton.icon(
                   onPressed: () => _openHistorySheet(summary),
                   icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('View More'),
+                  label: Text('view_more'.tr),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -394,7 +395,7 @@ class PaymentView extends GetView<PaymentController> {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        isPending ? 'Pending' : 'Settled',
+        isPending ? 'pending'.tr : 'settled'.tr,
         style: TextStyle(
           color: fg,
           fontSize: 11,
@@ -406,42 +407,59 @@ class PaymentView extends GetView<PaymentController> {
 
   void _openAddEntrySheet(BuildContext context, {int? preselectedDairyId}) {
     if (controller.dairyOptions.isEmpty) {
-      Get.snackbar('Error', 'No dairy found. Please add dairy first.');
+      Get.snackbar('error'.tr, 'no_dairy_found_add_first'.tr);
       return;
     }
 
+    final formKey = GlobalKey<FormState>();
     final paidController = TextEditingController();
+    final paidFocus = FocusNode();
     final notesController = TextEditingController();
     final initialDairy = controller.dairyOptionById(preselectedDairyId ?? 0) ?? controller.dairyOptions.first;
     final selectedDairyId = initialDairy.id.obs;
     final previousBalance = controller.previousBalanceForDairy(initialDairy.id).obs;
-    final totalAmount = previousBalance.value.obs;
-    final balancePreview = previousBalance.value.obs;
+    final todayBalance = controller.todayBalanceForDairy(initialDairy.id).obs;
+    final totalAmount = controller.totalBalanceForDairy(initialDairy.id).obs;
+    final balancePreview = totalAmount.value.obs;
+    final totalBalanceController = TextEditingController();
+    totalBalanceController.text = _inr(totalAmount.value);
 
     void recalc() {
       final paid = _toDouble(paidController.text);
       final dairyId = selectedDairyId.value;
       if (dairyId <= 0) {
+        previousBalance.value = 0;
+        todayBalance.value = 0;
         totalAmount.value = 0;
         balancePreview.value = 0;
+        totalBalanceController.text = _inr(totalAmount.value);
         return;
       }
       previousBalance.value = controller.previousBalanceForDairy(dairyId);
-      totalAmount.value = previousBalance.value;
+      todayBalance.value = controller.todayBalanceForDairy(dairyId);
+      totalAmount.value = controller.totalBalanceForDairy(dairyId);
       balancePreview.value = totalAmount.value - paid;
+      totalBalanceController.text = _inr(totalAmount.value);
     }
 
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(
+      AnimatedPadding(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Form(
+                key: formKey,
+                child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -453,15 +471,15 @@ class PaymentView extends GetView<PaymentController> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const Text(
-                  'Add Dairy Payment Entry',
+                Text(
+                  'add_dairy_payment_entry'.tr,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
                 Obx(
                   () => DropdownButtonFormField<int>(
                     initialValue: selectedDairyId.value,
-                    decoration: _input('Dairy Name'),
+                    decoration: _input('dairy_name'.tr),
                     items: controller.dairyOptions
                         .map(
                           (item) => DropdownMenuItem<int>(
@@ -474,33 +492,43 @@ class PaymentView extends GetView<PaymentController> {
                       selectedDairyId.value = value ?? 0;
                       recalc();
                     },
+                    validator: (value) => value == null || value <= 0
+                        ? 'please_select_dairy_name'.tr
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 10),
-                Obx(
-                  () => TextFormField(
-                    enabled: false,
-                    initialValue: _inr(totalAmount.value),
-                    style: const TextStyle(
-                      color: AppColors.black,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: _input('Total Amount (Rs)'),
+                TextFormField(
+                  enabled: false,
+                  controller: totalBalanceController,
+                  style: const TextStyle(
+                    color: AppColors.black,
+                    fontWeight: FontWeight.w700,
                   ),
+                  decoration: _input('total_balance'.tr),
                 ),
                 const SizedBox(height: 10),
-                TextField(
+                TextFormField(
                   controller: paidController,
+                  focusNode: paidFocus,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => recalc(),
-                  decoration: _input('Paid Amount (Rs)'),
+                  decoration: _input('paid_amount_rs'.tr),
+                  validator: (value) {
+                    final paid = _toDouble(value ?? '');
+                    final total = totalAmount.value;
+                    if ((value ?? '').trim().isEmpty) return 'please_enter_valid_paid_amount'.tr;
+                    if (paid < 0) return 'please_enter_valid_paid_amount'.tr;
+                    if (paid > total) return 'paid_amount_gt_total'.tr;
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: notesController,
                   minLines: 2,
                   maxLines: 3,
-                  decoration: _input('Notes'),
+                  decoration: _input('notes'.tr),
                 ),
                 const SizedBox(height: 12),
                 Obx(
@@ -515,7 +543,7 @@ class PaymentView extends GetView<PaymentController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Previous Balance: ${_inr(previousBalance.value)}',
+                          '${'previous_balance'.tr}: ${_inr(previousBalance.value)}',
                           style: TextStyle(
                             color: AppColors.grey.shade800,
                             fontWeight: FontWeight.w600,
@@ -523,7 +551,23 @@ class PaymentView extends GetView<PaymentController> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Balance Amount: ${_inr(balancePreview.value)}',
+                          '${'today_balance'.tr}: ${_inr(todayBalance.value)}',
+                          style: TextStyle(
+                            color: AppColors.grey.shade800,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${'total_balance'.tr}: ${_inr(totalAmount.value)}',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${'balance_amount'.tr}: ${_inr(balancePreview.value)}',
                           style: TextStyle(
                             color: balancePreview.value > 0 ? Colors.orange.shade800 : Colors.green.shade700,
                             fontWeight: FontWeight.w700,
@@ -541,23 +585,30 @@ class PaymentView extends GetView<PaymentController> {
                       onPressed: controller.isSaving.value
                           ? null
                           : () async {
+                              final formState = formKey.currentState;
+                              if (formState == null) return;
+                              final valid = formState.validate();
+                              if (!valid) {
+                                paidFocus.requestFocus();
+                                return;
+                              }
                               final dairyId = selectedDairyId.value;
                               if (dairyId <= 0 || controller.dairyOptionById(dairyId) == null) {
-                                Get.snackbar('Error', 'Please select dairy name');
+                                Get.snackbar('error'.tr, 'please_select_dairy_name'.tr);
                                 return;
                               }
                               final total = totalAmount.value;
                               final paid = _toDouble(paidController.text);
                               if (total <= 0) {
-                                Get.snackbar('Error', 'No total amount available for payment');
+                                Get.snackbar('error'.tr, 'no_total_amount_for_payment'.tr);
                                 return;
                               }
                               if (paid < 0) {
-                                Get.snackbar('Error', 'Please enter valid paid amount');
+                                Get.snackbar('error'.tr, 'please_enter_valid_paid_amount'.tr);
                                 return;
                               }
                               if (paid > total) {
-                                Get.snackbar('Error', 'Paid amount cannot be greater than total amount');
+                                Get.snackbar('error'.tr, 'paid_amount_gt_total'.tr);
                                 return;
                               }
 
@@ -570,13 +621,13 @@ class PaymentView extends GetView<PaymentController> {
                                 );
                                 Get.back();
                                 Get.snackbar(
-                                  'Success',
-                                  'Dairy payment entry added',
+                                  'success'.tr,
+                                  'dairy_payment_entry_added'.tr,
                                   snackPosition: SnackPosition.BOTTOM,
                                 );
                               } catch (e) {
                                 Get.snackbar(
-                                  'Error',
+                                  'error'.tr,
                                   e.toString().replaceFirst('Exception: ', ''),
                                   snackPosition: SnackPosition.BOTTOM,
                                 );
@@ -592,17 +643,24 @@ class PaymentView extends GetView<PaymentController> {
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Save Entry'),
+                          : Text('save_entry'.tr),
                     ),
                   ),
                 ),
               ],
+                ),
+              ),
             ),
           ),
         ),
       ),
       isScrollControlled: true,
-    );
+    ).whenComplete(() {
+      paidController.dispose();
+      notesController.dispose();
+      paidFocus.dispose();
+      totalBalanceController.dispose();
+    });
   }
 
   void _openHistorySheet(PaymentDairySummary summary) {
@@ -655,8 +713,8 @@ class PaymentView extends GetView<PaymentController> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Payment History',
+                    Text(
+                      'payment_history'.tr,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -668,14 +726,14 @@ class PaymentView extends GetView<PaymentController> {
                       children: [
                         Expanded(
                           child: _historyKpi(
-                            title: 'Entries',
+                            title: 'entries'.tr,
                             value: summary.history.length.toString(),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _historyKpi(
-                            title: 'Current Balance',
+                            title: 'current_balance'.tr,
                             value: _inr(latest?.balanceAmount ?? summary.currentBalance),
                           ),
                         ),
@@ -689,7 +747,7 @@ class PaymentView extends GetView<PaymentController> {
                 child: summary.history.isEmpty
                     ? Center(
                         child: Text(
-                          'No payment entries available.',
+                          'no_payment_entries_available'.tr,
                           style: TextStyle(color: AppColors.grey.shade700),
                         ),
                       )
@@ -740,24 +798,25 @@ class PaymentView extends GetView<PaymentController> {
                                 ),
                                 const SizedBox(height: 8),
                                 _historyAmountRow(
-                                  label: 'Total Amount',
+                                  label: 'total_amount'.tr,
                                   value: _inr(item.totalAmount),
                                   valueColor: AppColors.primary,
                                 ),
                                 _historyAmountRow(
-                                  label: 'Paid Amount',
+                                  label: 'paid_amount'.tr,
                                   value: _inr(item.paidAmount),
                                   valueColor: Colors.blueGrey.shade700,
                                 ),
                                 _historyAmountRow(
-                                  label: 'Balance',
+                                  label: 'balance'.tr,
                                   value: _inr(item.balanceAmount),
                                   valueColor:
                                       item.balanceAmount > 0 ? Colors.orange.shade800 : Colors.green.shade700,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '(${_inr(item.previousBalance)} previous balance + ${_inr(item.dayTotalAmount)} day total)',
+                                  '${'previous_balance'.tr} + ${'today_balance'.tr} = ${'total_balance'.tr}\n'
+                                  '${_inr(_remainingPreviousBalance(item))} + ${_inr(_remainingTodayBalance(item))} = ${_inr(item.balanceAmount)}',
                                   style: TextStyle(
                                     color: AppColors.grey.shade700,
                                     fontSize: 12,
@@ -775,7 +834,7 @@ class PaymentView extends GetView<PaymentController> {
                                       border: Border.all(color: const Color(0xFFE6EEE8)),
                                     ),
                                     child: Text(
-                                      'Notes: ${item.notes}',
+                                      '${'notes'.tr}: ${item.notes}',
                                       style: TextStyle(
                                         color: AppColors.grey.shade800,
                                         fontSize: 12,
@@ -886,6 +945,17 @@ class PaymentView extends GetView<PaymentController> {
         borderSide: BorderSide(color: AppColors.primary),
       ),
     );
+  }
+
+  static double _remainingPreviousBalance(PaymentDayEntry item) {
+    final remaining = item.previousBalance - item.paidAmount;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  static double _remainingTodayBalance(PaymentDayEntry item) {
+    final paidAfterPrevious = item.paidAmount - item.previousBalance;
+    final remaining = item.dayTotalAmount - (paidAfterPrevious > 0 ? paidAfterPrevious : 0);
+    return remaining > 0 ? remaining : 0;
   }
 
   static double _toDouble(String value) {

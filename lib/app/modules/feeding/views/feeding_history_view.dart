@@ -11,9 +11,14 @@ import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
 
 class FeedingHistoryView extends StatefulWidget {
-  const FeedingHistoryView({super.key, this.initialTab = 0});
+  const FeedingHistoryView({
+    super.key,
+    this.initialTab = 0,
+    this.showTabs = true,
+  });
 
   final int initialTab;
+  final bool showTabs;
 
   @override
   State<FeedingHistoryView> createState() => _FeedingHistoryViewState();
@@ -44,7 +49,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     final prefs = await SharedPreferences.getInstance();
     _farmerId = prefs.getInt('farmer_id') ?? 0;
     if (_farmerId == 0 && mounted) {
-      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
     }
   }
 
@@ -69,7 +74,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     } catch (_) {
       _history.clear();
       if (mounted) {
-        Get.snackbar('Error', 'Unable to load feeding history');
+        Get.snackbar('error'.tr, 'unable_load_feeding_history'.tr);
       }
     } finally {
       if (mounted) {
@@ -99,7 +104,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     } catch (_) {
       _feedTypes.clear();
       if (mounted) {
-        Get.snackbar('Error', 'Unable to load feed type content');
+        Get.snackbar('error'.tr, 'unable_load_feed_type_content'.tr);
       }
     } finally {
       if (mounted) {
@@ -157,29 +162,29 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Edit Feeding Entry',
+                      Text(
+                        'edit_feeding_entry'.tr,
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: quantityController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _inputDecoration('Quantity'),
+                        decoration: _inputDecoration('quantity'.tr),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: unitController,
-                        decoration: _inputDecoration('Unit'),
+                        decoration: _inputDecoration('unit'.tr),
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
                         initialValue: selectedFeedingTime.value,
-                        decoration: _inputDecoration('Feeding Time'),
-                        items: const [
-                          DropdownMenuItem(value: 'Morning', child: Text('Morning')),
-                          DropdownMenuItem(value: 'Afternoon', child: Text('Afternoon')),
-                          DropdownMenuItem(value: 'Evening', child: Text('Evening')),
+                        decoration: _inputDecoration('feeding_time'.tr),
+                        items: [
+                          DropdownMenuItem(value: 'Morning', child: Text('morning'.tr)),
+                          DropdownMenuItem(value: 'Afternoon', child: Text('afternoon'.tr)),
+                          DropdownMenuItem(value: 'Evening', child: Text('evening'.tr)),
                         ],
                         onChanged: (value) {
                           selectedFeedingTime.value = value ?? 'Morning';
@@ -191,7 +196,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                         controller: dateController,
                         readOnly: true,
                         onTap: pickDate,
-                        decoration: _inputDecoration('Date').copyWith(
+                        decoration: _inputDecoration('date'.tr).copyWith(
                           suffixIcon: const Icon(Icons.calendar_today_rounded),
                         ),
                       ),
@@ -200,7 +205,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                         controller: notesController,
                         minLines: 2,
                         maxLines: 4,
-                        decoration: _inputDecoration('Notes'),
+                        decoration: _inputDecoration('notes'.tr),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -212,7 +217,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                   if (quantityController.text.trim().isEmpty ||
                                       dateController.text.trim().isEmpty ||
                                       unitController.text.trim().isEmpty) {
-                                    Get.snackbar('Error', 'Quantity, unit and date are required');
+                                    Get.snackbar('error'.tr, 'quantity_unit_date_required'.tr);
                                     return;
                                   }
 
@@ -245,23 +250,23 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                         data['status'] == true) {
                                       Get.back();
                                       Get.snackbar(
-                                        'Success',
+                                        'success'.tr,
                                         data['message']?.toString() ??
-                                            'Feeding entry updated successfully',
+                                            'feeding_entry_updated_success'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                       await _loadHistory();
                                     } else {
                                       Get.snackbar(
-                                        'Error',
+                                        'error'.tr,
                                         data['message']?.toString() ??
-                                            'Failed to update feeding entry',
+                                            'failed_update_feeding_entry'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                     }
                                   } catch (e) {
                                     Get.snackbar(
-                                      'Error',
+                                      'error'.tr,
                                       e.toString(),
                                       snackPosition: SnackPosition.BOTTOM,
                                     );
@@ -283,7 +288,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Update Entry'),
+                              : Text('update_entry'.tr),
                         ),
                       ),
                     ],
@@ -311,7 +316,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     }.toList();
 
     if (subtypeNames.isEmpty) {
-      Get.snackbar('Error', 'No subtype data found to edit');
+      Get.snackbar('error'.tr, 'no_subtype_data_found'.tr);
       return;
     }
 
@@ -392,8 +397,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                   () => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Diet Plan',
+                      Text(
+                        'diet_plan'.tr,
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),
@@ -435,7 +440,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                   enabled: subtypeSelected[name] ?? false,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(decimal: true),
-                                  decoration: _inputDecoration('Qty'),
+                                  decoration: _inputDecoration('qty'.tr),
                                 ),
                               ),
                             ],
@@ -446,7 +451,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          'Total ${item.unit}: ${totalSubtypeQuantity.value.toStringAsFixed(2)}',
+                          '${'total'.tr} ${item.unit}: ${totalSubtypeQuantity.value.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -458,13 +463,13 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                       TextField(
                         controller: feedQuantityController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _inputDecoration('Feeding Quantity'),
+                        decoration: _inputDecoration('feeding_quantity'.tr),
                       ),
                       const SizedBox(height: 8),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          'Balance: ${balanceQuantity.value.toStringAsFixed(2)} ${item.unit}',
+                          '${'balance'.tr}: ${balanceQuantity.value.toStringAsFixed(2)} ${item.unit}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -477,7 +482,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                         controller: notesController,
                         minLines: 2,
                         maxLines: 4,
-                        decoration: _inputDecoration('Notes'),
+                        decoration: _inputDecoration('notes'.tr),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -489,7 +494,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                   final feedingQty =
                                       double.tryParse(feedQuantityController.text.trim()) ?? 0;
                                   if (feedingQty <= 0) {
-                                    Get.snackbar('Error', 'Please enter valid feeding quantity');
+                                    Get.snackbar('error'.tr, 'please_enter_valid_feeding_quantity'.tr);
                                     return;
                                   }
 
@@ -555,23 +560,23 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                         data['status'] == true) {
                                       Get.back();
                                       Get.snackbar(
-                                        'Success',
+                                        'success'.tr,
                                         data['message']?.toString() ??
-                                            'Feed content updated successfully',
+                                            'feed_content_updated_success'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                       await _loadHistory();
                                     } else {
                                       Get.snackbar(
-                                        'Error',
+                                        'error'.tr,
                                         data['message']?.toString() ??
-                                            'Failed to update feed content',
+                                            'failed_update_feed_content'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                     }
                                   } catch (e) {
                                     Get.snackbar(
-                                      'Error',
+                                      'error'.tr,
                                       e.toString(),
                                       snackPosition: SnackPosition.BOTTOM,
                                     );
@@ -593,7 +598,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Update Content'),
+                              : Text('update_content'.tr),
                         ),
                       ),
                     ],
@@ -643,38 +648,44 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
         title: Text(
-          _selectedTab == 0 ? 'Feeding Record' : 'Diet Plan',
+          ((widget.showTabs ? _selectedTab : widget.initialTab) == 0)
+              ? 'feeding_record'.tr
+              : 'diet_plan'.tr,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
       body: Column(
         children: [
           const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _segmentButton(
-                    title: 'Feeding Record',
-                    selected: _selectedTab == 0,
-                    onTap: () => setState(() => _selectedTab = 0),
+          if (widget.showTabs) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _segmentButton(
+                      title: 'feeding_record'.tr,
+                      selected: _selectedTab == 0,
+                      onTap: () => setState(() => _selectedTab = 0),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _segmentButton(
-                    title: 'Diet Plan',
-                    selected: _selectedTab == 1,
-                    onTap: () => setState(() => _selectedTab = 1),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _segmentButton(
+                      title: 'diet_plan'.tr,
+                      selected: _selectedTab == 1,
+                      onTap: () => setState(() => _selectedTab = 1),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 10),
+          ],
           Expanded(
-            child: _selectedTab == 0 ? _buildHistoryTab() : _buildFeedTypeTab(),
+            child: (widget.showTabs ? _selectedTab : widget.initialTab) == 0
+                ? _buildHistoryTab()
+                : _buildFeedTypeTab(),
           ),
         ],
       ),
@@ -688,7 +699,59 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     Get.back();
   }
 
+  List<_FeedingHistoryGroup> _buildHistoryGroups() {
+    final grouped = <String, List<_FeedingHistoryItem>>{};
+    for (final item in _history) {
+      grouped.putIfAbsent(item.groupKey, () => <_FeedingHistoryItem>[]).add(item);
+    }
+
+    final groups = grouped.entries
+        .map((entry) {
+          final rows = List<_FeedingHistoryItem>.from(entry.value)
+            ..sort((a, b) => _historySortKey(b).compareTo(_historySortKey(a)));
+          final latest = rows.first;
+          return _FeedingHistoryGroup(
+            key: entry.key,
+            latest: latest,
+            entries: rows,
+            isPanGroup: latest.hasPan,
+          );
+        })
+        .toList()
+      ..sort((a, b) => _historySortKey(b.latest).compareTo(_historySortKey(a.latest)));
+    return groups;
+  }
+
+  int _historySortKey(_FeedingHistoryItem item) {
+    final dt = _parseHistoryDateTime(item.date, item.feedingTime);
+    if (dt != null) return dt.millisecondsSinceEpoch;
+    return item.id;
+  }
+
+  DateTime? _parseHistoryDateTime(String rawDate, String feedingTime) {
+    DateTime? date;
+    final normalized = rawDate.trim();
+    if (normalized.isEmpty) return null;
+    try {
+      date = DateFormat('yyyy-MM-dd').parseStrict(normalized);
+    } catch (_) {
+      try {
+        date = DateFormat('dd/MM/yyyy').parseStrict(normalized);
+      } catch (_) {
+        date = null;
+      }
+    }
+    if (date == null) return null;
+
+    final time = feedingTime.trim().toLowerCase();
+    var hour = 8;
+    if (time == 'afternoon') hour = 14;
+    if (time == 'evening') hour = 19;
+    return DateTime(date.year, date.month, date.day, hour);
+  }
+
   Widget _buildHistoryTab() {
+    final groups = _buildHistoryGroups();
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
       child: _isLoading
@@ -702,11 +765,11 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
           : _history.isEmpty
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
+                  children: [
                     SizedBox(height: 220),
                     Center(
                       child: Text(
-                        'No feeding history found',
+                        'no_feeding_history_found'.tr,
                         style: TextStyle(fontSize: 15, color: Colors.black54),
                       ),
                     ),
@@ -714,71 +777,285 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: _history.length,
+                  itemCount: groups.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (_, index) {
-                    final item = _history[index];
+                    final group = groups[index];
+                    final item = group.latest;
+                    final planTitle = item.dietPlanName.trim().isNotEmpty
+                        ? item.dietPlanName.trim()
+                        : item.feedType;
                     return Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(0),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2F8F2),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                        ),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  item.animalDisplay,
+                          Container(
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    group.isPanGroup
+                                        ? '${item.panName} (${group.entries.length} ${'animals'.tr})'
+                                        : item.animalDisplay,
+                                    style: const TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () => _onEditTap(item),
+                                    icon: const Icon(Icons.edit_rounded, size: 18),
+                                    color: AppColors.primary,
+                                    tooltip: 'edit'.tr,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${item.feedType} - ${item.quantity} ${item.unit}',
                                   style: const TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                onPressed: () => _onEditTap(item),
-                                icon: const Icon(Icons.edit_rounded),
-                                color: AppColors.primary,
-                                tooltip: 'Edit',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${item.feedType} - ${item.quantity} ${item.unit}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF4FAF4),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${'diet_plan'.tr}: $planTitle',
+                                    style: const TextStyle(
+                                      fontSize: 12.4,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _infoChip(
+                                      icon: Icons.scale_rounded,
+                                      label:
+                                          '${'package_quantity'.tr}: ${_formatQuantity(item.packageQuantity)} ${item.unit}',
+                                      color: const Color(0xFFE3F2FD),
+                                      textColor: const Color(0xFF0D47A1),
+                                    ),
+                                    _infoChip(
+                                      icon: Icons.inventory_2_rounded,
+                                      label:
+                                          '${'balance'.tr}: ${_formatQuantity(item.balanceQuantity)} ${item.unit}',
+                                      color: const Color(0xFFE8F5E9),
+                                      textColor: const Color(0xFF256029),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${'time'.tr}: ${item.feedingTime}',
+                                  style: const TextStyle(fontSize: 12.8),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${'date'.tr}: ${item.date}',
+                                  style: const TextStyle(fontSize: 12.8),
+                                ),
+                                if (item.notes.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${'notes'.tr}: ${item.notes}',
+                                    style: const TextStyle(fontSize: 12.8),
+                                  ),
+                                ],
+                                if (group.entries.length > 1) ...[
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      onPressed: () => _openViewAllEntries(group),
+                                      icon: const Icon(Icons.visibility_rounded, size: 16),
+                                      label: const Text('View All'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.primary,
+                                        textStyle: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Time: ${item.feedingTime}',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Date: ${item.date}',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          if (item.notes.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Notes: ${item.notes}',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ],
                         ],
                       ),
                     );
                   },
                 ),
+    );
+  }
+
+  Widget _infoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: textColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.8,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openViewAllEntries(_FeedingHistoryGroup group) async {
+    await Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                group.isPanGroup
+                    ? group.latest.panName
+                    : group.latest.animalDisplay,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${group.entries.length} records',
+                style: TextStyle(
+                  fontSize: 12.2,
+                  color: Colors.black.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: group.entries.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (_, index) {
+                    final row = group.entries[index];
+                    return Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FBF7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2EEE3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${row.feedType} - ${row.quantity} ${row.unit}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${'date'.tr}: ${row.date}  |  ${'time'.tr}: ${row.feedingTime}',
+                                  style: const TextStyle(fontSize: 12.2, color: Colors.black54),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${'package_quantity'.tr}: ${_formatQuantity(row.packageQuantity)} ${row.unit}  |  ${'balance'.tr}: ${_formatQuantity(row.balanceQuantity)} ${row.unit}',
+                                  style: const TextStyle(fontSize: 12.2, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () async {
+                              Get.back();
+                              await _onEditTap(row);
+                            },
+                            icon: const Icon(Icons.edit_rounded, size: 18),
+                            tooltip: 'edit'.tr,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
     );
   }
 
@@ -804,8 +1081,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
-                  child: const Text(
-                    'Edit wrong subtype quantity from here.',
+                  child: Text(
+                    'edit_wrong_subtype_qty_here'.tr,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -820,8 +1097,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'No feed entries found',
+                    child: Text(
+                      'no_feed_entries_found'.tr,
                       style: TextStyle(fontSize: 14, color: Colors.black54),
                     ),
                   ),
@@ -852,7 +1129,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                               onPressed: () => _onFeedContentEditTap(item),
                               icon: const Icon(Icons.edit_rounded),
                               color: AppColors.primary,
-                              tooltip: 'Edit Feed Content',
+                              tooltip: 'edit_feed_content'.tr,
                             ),
                           ],
                         ),
@@ -862,7 +1139,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Time: ${item.feedingTime} | Date: ${item.date}',
+                          '${'time'.tr}: ${item.feedingTime} | ${'date'.tr}: ${item.date}',
                           style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                         ),
                         if (item.feedSubtypeDetails.isNotEmpty) ...[
@@ -937,6 +1214,9 @@ class _FeedingHistoryItem {
     required this.animalId,
     required this.animalName,
     required this.tagNumber,
+    required this.panId,
+    required this.panName,
+    required this.dietPlanName,
     required this.feedType,
     required this.feedTypeId,
     required this.quantity,
@@ -954,6 +1234,9 @@ class _FeedingHistoryItem {
   final int animalId;
   final String animalName;
   final String tagNumber;
+  final int panId;
+  final String panName;
+  final String dietPlanName;
   final String feedType;
   final int feedTypeId;
   final String quantity;
@@ -971,6 +1254,16 @@ class _FeedingHistoryItem {
     return '$animalName (Tag: $tagNumber)';
   }
 
+  bool get hasPan => panName.trim().isNotEmpty;
+
+  String get groupKey {
+    if (panId > 0) return 'pan_id_$panId';
+    final normalizedPan = panName.trim().toLowerCase();
+    if (normalizedPan.isNotEmpty) return 'pan_name_$normalizedPan';
+    if (animalId > 0) return 'animal_id_$animalId';
+    return 'animal_name_${animalName.trim().toLowerCase()}';
+  }
+
   String get feedingQuantityText {
     if (feedingQuantity > 0) return _formatDoubleToText(feedingQuantity);
     final parsed = double.tryParse(quantity.trim());
@@ -984,6 +1277,14 @@ class _FeedingHistoryItem {
       animalId: int.tryParse((json['animal_id'] ?? '0').toString()) ?? 0,
       animalName: (json['animal_name'] ?? '').toString(),
       tagNumber: (json['tag_number'] ?? '').toString(),
+      panId: int.tryParse(
+            (json['pan_id'] ?? (json['pan'] is Map ? (json['pan']['id'] ?? 0) : 0)).toString(),
+          ) ??
+          0,
+      panName: (json['pan_name'] ??
+              (json['pan'] is Map ? (json['pan']['name'] ?? '') : ''))
+          .toString(),
+      dietPlanName: (json['diet_plan_name'] ?? json['diet_plan'] ?? '').toString(),
       feedType: (json['feed_type'] ?? '').toString(),
       feedTypeId: int.tryParse((json['feed_type_id'] ?? '0').toString()) ?? 0,
       quantity: (json['quantity'] ?? '').toString(),
@@ -997,6 +1298,20 @@ class _FeedingHistoryItem {
       feedSubtypeDetails: _FeedSubtypeDetail.parse(json['feed_subtype_details']),
     );
   }
+}
+
+class _FeedingHistoryGroup {
+  _FeedingHistoryGroup({
+    required this.key,
+    required this.latest,
+    required this.entries,
+    required this.isPanGroup,
+  });
+
+  final String key;
+  final _FeedingHistoryItem latest;
+  final List<_FeedingHistoryItem> entries;
+  final bool isPanGroup;
 }
 
 class _FeedSubtypeDetail {

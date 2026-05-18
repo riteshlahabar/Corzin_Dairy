@@ -18,9 +18,34 @@ class PanManagementController extends GetxController {
   final RxList<PanGroupItem> pans = <PanGroupItem>[].obs;
   final RxList<int> selectedAnimalIds = <int>[].obs;
   final RxList<String> selectedMilkShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
+  final RxString selectedPanType = panTypeMilking.obs;
   static const List<String> milkShiftOptions = <String>['Morning', 'Afternoon', 'Evening'];
+  static const String panTypeMilking = 'milking';
+  static const String panTypeNonMilking = 'non_milking';
 
   int farmerId = 0;
+
+  bool get isMilkingPan => selectedPanType.value == panTypeMilking;
+
+  List<PanAnimalItem> get filteredAnimals {
+    final available = animals.where((item) => (item.panId ?? 0) <= 0).toList();
+    if (!isMilkingPan) {
+      return available;
+    }
+    return available.where((item) => item.isMilkingAnimal).toList();
+  }
+
+  List<PanAnimalItem> editableAnimalsForPan(PanGroupItem pan) {
+    final isMilking = pan.panType == panTypeMilking;
+    return animals.where((item) {
+      final panId = item.panId ?? 0;
+      final isCurrentPanAnimal = panId == pan.id;
+      final isUnassigned = panId <= 0;
+      if (!(isCurrentPanAnimal || isUnassigned)) return false;
+      if (!isMilking) return true;
+      return item.isMilkingAnimal;
+    }).toList();
+  }
 
   @override
   void onInit() {
@@ -31,7 +56,8 @@ class PanManagementController extends GetxController {
   Future<void> _initData() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
-    await Future.wait([fetchAnimals(), fetchPans()]);
+    await fetchAnimals();
+    await fetchPans();
   }
 
   Future<void> fetchAnimals() async {
@@ -80,11 +106,13 @@ class PanManagementController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         final List<dynamic> list = (data['data'] as List?) ?? const [];
-        pans.assignAll(
+        final parsedPans =
           list
               .whereType<Map>()
               .map((item) => PanGroupItem.fromJson(Map<String, dynamic>.from(item)))
-              .toList(),
+              .toList();
+        pans.assignAll(
+          _applyPanTypeAnimalRules(_applyPanAnimalFallback(parsedPans)),
         );
       } else {
         pans.clear();
@@ -109,6 +137,9 @@ class PanManagementController extends GetxController {
   }
 
   void toggleMilkShift(String shift) {
+    if (!isMilkingPan) {
+      return;
+    }
     if (selectedMilkShifts.contains(shift)) {
       if (selectedMilkShifts.length == 1) {
         Get.snackbar('Info', 'Please keep at least one milk shift selected.');
@@ -121,6 +152,22 @@ class PanManagementController extends GetxController {
     }
   }
 
+  void setPanType(String value) {
+    if (value != panTypeMilking && value != panTypeNonMilking) {
+      return;
+    }
+    selectedPanType.value = value;
+    if (isMilkingPan) {
+      if (selectedMilkShifts.isEmpty) {
+        selectedMilkShifts.assignAll(<String>['Morning']);
+      }
+      final allowedIds = filteredAnimals.map((item) => item.id).toSet();
+      selectedAnimalIds.removeWhere((id) => !allowedIds.contains(id));
+      return;
+    }
+    selectedMilkShifts.clear();
+  }
+
   Future<bool> createPan() async {
     final panName = panNameController.text.trim();
     if (farmerId == 0) {
@@ -131,8 +178,12 @@ class PanManagementController extends GetxController {
       Get.snackbar('Error', 'Please enter PAN name.');
       return false;
     }
-    if (selectedAnimalIds.isEmpty) {
-      Get.snackbar('Error', 'Please select at least one animal.');
+    if (selectedAnimalIds.length < 2) {
+      Get.snackbar('Error', 'Select minimum 2 animals for PAN creating.');
+      return false;
+    }
+    if (isMilkingPan && selectedMilkShifts.isEmpty) {
+      Get.snackbar('Error', 'Please select milk shifts for Milking PAN.');
       return false;
     }
 
@@ -148,14 +199,16 @@ class PanManagementController extends GetxController {
           'farmer_id': farmerId,
           'name': panName,
           'animal_ids': selectedAnimalIds.toList(),
-          'milk_shifts': selectedMilkShifts.toList(),
+          'pan_type': selectedPanType.value,
+          'milk_shifts': isMilkingPan ? selectedMilkShifts.toList() : <String>[],
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         panNameController.clear();
         selectedAnimalIds.clear();
-        selectedMilkShifts.assignAll(milkShiftOptions);
+        selectedPanType.value = panTypeMilking;
+        selectedMilkShifts.assignAll(<String>['Morning', 'Afternoon', 'Evening']);
         await refreshAll();
         Get.snackbar('Success', data['message']?.toString() ?? 'PAN created successfully.');
         return true;
@@ -175,6 +228,7 @@ class PanManagementController extends GetxController {
     required int panId,
     required String name,
     required List<int> animalIds,
+    required String panType,
     required List<String> milkShifts,
   }) async {
     final panName = name.trim();
@@ -184,6 +238,14 @@ class PanManagementController extends GetxController {
     }
     if (panName.isEmpty) {
       Get.snackbar('Error', 'Please enter PAN name.');
+      return false;
+    }
+    if (animalIds.length < 2) {
+      Get.snackbar('Error', 'Select minimum 2 animals for PAN creating.');
+      return false;
+    }
+    if (panType == panTypeMilking && milkShifts.isEmpty) {
+      Get.snackbar('Error', 'Please select milk shifts for Milking PAN.');
       return false;
     }
 
@@ -199,7 +261,8 @@ class PanManagementController extends GetxController {
           'farmer_id': farmerId,
           'name': panName,
           'animal_ids': animalIds,
-          'milk_shifts': milkShifts.isEmpty ? milkShiftOptions : milkShifts,
+          'pan_type': panType,
+          'milk_shifts': milkShifts,
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -217,6 +280,43 @@ class PanManagementController extends GetxController {
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  List<PanGroupItem> _applyPanAnimalFallback(List<PanGroupItem> source) {
+    if (animals.isEmpty) return source;
+    final byPanId = <int, List<PanAnimalItem>>{};
+    for (final animal in animals) {
+      final panId = animal.panId;
+      if (panId == null || panId <= 0) continue;
+      byPanId.putIfAbsent(panId, () => <PanAnimalItem>[]).add(animal);
+    }
+
+    return source.map((pan) {
+      final fallback = byPanId[pan.id] ?? const <PanAnimalItem>[];
+      final shouldUseFallback =
+          (pan.animals.isEmpty && pan.animalsCount > 0) ||
+          (pan.animals.length < pan.animalsCount && fallback.isNotEmpty);
+      if (!shouldUseFallback) return pan;
+      return pan.copyWith(animals: fallback);
+    }).toList();
+  }
+
+  List<PanGroupItem> _applyPanTypeAnimalRules(List<PanGroupItem> source) {
+    return source.map((pan) {
+      if (pan.panType != panTypeMilking) {
+        return pan;
+      }
+      final milkingAnimals = pan.animals
+          .where((animal) => animal.isMilkingAnimal)
+          .toList();
+      if (milkingAnimals.length == pan.animals.length) {
+        return pan;
+      }
+      return pan.copyWith(
+        animals: milkingAnimals,
+        animalsCount: milkingAnimals.length,
+      );
+    }).toList();
   }
 
   Future<bool> transferAnimalToPan({
@@ -299,6 +399,15 @@ class PanAnimalItem {
       animalTypeName: (json['animal_type_name'] ?? '').toString(),
     );
   }
+
+  bool get isMilkingAnimal {
+    final type = animalTypeName.trim().toLowerCase();
+    final hasMilking = type.contains('milking') || type.contains('milk');
+    final hasNonMilking = type.contains('non-milking') ||
+        type.contains('non milking') ||
+        type.contains('dry');
+    return hasMilking && !hasNonMilking;
+  }
 }
 
 class PanGroupItem {
@@ -306,6 +415,7 @@ class PanGroupItem {
   final String name;
   final int animalsCount;
   final List<String> milkShifts;
+  final String panType;
   final List<PanAnimalItem> animals;
 
   PanGroupItem({
@@ -313,16 +423,25 @@ class PanGroupItem {
     required this.name,
     required this.animalsCount,
     required this.milkShifts,
+    required this.panType,
     required this.animals,
   });
 
   factory PanGroupItem.fromJson(Map<String, dynamic> json) {
     final rawAnimals = (json['animals'] as List?) ?? const [];
+    final panType = (json['pan_type'] ?? PanManagementController.panTypeMilking)
+        .toString()
+        .trim()
+        .toLowerCase();
     return PanGroupItem(
       id: int.tryParse('${json['id'] ?? 0}') ?? 0,
       name: (json['name'] ?? '').toString(),
       animalsCount: int.tryParse('${json['animals_count'] ?? 0}') ?? 0,
-      milkShifts: _parseMilkShifts(json['milk_shifts']),
+      milkShifts: _parseMilkShifts(
+        json['milk_shifts'],
+        panType: panType,
+      ),
+      panType: panType,
       animals: rawAnimals
           .whereType<Map>()
           .map((item) => PanAnimalItem.fromJson(Map<String, dynamic>.from(item)))
@@ -330,8 +449,32 @@ class PanGroupItem {
     );
   }
 
-  static List<String> _parseMilkShifts(dynamic value) {
+  PanGroupItem copyWith({
+    int? id,
+    String? name,
+    int? animalsCount,
+    List<String>? milkShifts,
+    String? panType,
+    List<PanAnimalItem>? animals,
+  }) {
+    return PanGroupItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      animalsCount: animalsCount ?? this.animalsCount,
+      milkShifts: milkShifts ?? this.milkShifts,
+      panType: panType ?? this.panType,
+      animals: animals ?? this.animals,
+    );
+  }
+
+  static List<String> _parseMilkShifts(
+    dynamic value, {
+    required String panType,
+  }) {
     const allowed = ['Morning', 'Afternoon', 'Evening'];
+    if (panType == PanManagementController.panTypeNonMilking) {
+      return <String>[];
+    }
     if (value is! List) return allowed;
     final parsed = value.map((item) => item.toString().trim()).where((item) => allowed.contains(item)).toList();
     return parsed.isEmpty ? allowed : parsed;

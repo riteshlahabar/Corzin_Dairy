@@ -163,7 +163,7 @@ class ProfileView extends GetView<ProfileController> {
             ),
             IconButton(
               onPressed: () => Get.find<BottomNavController>().openRootDrawer(),
-              icon: const Icon(Icons.menu_rounded),
+              icon: const Icon(Icons.menu),
               color: Colors.white,
             ),
           ],

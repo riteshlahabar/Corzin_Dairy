@@ -197,6 +197,14 @@ class FarmerDetailsController extends GetxController {
       Get.snackbar("Error", "Enter First Name");
       return;
     }
+    if (middleName.text.trim().isEmpty) {
+      Get.snackbar("Error", "Enter Middle Name");
+      return;
+    }
+    if (lastName.text.trim().isEmpty) {
+      Get.snackbar("Error", "Enter Last Name");
+      return;
+    }
     if (state.text.trim().isEmpty) {
       Get.snackbar("Error", "Select State");
       return;

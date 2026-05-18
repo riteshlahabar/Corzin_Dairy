@@ -18,6 +18,9 @@ abstract class Routes {
   static const MILK = _Paths.MILK;
   static const FEEDING = _Paths.FEEDING;
   static const FEED_SETTINGS = _Paths.FEED_SETTINGS;
+  static const FEED_SETTINGS_LIST = _Paths.FEED_SETTINGS_LIST;
+  static const DIET_PLAN = _Paths.DIET_PLAN;
+  static const DIET_PLAN_LIST = _Paths.DIET_PLAN_LIST;
   static const HEALTH = _Paths.HEALTH;
   static const DOCTOR = _Paths.DOCTOR;
   static const SHOP = _Paths.SHOP;
@@ -25,6 +28,7 @@ abstract class Routes {
   static const PAYMENT = _Paths.PAYMENT;
   static const UPGRADE = _Paths.UPGRADE;
   static const DAIRY = _Paths.DAIRY;
+  static const DAIRY_LIST = _Paths.DAIRY_LIST;
 }
 
 abstract class _Paths {
@@ -43,6 +47,9 @@ abstract class _Paths {
   static const MILK = '/milk';
   static const FEEDING = '/feeding';
   static const FEED_SETTINGS = '/feed-settings';
+  static const FEED_SETTINGS_LIST = '/feed-settings-list';
+  static const DIET_PLAN = '/diet-plan';
+  static const DIET_PLAN_LIST = '/diet-plan-list';
   static const HEALTH = '/health';
   static const DOCTOR = '/doctor';
   static const SHOP = '/shop';
@@ -50,4 +57,5 @@ abstract class _Paths {
   static const PAYMENT = '/payment';
   static const UPGRADE = '/upgrade';
   static const DAIRY = '/dairy';
+  static const DAIRY_LIST = '/dairy-list';
 }

@@ -42,8 +42,8 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     Obx(() => _photoUploadCard()),
                     _sectionTitle("personal_info".tr),
                     _field("first_name".tr, controller.firstName, icon: Icons.person_outline, requiredField: true),
-                    _field("middle_name".tr, controller.middleName, icon: Icons.person_outline),
-                    _field("last_name".tr, controller.lastName, icon: Icons.person_outline),
+                    _field("middle_name".tr, controller.middleName, icon: Icons.person_outline, requiredField: true),
+                    _field("last_name".tr, controller.lastName, icon: Icons.person_outline, requiredField: true),
                     _field(
                       "Doctor Referral Code (Optional)",
                       controller.referralCode,

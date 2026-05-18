@@ -37,7 +37,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Animal List',
+                      'animal_list'.tr,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
@@ -80,13 +80,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                         child: controller.filteredHistory.isEmpty
                             ? ListView(
                                 padding: const EdgeInsets.all(24),
-                                children: const [
+                                children: [
                                   SizedBox(height: 120),
                                   Icon(Icons.pets_rounded, size: 48, color: AppColors.primary),
                                   SizedBox(height: 12),
                                   Center(
                                     child: Text(
-                                      'No animals found',
+                                      'no_animals_found'.tr,
                                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                                     ),
                                   ),
@@ -118,8 +118,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
 
   Widget _animalCard(AnimalHistoryItem item) {
     final statusText = item.isForSale
-        ? 'Selling'
-        : (item.isActive ? item.lifecycleStatus.capitalizeFirst ?? 'Active' : 'Inactive');
+        ? 'status_selling'.tr
+        : (item.isActive ? item.lifecycleStatus.capitalizeFirst ?? 'active'.tr : 'status_inactive'.tr);
     final statusColor = item.isForSale
         ? const Color(0xFFB25E00)
         : (item.isActive ? AppColors.primary : Colors.redAccent);
@@ -186,15 +186,15 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _detailTile('PAN', item.panName.isEmpty ? '-' : item.panName, Icons.grid_view_rounded),
-              _detailTile('Gender', item.gender.isEmpty ? '-' : item.gender, Icons.female_rounded),
-              _detailTile('Birth/Purchase', item.birthDate.isEmpty ? '-' : item.birthDate, Icons.event_rounded),
-              _detailTile('Age', item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
-              _detailTile('Weight', item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
-              _detailTile('Breed', item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
-              _detailTile('Lactation', item.lactationNumber.isEmpty ? '-' : item.lactationNumber, Icons.local_drink_rounded),
-              _detailTile('AI Date', item.aiDate.isEmpty ? '-' : item.aiDate, Icons.calendar_month_rounded),
-              _detailTile('Mother', item.motherLabel.isEmpty ? '-' : item.motherLabel, Icons.family_restroom_rounded),
+              _detailTile('pan'.tr.toUpperCase(), item.panName.isEmpty ? '-' : item.panName, Icons.grid_view_rounded),
+              _detailTile('gender'.tr, item.gender.isEmpty ? '-' : item.gender, Icons.female_rounded),
+              _detailTile('birth_purchase_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate, Icons.event_rounded),
+              _detailTile('age'.tr, item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
+              _detailTile('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
+              _detailTile('breed'.tr, item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
+              _detailTile('lactation'.tr, item.lactationNumber.isEmpty ? '-' : item.lactationNumber, Icons.local_drink_rounded),
+              _detailTile('ai_date'.tr, item.aiDate.isEmpty ? '-' : item.aiDate, Icons.calendar_month_rounded),
+              _detailTile('mother'.tr, item.motherLabel.isEmpty ? '-' : item.motherLabel, Icons.family_restroom_rounded),
             ],
           ),
           const SizedBox(height: 12),
@@ -202,7 +202,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             children: [
               Expanded(
                 child: _actionButton(
-                  label: 'View All',
+                  label: 'view_all'.tr,
                   icon: Icons.visibility_rounded,
                   onTap: () => _openViewAllHistorySheet(item),
                   filled: true,
@@ -401,20 +401,20 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
               const SizedBox(height: 10),
               Text(
-                item.animalName.isEmpty ? 'Animal History' : '${item.animalName} History',
+                item.animalName.isEmpty ? 'animal_history'.tr : '${item.animalName} ${'history'.tr}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               _historyActionTile(
                 icon: Icons.pets_rounded,
-                title: 'Animal History',
-                subtitle: 'Current animal lifecycle details',
+                title: 'animal_history'.tr,
+                subtitle: 'current_animal_lifecycle_details'.tr,
                 onTap: Get.back,
               ),
               _historyActionTile(
                 icon: Icons.local_drink_rounded,
-                title: 'Milk History',
-                subtitle: 'Open milk records page',
+                title: 'milk_record'.tr,
+                subtitle: 'open_milk_records_page'.tr,
                 onTap: () {
                   Get.back();
                   Get.to(() => const MilkHistoryView());
@@ -422,8 +422,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
               _historyActionTile(
                 icon: Icons.grass_rounded,
-                title: 'Feeding History',
-                subtitle: 'Open feeding records page',
+                title: 'feeding_record'.tr,
+                subtitle: 'open_feeding_records_page'.tr,
                 onTap: () {
                   Get.back();
                   Get.to(() => const FeedingHistoryView());
@@ -431,8 +431,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
               _historyActionTile(
                 icon: Icons.local_hospital_rounded,
-                title: 'Treatment History',
-                subtitle: 'Open doctor history tab',
+                title: 'treatment_history'.tr,
+                subtitle: 'open_doctor_history_tab'.tr,
                 onTap: () {
                   Get.back();
                   Get.toNamed(
@@ -511,8 +511,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               () => Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Edit Animal',
+                  Text(
+                    'edit_animal'.tr,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
@@ -542,32 +542,32 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _input(nameController, 'Animal Name'),
+                  _input(nameController, 'animal_name_label'.tr),
                   const SizedBox(height: 10),
-                  _input(tagController, 'Tag Number'),
+                  _input(tagController, 'tag_number_label'.tr),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<int>(
                     initialValue: selectedTypeId.value == 0 ? null : selectedTypeId.value,
-                    decoration: _decoration('Animal Type'),
+                    decoration: _decoration('animal_type_label'.tr),
                     items: controller.animalTypes
                         .map((type) => DropdownMenuItem<int>(value: type.id, child: Text(type.name)))
                         .toList(),
                     onChanged: (value) => selectedTypeId.value = value ?? 0,
                   ),
                   const SizedBox(height: 10),
-                  _input(birthDateController, 'Birth Date (dd/MM/yyyy)'),
+                  _input(birthDateController, 'birth_date_ddmmyyyy'.tr),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     initialValue: selectedGender.value,
-                    decoration: _decoration('Gender'),
-                    items: const [
-                      DropdownMenuItem(value: 'Male', child: Text('Male')),
-                      DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    decoration: _decoration('gender'.tr),
+                    items: [
+                      DropdownMenuItem(value: 'Male', child: Text('male'.tr)),
+                      DropdownMenuItem(value: 'Female', child: Text('female'.tr)),
                     ],
                     onChanged: (value) => selectedGender.value = value ?? 'Female',
                   ),
                   const SizedBox(height: 10),
-                  _input(weightController, 'Weight', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  _input(weightController, 'weight'.tr, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -577,7 +577,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                           ? null
                           : () async {
                               if (selectedTypeId.value == 0) {
-                                Get.snackbar('Error', 'Please select animal type');
+                                Get.snackbar('error'.tr, 'please_select_animal_type'.tr);
                                 return;
                               }
                               final ok = await controller.updateAnimal(
@@ -602,8 +602,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                             )
-                          : const Text(
-                              'Update Animal',
+                          : Text(
+                              'update_animal'.tr,
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                             ),
                     ),

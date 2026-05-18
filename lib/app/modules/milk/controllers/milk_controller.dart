@@ -19,6 +19,10 @@ class MilkController extends GetxController {
   final TextEditingController snfController = TextEditingController();
   final TextEditingController rateController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
+  final FocusNode quantityFocus = FocusNode();
+  final FocusNode fatFocus = FocusNode();
+  final FocusNode snfFocus = FocusNode();
+  final FocusNode rateFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
@@ -581,6 +585,10 @@ class MilkController extends GetxController {
     snfController.dispose();
     rateController.dispose();
     notesController.dispose();
+    quantityFocus.dispose();
+    fatFocus.dispose();
+    snfFocus.dispose();
+    rateFocus.dispose();
     super.onClose();
   }
 

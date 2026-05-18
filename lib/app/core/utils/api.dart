@@ -34,6 +34,12 @@ class Api {
   static const String feedingTypes = "$baseUrl/feeding/types";
   static const String feedingTypeCreate = "$baseUrl/feeding/types";
   static const String feedingTypeUpdate = "$baseUrl/feeding/types";
+  static const String feedingTypeSubtypeCreate = "$baseUrl/feeding/types";
+  static const String feedingTypeSubtypeUpdate = "$baseUrl/feeding/types";
+  static const String feedingTypeSubtypeDelete = "$baseUrl/feeding/types";
+  static const String feedingDietPlans = "$baseUrl/feeding/diet-plans";
+  static const String feedingDietPlanUpdate = "$baseUrl/feeding/diet-plans";
+  static const String feedingDietPlanDelete = "$baseUrl/feeding/diet-plans";
   static const String feedingList = "$baseUrl/feeding/list";
   static const String feedingSummary = "$baseUrl/feeding/summary";
   static const String feedingUpdate = "$baseUrl/feeding/update";

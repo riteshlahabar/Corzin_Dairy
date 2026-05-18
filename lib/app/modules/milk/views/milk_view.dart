@@ -26,7 +26,8 @@ class MilkView extends GetView<MilkController> {
                       Expanded(
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: EdgeInsets.fromLTRB(16, 14, 16, MediaQuery.of(context).viewInsets.bottom + 24),
                           child: Form(
                             key: controller.formKey,
                             child: Column(
@@ -130,7 +131,7 @@ class MilkView extends GetView<MilkController> {
             ),
           ),
           const SizedBox(height: 16),
-          _fieldLabel('Select PAN', requiredField: true),
+          _fieldLabel('select_pan'.tr, requiredField: true),
           const SizedBox(height: 8),
           Obx(
             () => _dropdownCard(
@@ -139,7 +140,7 @@ class MilkView extends GetView<MilkController> {
                 isExpanded: true,
                 dropdownColor: Colors.white,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-                decoration: _dropdownDecoration('Select PAN'),
+                decoration: _dropdownDecoration('select_pan'.tr),
                 items: controller.pans
                     .map(
                       (pan) => DropdownMenuItem<MilkPanModel>(
@@ -157,14 +158,14 @@ class MilkView extends GetView<MilkController> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _fieldLabel('Select Dairy', requiredField: true)),
+              Expanded(child: _fieldLabel('select_dairy'.tr, requiredField: true)),
               SizedBox(
                 height: 28,
                 width: 28,
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Add Dairy',
+                  tooltip: 'add_dairy'.tr,
                   onPressed: controller.openAddDairyFromMilk,
                   icon: const Icon(
                     Icons.add_circle_rounded,
@@ -176,7 +177,7 @@ class MilkView extends GetView<MilkController> {
             ],
           ),
           const SizedBox(height: 8),
-          Obx(() => _dropdownCard(child: DropdownButtonFormField<MilkDairyModel>(initialValue: controller.selectedDairy.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('Select dairy'), items: controller.dairies.map((dairy) => DropdownMenuItem<MilkDairyModel>(value: dairy, child: Text(dairy.displayName, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => controller.selectedDairy.value = value, validator: (value) => value == null ? 'Please select a dairy' : null))),
+          Obx(() => _dropdownCard(child: DropdownButtonFormField<MilkDairyModel>(initialValue: controller.selectedDairy.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('select_dairy'.tr), items: controller.dairies.map((dairy) => DropdownMenuItem<MilkDairyModel>(value: dairy, child: Text(dairy.displayName, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => controller.selectedDairy.value = value, validator: (value) => value == null ? 'please_select_dairy_name'.tr : null))),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -218,7 +219,7 @@ class MilkView extends GetView<MilkController> {
                             color: AppColors.primary,
                           ),
                           decoration: _dropdownDecoration(
-                            controller.availableShifts.isEmpty ? 'No shift left' : 'Select shift',
+                            controller.availableShifts.isEmpty ? 'no_time_left'.tr : 'select_shift'.tr,
                           ),
                           items: controller.availableShifts
                               .map(
@@ -232,7 +233,7 @@ class MilkView extends GetView<MilkController> {
                               ? null
                               : (value) => controller.selectedShift.value = value ?? '',
                           validator: (value) => value == null || value.trim().isEmpty
-                              ? 'No shift available for this date'
+                              ? 'no_shift_available_for_date'.tr
                               : null,
                         ),
                       ),
@@ -245,13 +246,13 @@ class MilkView extends GetView<MilkController> {
           const SizedBox(height: 16),
           _fieldLabel('quantity_liters'.tr, requiredField: true),
           const SizedBox(height: 8),
-          TextFormField(controller: controller.quantityController, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_milk_quantity'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'enter_quantity_error'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'valid_quantity'.tr; return null; }),
+          TextFormField(controller: controller.quantityController, focusNode: controller.quantityFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_milk_quantity'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'enter_quantity_error'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'valid_quantity'.tr; return null; }),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('FAT'), const SizedBox(height: 8), TextFormField(controller: controller.fatController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('Enter FAT'))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('SNF'), const SizedBox(height: 8), TextFormField(controller: controller.snfController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('Enter SNF'))]))]),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('fat_upper'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.fatController, focusNode: controller.fatFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_fat'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'fat_required'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'enter_valid_fat'.tr; return null; })])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('snf_upper'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.snfController, focusNode: controller.snfFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_snf'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'snf_required'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'enter_valid_snf'.tr; return null; })]))]),
           const SizedBox(height: 16),
-          _fieldLabel('Rate / Liter'),
+          _fieldLabel('rate_per_liter'.tr, requiredField: true),
           const SizedBox(height: 8),
-          TextFormField(controller: controller.rateController, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter rate per liter')),
+          TextFormField(controller: controller.rateController, focusNode: controller.rateFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_rate_per_liter'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'rate_required'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'enter_valid_rate'.tr; return null; }),
           const SizedBox(height: 16),
           _fieldLabel('notes'.tr),
           const SizedBox(height: 8),
@@ -262,7 +263,7 @@ class MilkView extends GetView<MilkController> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: const Color(0xFFFFF7E7), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFFFD98A))),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.info_outline_rounded, color: Color(0xFFB7791F)), const SizedBox(width: 10), Expanded(child: Text('Please make sure animal and dairy records are available before saving milk entry.', style: const TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF7A5314))))]),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.info_outline_rounded, color: Color(0xFFB7791F)), const SizedBox(width: 10), Expanded(child: Text('milk_entry_info_hint'.tr, style: const TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF7A5314))))]),
             ),
           ],
         ],
@@ -271,7 +272,55 @@ class MilkView extends GetView<MilkController> {
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty || controller.availableShifts.isEmpty ? null : controller.submitMilk, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))]))));
+    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty || controller.availableShifts.isEmpty ? null : _onSubmitTap, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))]))));
+  }
+
+  void _onSubmitTap() {
+    final currentForm = controller.formKey.currentState;
+    if (currentForm == null) return;
+
+    final isValid = currentForm.validate();
+    if (!isValid) {
+      _focusFirstInvalidField();
+      return;
+    }
+
+    if (controller.selectedAnimal.value == null && controller.selectedPan.value == null) {
+      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr, snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedDairy.value == null) {
+      Get.snackbar('error'.tr, 'please_select_dairy_name'.tr, snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedShift.value.trim().isEmpty || !controller.availableShifts.contains(controller.selectedShift.value)) {
+      Get.snackbar('info'.tr, 'no_milk_shift_available_for_date'.tr, snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    controller.submitMilk();
+  }
+
+  void _focusFirstInvalidField() {
+    final quantity = double.tryParse(controller.quantityController.text.trim());
+    if (quantity == null || quantity <= 0) {
+      controller.quantityFocus.requestFocus();
+      return;
+    }
+    final fat = double.tryParse(controller.fatController.text.trim());
+    if (fat == null || fat <= 0) {
+      controller.fatFocus.requestFocus();
+      return;
+    }
+    final snf = double.tryParse(controller.snfController.text.trim());
+    if (snf == null || snf <= 0) {
+      controller.snfFocus.requestFocus();
+      return;
+    }
+    final rate = double.tryParse(controller.rateController.text.trim());
+    if (rate == null || rate <= 0) {
+      controller.rateFocus.requestFocus();
+    }
   }
 
   Widget _sectionTitle(String title) => Align(alignment: Alignment.centerLeft, child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.black)));

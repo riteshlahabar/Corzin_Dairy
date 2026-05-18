@@ -21,12 +21,20 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
               builder: (context) => Container(
                 width: double.infinity,
                 color: AppColors.primary,
-                padding: EdgeInsets.fromLTRB(4, MediaQuery.of(context).padding.top + 4, 8, 6),
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  MediaQuery.of(context).padding.top + 4,
+                  8,
+                  6,
+                ),
                 child: Row(
                   children: [
                     IconButton(
                       onPressed: _goHome,
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
                       color: Colors.white,
                     ),
                     Expanded(
@@ -41,7 +49,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                     ),
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
+                      icon: const Icon(Icons.menu),
                       color: Colors.white,
                     ),
                   ],
@@ -193,7 +201,10 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
           Expanded(
             child: Text(
               '${doctor.name} • ${doctor.speciality.isEmpty ? 'Doctor' : doctor.speciality}',
-              style: const TextStyle(fontSize: 12.8, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 12.8,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -219,49 +230,86 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
               Expanded(
                 child: Text(
                   request.doctorName,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   status.capitalizeFirst ?? status,
-                  style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Animal: ${request.animalName}', style: const TextStyle(fontSize: 12.2)),
+          Text(
+            'Animal: ${request.animalName}',
+            style: const TextStyle(fontSize: 12.2),
+          ),
           const SizedBox(height: 4),
-          Text('Concern: ${request.concern}', style: const TextStyle(fontSize: 12.2)),
+          Text(
+            'Concern: ${request.concern}',
+            style: const TextStyle(fontSize: 12.2),
+          ),
           if (request.diseaseNames.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Disease: ${request.diseaseNames.join(', ')}', style: const TextStyle(fontSize: 12.2)),
+            Text(
+              'Disease: ${request.diseaseNames.join(', ')}',
+              style: const TextStyle(fontSize: 12.2),
+            ),
           ],
           if (request.diseaseDetails.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Details: ${request.diseaseDetails}', style: const TextStyle(fontSize: 12.2)),
+            Text(
+              'Details: ${request.diseaseDetails}',
+              style: const TextStyle(fontSize: 12.2),
+            ),
           ],
           if (request.visitOtp.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Visit OTP: ${request.visitOtp}', style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700)),
+            Text(
+              'Visit OTP: ${request.visitOtp}',
+              style: const TextStyle(
+                fontSize: 12.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
           if (request.treatmentDetails.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Treatment: ${request.treatmentDetails}', style: const TextStyle(fontSize: 12.2)),
+            Text(
+              'Treatment: ${request.treatmentDetails}',
+              style: const TextStyle(fontSize: 12.2),
+            ),
           ],
           if (request.charges != '-') ...[
             const SizedBox(height: 4),
-            Text('Charges: ${request.charges}', style: const TextStyle(fontSize: 12.2)),
+            Text(
+              'Charges: ${request.charges}',
+              style: const TextStyle(fontSize: 12.2),
+            ),
           ],
           if (request.scheduledAt.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Schedule: ${request.scheduledAt}', style: const TextStyle(fontSize: 12.2)),
+            Text(
+              'Schedule: ${request.scheduledAt}',
+              style: const TextStyle(fontSize: 12.2),
+            ),
           ],
           if (status == 'proposed') ...[
             const SizedBox(height: 10),
@@ -271,8 +319,14 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                   child: OutlinedButton(
                     onPressed: controller.isUpdatingRequestStatus.value
                         ? null
-                        : () => controller.updateFarmerApproval(request: request, approved: false),
-                    child: const Text('Decline', style: TextStyle(fontSize: 12)),
+                        : () => controller.updateFarmerApproval(
+                            request: request,
+                            approved: false,
+                          ),
+                    child: const Text(
+                      'Decline',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -280,9 +334,14 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                   child: ElevatedButton(
                     onPressed: controller.isUpdatingRequestStatus.value
                         ? null
-                        : () => controller.updateFarmerApproval(request: request, approved: true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                    child: const Text('Accept', style: TextStyle(fontSize: 12)),
+                        : () => controller.updateFarmerApproval(
+                            request: request,
+                            approved: true,
+                          ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                    child: Text('accept'.tr, style: const TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
@@ -315,28 +374,41 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
 
     await Get.dialog(
       AlertDialog(
-        title: Text('Create Appointment • ${animal.animalName.isEmpty ? 'Animal' : animal.animalName}'),
+        title: Text(
+          'Create Appointment • ${animal.animalName.isEmpty ? 'Animal' : animal.animalName}',
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Select Doctor', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              const Text(
+                'Select Doctor',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 6),
               Obx(
                 () => DropdownButtonFormField<DoctorModel>(
                   initialValue: controller.selectedDoctor.value,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    hintText: 'Choose doctor',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    hintText: 'choose_doctor'.tr,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   items: controller.doctors
                       .map(
                         (doctor) => DropdownMenuItem(
                           value: doctor,
-                          child: Text(doctor.name, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            doctor.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
@@ -344,63 +416,88 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text('Disease (checkbox)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              Obx(
-                () {
-                  if (controller.diseases.isEmpty) {
-                    return const Text(
-                      'No diseases available. Please ask admin to add disease from panel.',
-                      style: TextStyle(fontSize: 12),
-                    );
-                  }
-
-                  return Column(
-                    children: controller.diseases.map((disease) {
-                      final selected = controller.selectedDiseaseIds.contains(disease.id);
-                      return CheckboxListTile(
-                        dense: true,
-                        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-                        contentPadding: EdgeInsets.zero,
-                        value: selected,
-                        onChanged: (checked) {
-                          if (checked == true) {
-                            if (!controller.selectedDiseaseIds.contains(disease.id)) {
-                              controller.selectedDiseaseIds.add(disease.id);
-                            }
-                          } else {
-                            controller.selectedDiseaseIds.remove(disease.id);
-                          }
-                          controller.selectedDiseaseIds.refresh();
-                        },
-                        title: Text(disease.name, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                        subtitle: disease.description.isNotEmpty
-                            ? Text(disease.description, style: const TextStyle(fontSize: 11.5))
-                            : null,
-                        controlAffinity: ListTileControlAffinity.leading,
-                      );
-                    }).toList(),
-                  );
-                },
+              const Text(
+                'Disease (checkbox)',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
+              const SizedBox(height: 6),
+              Obx(() {
+                if (controller.diseases.isEmpty) {
+                  return const Text(
+                    'No diseases available. Please ask admin to add disease from panel.',
+                    style: TextStyle(fontSize: 12),
+                  );
+                }
+
+                return Column(
+                  children: controller.diseases.map((disease) {
+                    final selected = controller.selectedDiseaseIds.contains(
+                      disease.id,
+                    );
+                    return CheckboxListTile(
+                      dense: true,
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -2,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      value: selected,
+                      onChanged: (checked) {
+                        if (checked == true) {
+                          if (!controller.selectedDiseaseIds.contains(
+                            disease.id,
+                          )) {
+                            controller.selectedDiseaseIds.add(disease.id);
+                          }
+                        } else {
+                          controller.selectedDiseaseIds.remove(disease.id);
+                        }
+                        controller.selectedDiseaseIds.refresh();
+                      },
+                      title: Text(
+                        disease.name,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: disease.description.isNotEmpty
+                          ? Text(
+                              disease.description,
+                              style: const TextStyle(fontSize: 11.5),
+                            )
+                          : null,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    );
+                  }).toList(),
+                );
+              }),
               const SizedBox(height: 10),
-              const Text('Disease Details', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              const Text(
+                'Disease Details',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: controller.diseaseDetailsController,
                 minLines: 1,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'Small details of disease',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  hintText: 'small_details_disease'.tr,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Get.back(), child: Text('cancel'.tr)),
           Obx(
             () => ElevatedButton(
               onPressed: controller.isSubmittingRequest.value
@@ -408,18 +505,24 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                   : () {
                       final selectedDoctor = controller.selectedDoctor.value;
                       if (selectedDoctor == null) {
-                        Get.snackbar('Error', 'Please select doctor.');
+                        Get.snackbar('error'.tr, 'please_select_doctor'.tr);
                         return;
                       }
-                      controller.requestDoctorVisit(doctor: selectedDoctor, animal: animal);
+                      controller.requestDoctorVisit(
+                        doctor: selectedDoctor,
+                        animal: animal,
+                      );
                     },
               child: controller.isSubmittingRequest.value
                   ? const SizedBox(
                       height: 16,
                       width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Text('Submit'),
+                  : Text('submit'.tr),
             ),
           ),
         ],

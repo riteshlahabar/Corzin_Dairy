@@ -35,7 +35,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
       _farmerId = prefs.getInt('farmer_id') ?? 0;
       if (_farmerId == 0) {
         if (mounted) {
-          Get.snackbar('Error', 'Farmer not found. Please login again.');
+          Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
         }
         setState(() => _isLoading = false);
         return;
@@ -55,7 +55,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     } catch (_) {
       _history.clear();
       if (mounted) {
-        Get.snackbar('Error', 'Unable to load milk history');
+        Get.snackbar('error'.tr, 'unable_load_milk_history'.tr);
       }
     } finally {
       if (mounted) {
@@ -106,18 +106,18 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Edit Milk Entry',
+                      Text(
+                        'edit_milk_entry'.tr,
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: selectedShift.value,
-                        decoration: _inputDecoration('Shift'),
-                        items: const [
-                          DropdownMenuItem(value: 'Morning', child: Text('Morning')),
-                          DropdownMenuItem(value: 'Afternoon', child: Text('Afternoon')),
-                          DropdownMenuItem(value: 'Evening', child: Text('Evening')),
+                        decoration: _inputDecoration('shift'.tr),
+                        items: [
+                          DropdownMenuItem(value: 'Morning', child: Text('morning'.tr)),
+                          DropdownMenuItem(value: 'Afternoon', child: Text('afternoon'.tr)),
+                          DropdownMenuItem(value: 'Evening', child: Text('evening'.tr)),
                         ],
                         onChanged: (value) {
                           selectedShift.value = value ?? 'Morning';
@@ -129,14 +129,14 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                       TextField(
                         controller: quantityController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _inputDecoration('Quantity'),
+                        decoration: _inputDecoration('quantity'.tr),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: dateController,
                         readOnly: true,
                         onTap: pickDate,
-                        decoration: _inputDecoration('Date').copyWith(
+                        decoration: _inputDecoration('date'.tr).copyWith(
                           suffixIcon: const Icon(Icons.calendar_today_rounded),
                         ),
                       ),
@@ -147,7 +147,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                             child: TextField(
                               controller: fatController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: _inputDecoration('FAT'),
+                                decoration: _inputDecoration('fat_upper'.tr),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -155,7 +155,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                             child: TextField(
                               controller: snfController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: _inputDecoration('SNF'),
+                                decoration: _inputDecoration('snf_upper'.tr),
                             ),
                           ),
                         ],
@@ -164,7 +164,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                       TextField(
                         controller: rateController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _inputDecoration('Rate'),
+                        decoration: _inputDecoration('rate'.tr),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -176,8 +176,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                   final qty = quantityController.text.trim();
                                   if (qty.isEmpty || (double.tryParse(qty) ?? -1) < 0) {
                                     Get.snackbar(
-                                      'Error',
-                                      'Please enter valid quantity',
+                                      'error'.tr,
+                                      'please_enter_valid_quantity'.tr,
                                       snackPosition: SnackPosition.BOTTOM,
                                     );
                                     return;
@@ -211,23 +211,23 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                     if (response.statusCode == 200 && data['status'] == true) {
                                       Get.back();
                                       Get.snackbar(
-                                        'Success',
+                                        'success'.tr,
                                         data['message']?.toString() ??
-                                            'Milk entry updated successfully',
+                                            'milk_entry_updated_success'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                       await _loadHistory();
                                     } else {
                                       Get.snackbar(
-                                        'Error',
+                                        'error'.tr,
                                         data['message']?.toString() ??
-                                            'Failed to update milk entry',
+                                            'failed_update_milk_entry'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
                                     }
                                   } catch (e) {
                                     Get.snackbar(
-                                      'Error',
+                                      'error'.tr,
                                       e.toString(),
                                       snackPosition: SnackPosition.BOTTOM,
                                     );
@@ -249,7 +249,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Update Entry'),
+                              : Text('update_entry'.tr),
                         ),
                       ),
                     ],
@@ -290,8 +290,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
-        title: const Text(
-          'Milk History',
+        title: Text(
+          'milk_record'.tr,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
@@ -300,9 +300,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _history.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No milk history found',
+                      'no_milk_history_found'.tr,
                       style: TextStyle(fontSize: 15, color: Colors.black54),
                     ),
                   )
@@ -339,28 +339,28 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                   onPressed: () => _onEditTap(item),
                                   icon: const Icon(Icons.edit_rounded),
                                   color: AppColors.primary,
-                                  tooltip: 'Edit',
+                                  tooltip: 'edit_animal'.tr,
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Dairy: ${item.dairyName}',
+                              '${'dairy_name'.tr}: ${item.dairyName}',
                               style: const TextStyle(fontSize: 13.5),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Date: ${item.date}',
+                              '${'date'.tr}: ${item.date}',
                               style: const TextStyle(fontSize: 13.5),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Morning: ${item.morningMilk} L  |  Afternoon: ${item.afternoonMilk} L  |  Evening: ${item.eveningMilk} L',
+                              '${'morning'.tr}: ${item.morningMilk} L  |  ${'afternoon'.tr}: ${item.afternoonMilk} L  |  ${'evening'.tr}: ${item.eveningMilk} L',
                               style: const TextStyle(fontSize: 13.2),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Total: ${item.totalMilk} L  |  FAT: ${item.fat}  |  SNF: ${item.snf}  |  Rate: ${item.rate}',
+                              '${'total'.tr}: ${item.totalMilk} L  |  ${'fat_upper'.tr}: ${item.fat}  |  ${'snf_upper'.tr}: ${item.snf}  |  ${'rate'.tr}: ${item.rate}',
                               style: const TextStyle(
                                 fontSize: 13.2,
                                 fontWeight: FontWeight.w600,

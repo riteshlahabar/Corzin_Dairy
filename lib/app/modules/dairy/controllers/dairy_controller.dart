@@ -20,11 +20,22 @@ class DairyController extends GetxController {
   final TextEditingController districtController = TextEditingController();
   final TextEditingController stateController = TextEditingController();
   final TextEditingController pincodeController = TextEditingController();
+  final FocusNode dairyNameFocus = FocusNode();
+  final FocusNode contactFocus = FocusNode();
+  final FocusNode addressFocus = FocusNode();
+  final FocusNode cityFocus = FocusNode();
+  final FocusNode pincodeFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
+  final RxBool isLocationLoading = false.obs;
   final RxList<DairyModel> dairies = <DairyModel>[].obs;
+  final RxList<String> states = <String>[].obs;
+  final RxList<String> districts = <String>[].obs;
+  final RxList<String> talukas = <String>[].obs;
   final RxString searchQuery = ''.obs;
+  int _stateRequestToken = 0;
+  int _districtRequestToken = 0;
 
   int farmerId = 0;
   bool openedFromMilkFlow = false;
@@ -54,7 +65,10 @@ class DairyController extends GetxController {
 
   Future<void> initData() async {
     await loadFarmerId();
-    await fetchDairies();
+    await Future.wait([
+      fetchDairies(),
+      _loadLocationCascade(),
+    ]);
   }
 
   Future<void> loadFarmerId() async {
@@ -94,7 +108,28 @@ class DairyController extends GetxController {
   Future<void> submitDairy() async {
     if (!formKey.currentState!.validate()) return;
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer ID not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
+      return;
+    }
+
+    final selectedState = stateController.text.trim();
+    final selectedDistrict = districtController.text.trim();
+    final selectedTaluka = talukaController.text.trim();
+    final mobile = contactController.text.trim();
+    final pin = pincodeController.text.trim();
+
+    if (selectedState.isEmpty ||
+        selectedDistrict.isEmpty ||
+        selectedTaluka.isEmpty) {
+      Get.snackbar('error'.tr, 'please_select_state_district_subdistrict'.tr);
+      return;
+    }
+    if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
+      Get.snackbar('error'.tr, 'mobile_10_digits'.tr);
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+      Get.snackbar('error'.tr, 'pincode_6_digits'.tr);
       return;
     }
 
@@ -104,13 +139,13 @@ class DairyController extends GetxController {
         'farmer_id': farmerId.toString(),
         'dairy_name': dairyNameController.text.trim(),
         'gst_no': gstNoController.text.trim(),
-        'contact_number': contactController.text.trim(),
+        'contact_number': mobile,
         'address': addressController.text.trim(),
         'city': cityController.text.trim(),
-        'taluka': talukaController.text.trim(),
-        'district': districtController.text.trim(),
-        'state': stateController.text.trim(),
-        'pincode': pincodeController.text.trim(),
+        'taluka': selectedTaluka,
+        'district': selectedDistrict,
+        'state': selectedState,
+        'pincode': pin,
       };
 
       final response = await http.post(
@@ -124,7 +159,7 @@ class DairyController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final successMessage = data['message']?.toString() ?? 'Dairy added successfully';
+        final successMessage = data['message']?.toString() ?? 'dairy_added_successfully'.tr;
         final createdDairyId = _extractCreatedDairyId(data);
         clearForm();
         await fetchDairies();
@@ -139,23 +174,23 @@ class DairyController extends GetxController {
             Get.back(result: {'dairy_added': true, 'dairy_id': createdDairyId});
           }
           Future.delayed(const Duration(milliseconds: 120), () {
-            Get.snackbar('Success', successMessage);
+            Get.snackbar('success'.tr, successMessage);
           });
           return;
         }
 
         Get.offAllNamed(Routes.HOME);
         Future.delayed(const Duration(milliseconds: 120), () {
-          Get.snackbar('Success', successMessage);
+          Get.snackbar('success'.tr, successMessage);
         });
       } else {
         Get.snackbar(
-          'Error',
-          data['message']?.toString() ?? 'Failed to add dairy',
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_add_dairy'.tr,
         );
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isSubmitting.value = false;
     }
@@ -192,6 +227,124 @@ class DairyController extends GetxController {
     pincodeController.clear();
   }
 
+  Future<void> _loadLocationCascade() async {
+    isLocationLoading.value = true;
+    try {
+      final stateList = await fetchLocationStates();
+      states.assignAll(_uniqueLocationValues(stateList));
+      if (!states.contains(stateController.text.trim())) {
+        stateController.text = states.contains('Maharashtra')
+            ? 'Maharashtra'
+            : (states.isNotEmpty ? states.first : '');
+      }
+      if (stateController.text.trim().isNotEmpty) {
+        await onStateChanged(stateController.text.trim());
+      }
+    } catch (_) {
+      states.clear();
+      districts.clear();
+      talukas.clear();
+    } finally {
+      isLocationLoading.value = false;
+    }
+  }
+
+  Future<void> onStateChanged(String value) async {
+    final selected = value.trim();
+    if (selected.isEmpty) return;
+
+    final token = ++_stateRequestToken;
+    _districtRequestToken++;
+
+    stateController.text = selected;
+    districtController.clear();
+    talukaController.clear();
+    districts.clear();
+    talukas.clear();
+
+    try {
+      final districtList = await fetchLocationDistricts(selected);
+      if (token != _stateRequestToken || stateController.text.trim() != selected) {
+        return;
+      }
+      districts.assignAll(_uniqueLocationValues(districtList));
+    } catch (_) {}
+  }
+
+  Future<void> onDistrictChanged(String value) async {
+    final selectedState = stateController.text.trim();
+    final selectedDistrict = value.trim();
+    if (selectedState.isEmpty || selectedDistrict.isEmpty) return;
+
+    final token = ++_districtRequestToken;
+    districtController.text = selectedDistrict;
+    talukaController.clear();
+    talukas.clear();
+
+    try {
+      final talukaList = await fetchLocationTalukas(
+        stateValue: selectedState,
+        districtValue: selectedDistrict,
+      );
+      if (token != _districtRequestToken) return;
+      if (stateController.text.trim() != selectedState) return;
+      if (districtController.text.trim() != selectedDistrict) return;
+      talukas.assignAll(_uniqueLocationValues(talukaList));
+    } catch (_) {}
+  }
+
+  void onTalukaChanged(String value) {
+    final selected = value.trim();
+    if (selected.isEmpty) return;
+    talukaController.text = selected;
+  }
+
+  Future<List<String>> fetchLocationStates() async {
+    final response = await http.get(
+      Uri.parse('${Api.baseUrl}/doctor/locations/states'),
+      headers: {'Accept': 'application/json'},
+    );
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['data'] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  Future<List<String>> fetchLocationDistricts(String stateValue) async {
+    final uri = Uri.parse('${Api.baseUrl}/doctor/locations/districts').replace(
+      queryParameters: {'state': stateValue},
+    );
+    final response = await http.get(uri, headers: {'Accept': 'application/json'});
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['data'] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  Future<List<String>> fetchLocationTalukas({
+    required String stateValue,
+    required String districtValue,
+  }) async {
+    final uri = Uri.parse('${Api.baseUrl}/doctor/locations/talukas').replace(
+      queryParameters: {'state': stateValue, 'district': districtValue},
+    );
+    final response = await http.get(uri, headers: {'Accept': 'application/json'});
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return (data['data'] as List<dynamic>? ?? const [])
+        .map((e) => e.toString())
+        .toList();
+  }
+
+  List<String> _uniqueLocationValues(List<String> values) {
+    final unique = <String, String>{};
+    for (final raw in values) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      unique.putIfAbsent(value.toLowerCase(), () => value);
+    }
+    return unique.values.toList(growable: false);
+  }
+
   @override
   void onClose() {
     searchController.dispose();
@@ -204,6 +357,11 @@ class DairyController extends GetxController {
     districtController.dispose();
     stateController.dispose();
     pincodeController.dispose();
+    dairyNameFocus.dispose();
+    contactFocus.dispose();
+    addressFocus.dispose();
+    cityFocus.dispose();
+    pincodeFocus.dispose();
     super.onClose();
   }
 }

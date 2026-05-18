@@ -17,6 +17,7 @@ import '../modules/farmer_details/bindings/farmer_details_binding.dart';
 import '../modules/farmer_details/views/farmer_details_view.dart';
 import '../modules/feeding/bindings/feeding_binding.dart';
 import '../modules/feeding/views/feeding_view.dart';
+import '../modules/feeding/views/diet_plan_view.dart';
 import '../modules/feed_settings/bindings/feed_settings_binding.dart';
 import '../modules/feed_settings/views/feed_settings_view.dart';
 import '../modules/health/bindings/health_binding.dart';
@@ -63,14 +64,18 @@ class AppPages {
     GetPage(name: _Paths.ANIMAL_HISTORY, page: () => const AnimalHistoryView(), binding: AnimalHistoryBinding()),
     GetPage(name: _Paths.MILK, page: () => const MilkView(), binding: MilkBinding()),
     GetPage(name: _Paths.FEEDING, page: () => const FeedingView(), binding: FeedingBinding()),
-    GetPage(name: _Paths.FEED_SETTINGS, page: () => const FeedSettingsView(), binding: FeedSettingsBinding()),
+    GetPage(name: _Paths.FEED_SETTINGS, page: () => const FeedSettingsView(mode: FeedSettingsViewMode.add), binding: FeedSettingsBinding()),
+    GetPage(name: _Paths.FEED_SETTINGS_LIST, page: () => const FeedSettingsView(mode: FeedSettingsViewMode.list), binding: FeedSettingsBinding()),
+    GetPage(name: _Paths.DIET_PLAN, page: () => const DietPlanView(mode: DietPlanViewMode.add)),
+    GetPage(name: _Paths.DIET_PLAN_LIST, page: () => const DietPlanView(mode: DietPlanViewMode.list)),
     GetPage(name: _Paths.HEALTH, page: () => const HealthView(), binding: HealthBinding()),
     GetPage(name: _Paths.DOCTOR, page: () => const DoctorAppointmentsNearbyView(), binding: DoctorBinding()),
     GetPage(name: _Paths.SHOP, page: () => const ShopView(), binding: ShopBinding()),
     GetPage(name: _Paths.PROFILE, page: () => const ProfileView(), binding: ProfileBinding()),
     GetPage(name: _Paths.PAYMENT, page: () => const PaymentView(), binding: PaymentBinding()),
     GetPage(name: _Paths.UPGRADE, page: () => const UpgradeView(), binding: UpgradeBinding()),
-    GetPage(name: _Paths.DAIRY, page: () => const DairyView(), binding: DairyBinding()),
+    GetPage(name: _Paths.DAIRY, page: () => const DairyView(initialMode: DairyViewMode.add), binding: DairyBinding()),
+    GetPage(name: _Paths.DAIRY_LIST, page: () => const DairyView(initialMode: DairyViewMode.list), binding: DairyBinding()),
   ];
 }
 

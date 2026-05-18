@@ -125,6 +125,30 @@ class PaymentController extends GetxController {
     return latest.balanceAmount;
   }
 
+  double todayBalanceForDairy(int dairyId) {
+    final summary = summaryByDairyId(dairyId);
+    if (summary == null || summary.history.isEmpty) {
+      return 0;
+    }
+    final latest = summary.history.first;
+    if (latest.dateKey == _todayDateIso()) {
+      return latest.dayTotalAmount;
+    }
+    return 0;
+  }
+
+  double totalBalanceForDairy(int dairyId) {
+    final summary = summaryByDairyId(dairyId);
+    if (summary == null || summary.history.isEmpty) {
+      return 0;
+    }
+    final latest = summary.history.first;
+    if (latest.dateKey == _todayDateIso()) {
+      return latest.totalAmount;
+    }
+    return latest.balanceAmount;
+  }
+
   String _todayDateIso() {
     final now = DateTime.now();
     final month = now.month.toString().padLeft(2, '0');

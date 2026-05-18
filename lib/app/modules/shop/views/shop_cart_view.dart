@@ -68,7 +68,7 @@ class ShopCartView extends StatelessWidget {
                                 : null,
                           ),
                           ChoiceChip(
-                            label: const Text('Strip'),
+                            label: Text('shop_stripe'.tr),
                             selected: item.quantityMode == CartQuantityMode.pack,
                             onSelected: (_) => controller.updateQuantityMode(item, CartQuantityMode.pack),
                           ),

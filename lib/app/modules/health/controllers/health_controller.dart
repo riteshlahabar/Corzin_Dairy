@@ -210,16 +210,27 @@ class HealthController extends GetxController {
   }
 
   double calculateRequiredDmi(double bodyWeight, double totalMilk) {
+    if (totalMilk <= 0) {
+      return bodyWeight * 0.025;
+    }
     return (bodyWeight * 0.02) + (totalMilk * 0.33);
   }
+
+  bool isMilkingByMilk(double totalMilk) => totalMilk > 0;
 }
 
 class HealthAnimalItem {
   final int id;
   final String animalName;
   final String tagNumber;
+  final String animalTypeName;
 
-  HealthAnimalItem({required this.id, required this.animalName, required this.tagNumber});
+  HealthAnimalItem({
+    required this.id,
+    required this.animalName,
+    required this.tagNumber,
+    required this.animalTypeName,
+  });
 
   String get displayName => '${animalName.trim().isEmpty ? 'Animal' : animalName} - Tag ${tagNumber.trim().isEmpty ? '-' : tagNumber}';
 
@@ -228,6 +239,7 @@ class HealthAnimalItem {
       id: int.tryParse(json['id'].toString()) ?? 0,
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
+      animalTypeName: json['animal_type_name']?.toString() ?? '',
     );
   }
 }
@@ -281,8 +293,10 @@ class MastitisRecordItem {
 }
 
 class DmiRecordItem {
+  final int animalId;
   final String animalName;
   final String tagNumber;
+  final String dmiType;
   final String bodyWeight;
   final String totalMilk;
   final String requiredDmi;
@@ -291,12 +305,26 @@ class DmiRecordItem {
   final String date;
   final String notes;
 
-  DmiRecordItem({required this.animalName, required this.tagNumber, required this.bodyWeight, required this.totalMilk, required this.requiredDmi, required this.actualDmi, required this.alertStatus, required this.date, required this.notes});
+  DmiRecordItem({
+    required this.animalId,
+    required this.animalName,
+    required this.tagNumber,
+    required this.dmiType,
+    required this.bodyWeight,
+    required this.totalMilk,
+    required this.requiredDmi,
+    required this.actualDmi,
+    required this.alertStatus,
+    required this.date,
+    required this.notes,
+  });
 
   factory DmiRecordItem.fromJson(Map<String, dynamic> json) {
     return DmiRecordItem(
+      animalId: int.tryParse(json['animal_id']?.toString() ?? '0') ?? 0,
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
+      dmiType: json['dmi_type']?.toString() ?? '',
       bodyWeight: json['body_weight']?.toString() ?? '',
       totalMilk: json['total_milk']?.toString() ?? '',
       requiredDmi: json['required_dmi']?.toString() ?? '',

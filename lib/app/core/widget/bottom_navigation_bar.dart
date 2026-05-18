@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -19,11 +21,36 @@ import '../../routes/app_pages.dart';
 import '../services/session_service.dart';
 import '../theme/colors.dart';
 
-class BottomNavController extends GetxController {
+class BottomNavController extends GetxController with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   final RxInt currentIndex = 0.obs;
   final Rx<Widget?> activeDrawerPage = Rx<Widget?>(null);
   final List<int> _tabBackStack = <int>[0];
+  Timer? _silentSyncTimer;
+  bool _silentSyncInFlight = false;
+  int _silentSyncTick = 0;
+
+  @override
+  void onInit() {
+    super.onInit();
+    WidgetsBinding.instance.addObserver(this);
+    _startSilentSyncTimer();
+    unawaited(_runSilentSync(force: true));
+  }
+
+  @override
+  void onClose() {
+    _silentSyncTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_runSilentSync(force: true));
+    }
+  }
 
   void changeTab(int index) {
     if (index == 2) return;
@@ -46,6 +73,39 @@ class BottomNavController extends GetxController {
 
   void openRootDrawer() {
     scaffoldKey.currentState?.openDrawer();
+  }
+
+  void _startSilentSyncTimer() {
+    _silentSyncTimer?.cancel();
+    _silentSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      unawaited(_runSilentSync());
+    });
+  }
+
+  Future<void> _runSilentSync({bool force = false}) async {
+    if (_silentSyncInFlight && !force) return;
+    _silentSyncInFlight = true;
+    try {
+      if (Get.isRegistered<HomeController>()) {
+        await Get.find<HomeController>().refreshDashboard(silent: true);
+      }
+
+      if (Get.isRegistered<DoctorController>()) {
+        await Get.find<DoctorController>().silentRefresh();
+      }
+
+      _silentSyncTick++;
+      if (_silentSyncTick % 3 == 0 && Get.isRegistered<ShopController>()) {
+        await Get.find<ShopController>().loadShopData();
+      }
+      if (_silentSyncTick % 3 == 0 && Get.isRegistered<ProfileController>()) {
+        await Get.find<ProfileController>().loadProfile();
+      }
+    } catch (_) {
+      // Silent background sync should never interrupt UI flow.
+    } finally {
+      _silentSyncInFlight = false;
+    }
   }
 
   bool handleRootBackPress() {
@@ -252,6 +312,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final List<Widget> pages = [
       const HomeView(),
       const DoctorAppointmentsNearbyView(),
@@ -278,7 +339,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       child: Scaffold(
         key: controller.scaffoldKey,
         backgroundColor: AppColors.white,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         drawer: _buildDrawer(context, controller),
         body: Obx(() {
           final drawerPage = controller.activeDrawerPage.value;
@@ -293,72 +354,77 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                 Positioned(
                   top: MediaQuery.of(context).viewPadding.top + 8,
                   right: 12,
-                  child: IconButton(
-                    onPressed: controller.openRootDrawer,
-                    icon: const Icon(Icons.menu_rounded),
-                    color: AppColors.white,
-                    splashRadius: 1,
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: controller.openRootDrawer,
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.menu,
+                        color: AppColors.white,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
             ],
           );
         }),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: AppColors.primary,
-          elevation: 1,
-          onPressed: controller.openAddAction,
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: Obx(
-          () => BottomAppBar(
-            shape: const CircularNotchedRectangle(),
-            notchMargin: 8,
-            color: AppColors.white,
-            elevation: 10,
-            child: SizedBox(
-              height: 72,
-              child: Row(
-                children: [
-                  _navItem(
-                    icon: Icons.home_outlined,
-                    selectedIcon: Icons.home_rounded,
-                    label: 'home'.tr,
-                    isSelected: controller.currentIndex.value == 0,
-                    onTap: () => controller.changeTab(0),
-                  ),
-                  _navItem(
-                    icon: Icons.medical_services_outlined,
-                    selectedIcon: Icons.medical_services_rounded,
-                    label: 'doctor'.tr,
-                    isSelected: controller.currentIndex.value == 1,
-                    onTap: () => controller.changeTab(1),
-                  ),
-                  const SizedBox(width: 44),
-                  _navItem(
-                    icon: Icons.storefront_outlined,
-                    selectedIcon: Icons.storefront_rounded,
-                    label: 'shop'.tr,
-                    isSelected: controller.currentIndex.value == 3,
-                    onTap: () => controller.changeTab(3),
-                  ),
-                  _navItem(
-                    icon: Icons.person_outline_rounded,
-                    selectedIcon: Icons.person_rounded,
-                    label: 'profile'.tr,
-                    isSelected: controller.currentIndex.value == 4,
-                    onTap: () => controller.changeTab(4),
-                  ),
-                ],
+        floatingActionButton: keyboardVisible
+            ? null
+            : FloatingActionButton(
+                backgroundColor: AppColors.primary,
+                elevation: 1,
+                onPressed: controller.openAddAction,
+                child: const Icon(Icons.add, color: Colors.white),
               ),
-            ),
-          ),
-        ),
+        floatingActionButtonLocation: keyboardVisible ? null : FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: keyboardVisible
+            ? null
+            : Obx(
+                () => BottomAppBar(
+                  shape: const CircularNotchedRectangle(),
+                  notchMargin: 8,
+                  color: AppColors.white,
+                  elevation: 10,
+                  child: SizedBox(
+                    height: 72,
+                    child: Row(
+                      children: [
+                        _navItem(
+                          icon: Icons.home_outlined,
+                          selectedIcon: Icons.home_rounded,
+                          label: 'home'.tr,
+                          isSelected: controller.currentIndex.value == 0,
+                          onTap: () => controller.changeTab(0),
+                        ),
+                        _navItem(
+                          icon: Icons.medical_services_outlined,
+                          selectedIcon: Icons.medical_services_rounded,
+                          label: 'doctor'.tr,
+                          isSelected: controller.currentIndex.value == 1,
+                          onTap: () => controller.changeTab(1),
+                        ),
+                        const SizedBox(width: 44),
+                        _navItem(
+                          icon: Icons.storefront_outlined,
+                          selectedIcon: Icons.storefront_rounded,
+                          label: 'shop'.tr,
+                          isSelected: controller.currentIndex.value == 3,
+                          onTap: () => controller.changeTab(3),
+                        ),
+                        _navItem(
+                          icon: Icons.person_outline_rounded,
+                          selectedIcon: Icons.person_rounded,
+                          label: 'profile'.tr,
+                          isSelected: controller.currentIndex.value == 4,
+                          onTap: () => controller.changeTab(4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -383,101 +449,156 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   children: [
-                    _drawerTile(
-                      icon: Icons.add_circle_outline_rounded,
-                      title: 'add_animal'.tr,
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.ANIMAL);
-                      },
-                    ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.pets_rounded,
-                      title: 'Animal list',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.ANIMAL_HISTORY);
-                      },
+                      title: 'menu_animal'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'add_animal'.tr,
+                          icon: Icons.add_circle_outline_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.ANIMAL);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'animal_list'.tr,
+                          icon: Icons.list_alt_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.ANIMAL_HISTORY);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'manage_animal'.tr,
+                          icon: Icons.manage_accounts_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.MANAGE_ANIMAL);
+                          },
+                        ),
+                      ],
                     ),
-                    _drawerTile(
-                      icon: Icons.manage_accounts_outlined,
-                      title: 'manage_animal'.tr,
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.MANAGE_ANIMAL);
-                      },
-                    ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.account_tree_outlined,
-                      title: 'Create PAN',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(const PanManagementView());
-                      },
+                      title: 'menu_pan'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'create_pan'.tr,
+                          icon: Icons.add_box_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(const PanManagementView());
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'pan_list'.tr,
+                          icon: Icons.list_alt_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const PanManagementView(
+                                mode: PanManagementMode.manage,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    _drawerTile(
-                      icon: Icons.list_alt_rounded,
-                      title: 'PAN List',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(
-                          const PanManagementView(
-                            mode: PanManagementMode.manage,
-                          ),
-                        );
-                      },
-                    ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.local_drink_outlined,
-                      title: 'Milk Record',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(const MilkHistoryView());
-                      },
+                      title: 'menu_milk'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'milk_record'.tr,
+                          icon: Icons.local_drink_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(const MilkHistoryView());
+                          },
+                        ),
+                      ],
                     ),
-                    _drawerTile(
-                      icon: Icons.tune_rounded,
-                      title: 'Add Feed Type',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.FEED_SETTINGS);
-                      },
-                    ),
-                    _drawerTile(
-                      icon: Icons.restaurant_menu_rounded,
-                      title: 'Diet Plan',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(
-                          const FeedingHistoryView(initialTab: 1),
-                        );
-                      },
-                    ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.grass_rounded,
-                      title: 'Feeding Record',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(
-                          const FeedingHistoryView(initialTab: 0),
-                        );
-                      },
+                      title: 'menu_feeding'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'add_feed_sub_type'.tr,
+                          icon: Icons.tune_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.FEED_SETTINGS);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'add_diet_plan'.tr,
+                          icon: Icons.restaurant_menu_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.DIET_PLAN);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'feed_subtype_list'.tr,
+                          icon: Icons.format_list_bulleted_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.FEED_SETTINGS_LIST);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'diet_plan_list'.tr,
+                          icon: Icons.view_list_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.DIET_PLAN_LIST);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'feeding_record'.tr,
+                          icon: Icons.grass_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const FeedingHistoryView(
+                                initialTab: 0,
+                                showTabs: false,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.storefront_outlined,
-                      title: 'add_dairy'.tr,
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.DAIRY);
-                      },
-                    ),
-                    _drawerTile(
-                      icon: Icons.payments_outlined,
-                      title: 'Dairy Payment',
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.PAYMENT);
-                      },
+                      title: 'menu_dairy'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'add_dairy'.tr,
+                          icon: Icons.storefront_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.DAIRY);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'dairy_list'.tr,
+                          icon: Icons.list_alt_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.DAIRY_LIST);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'dairy_payment'.tr,
+                          icon: Icons.payments_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.PAYMENT);
+                          },
+                        ),
+                      ],
                     ),
                     _drawerTile(
                       icon: Icons.health_and_safety_outlined,
@@ -489,7 +610,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     ),
                     _drawerTile(
                       icon: Icons.receipt_long_outlined,
-                      title: 'My Orders',
+                      title: 'my_orders'.tr,
                       onTap: () {
                         Get.back();
                         controller.openDrawerPage(const MyOrdersView());
@@ -508,7 +629,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     ),
                     _drawerTile(
                       icon: Icons.location_searching_rounded,
-                      title: 'Fetch Location',
+                      title: 'fetch_location'.tr,
                       onTap: () {
                         Get.back();
                         controller.openDrawerPage(const FetchLocationView());
@@ -564,6 +685,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
             ? 'guest'.tr
             : homeController.farmerName.value;
         final farmerMobile = homeController.farmerMobile.value.trim();
+        final farmerPhoto = homeController.farmerPhoto.value.trim();
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -587,10 +709,22 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: AppColors.primary,
-                  size: 30,
+                child: ClipOval(
+                  child: farmerPhoto.isNotEmpty
+                      ? Image.network(
+                          farmerPhoto,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Icon(
+                            Icons.person_rounded,
+                            color: AppColors.primary,
+                            size: 30,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.person_rounded,
+                          color: AppColors.primary,
+                          size: 30,
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -654,6 +788,42 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     title: Text(title),
     onTap: onTap,
   );
+
+  Widget _drawerGroup({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return ExpansionTile(
+      leading: Icon(icon, color: AppColors.primary),
+      title: Text(title),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: const EdgeInsets.only(left: 16, right: 10, bottom: 4),
+      iconColor: AppColors.primary,
+      collapsedIconColor: AppColors.primary,
+      shape: const Border(),
+      collapsedShape: const Border(),
+      children: children,
+    );
+  }
+
+  Widget _drawerSubTile({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
+      contentPadding: const EdgeInsets.only(left: 22, right: 8),
+      leading: Icon(icon, size: 18, color: AppColors.primary),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 13.5),
+      ),
+      onTap: onTap,
+    );
+  }
 
   Widget _navItem({
     required IconData icon,

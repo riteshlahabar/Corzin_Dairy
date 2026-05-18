@@ -110,7 +110,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                     const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const Icon(Icons.menu_rounded),
+                      icon: const Icon(Icons.menu),
                       color: Colors.white,
                     ),
                   ],
@@ -165,14 +165,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _sectionTitle('Appointment'),
+                            _sectionTitle('doctor_appointment_heading'.tr),
                             const SizedBox(height: 10),
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEAF5EA),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const SizedBox(
+                              child: SizedBox(
                                 height: 40,
                                 child: TabBar(
                                 isScrollable: false,
@@ -187,9 +187,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                 labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                                 labelPadding: EdgeInsets.zero,
                                 tabs: [
-                                  Tab(text: 'Create'),
-                                  Tab(text: 'Current'),
-                                  Tab(text: 'History'),
+                                  Tab(text: 'appointment_tab_create'.tr),
+                                  Tab(text: 'appointment_tab_current'.tr),
+                                  Tab(text: 'appointment_tab_history'.tr),
                                 ],
                               ),
                               ),
@@ -292,7 +292,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       onPressed: () async {
                         await homeController.clearNotificationHistory();
                       },
-                      child: const Text('Clear'),
+                      child: Text('clear'.tr),
                     ),
                   ],
                 ),
@@ -300,9 +300,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
               const Divider(height: 1),
               Obx(() {
                 if (homeController.notificationHistory.isEmpty) {
-                  return const Padding(
+                  return Padding(
                     padding: EdgeInsets.all(18),
-                    child: Text('No notifications yet.'),
+                    child: Text('no_notifications_yet'.tr),
                   );
                 }
 
@@ -519,14 +519,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
             style: const TextStyle(fontSize: 12.2, color: AppColors.grey),
           ),
           const SizedBox(height: 4),
-          Text('Concern: ${request.concern}', style: const TextStyle(fontSize: 12.2)),
+          Text('${'concern'.tr}: ${request.concern}', style: const TextStyle(fontSize: 12.2)),
           if (request.scheduledAt.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('Schedule: ${_formatDateLabel(request.scheduledAt)}', style: const TextStyle(fontSize: 12.2)),
+            Text('${'schedule'.tr}: ${_formatDateLabel(request.scheduledAt)}', style: const TextStyle(fontSize: 12.2)),
           ],
           if (request.charges != '-') ...[
             const SizedBox(height: 4),
-            Text('Charges: ${request.charges}', style: const TextStyle(fontSize: 12.2)),
+            Text('${'charges'.tr}: ${request.charges}', style: const TextStyle(fontSize: 12.2)),
           ],
           if (isFollowup) ...[
             const SizedBox(height: 10),
@@ -566,7 +566,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                               imageUrl: '',
                             );
                         if (targetAnimal.id <= 0) {
-                          Get.snackbar('Error', 'Animal not found for follow-up appointment.');
+                          Get.snackbar('error'.tr, 'animal_not_found_followup'.tr);
                           return;
                         }
                         _openCreateAppointmentDialog(targetAnimal);
@@ -602,7 +602,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                         icon: const Icon(Icons.map_rounded, size: 16),
-                        label: const Text('Map', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        label: Text('map'.tr, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
                     ),
                   ),
@@ -934,72 +934,104 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF7EF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  'Total treatments: $historyCount',
-                  style: const TextStyle(
-                    fontSize: 11.8,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                height: 30,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openRatingPopup(latest),
-                  icon: Icon(
-                    latest.isRated ? Icons.star_rounded : Icons.star_border_rounded,
-                    size: 15,
-                    color: const Color(0xFFE0A11B),
-                  ),
-                  label: Text(
-                    latest.isRated ? '${'rated'.tr} ${latest.rating}' : 'rating'.tr,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE0A11B),
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFE7BD55)),
-                    foregroundColor: const Color(0xFFE0A11B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 30,
-                child: OutlinedButton(
-                  onPressed: () => _openAnimalHistorySheet(requests),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.primary.withValues(alpha: 0.55)),
-                    foregroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                  ),
-                  child: const Text(
-                    'View History',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+         Row(
+  children: [
+
+    Expanded(
+      flex: 4,
+      child: Container(
+        height: 32,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF7EF),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          'Total treatments: $historyCount',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 10.8,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
           ),
+        ),
+      ),
+    ),
+
+    const SizedBox(width: 4),
+
+    Expanded(
+      flex: 3,
+      child: SizedBox(
+        height: 32,
+        child: OutlinedButton.icon(
+          onPressed: () => _openRatingPopup(latest),
+          icon: Icon(
+            latest.isRated
+                ? Icons.star_rounded
+                : Icons.star_border_rounded,
+            size: 13,
+            color: const Color(0xFFE0A11B),
+          ),
+          label: Text(
+            latest.isRated
+                ? '${'rated'.tr} ${latest.rating}'
+                : 'rating'.tr,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 9.8,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFE0A11B),
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            side: const BorderSide(color: Color(0xFFE7BD55)),
+            foregroundColor: const Color(0xFFE0A11B),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+    ),
+
+    const SizedBox(width: 4),
+
+    Expanded(
+      flex: 3,
+      child: SizedBox(
+        height: 32,
+        child: OutlinedButton(
+          onPressed: () => _openAnimalHistorySheet(requests),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            side: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.55),
+            ),
+            foregroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text(
+            'View History',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 9.8,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ],
+)
         ],
       ),
     );
@@ -1166,13 +1198,13 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     await Get.dialog(
       AlertDialog(
         backgroundColor: const Color(0xFFEAF5EA),
-        title: Text('Create Appointment - ${animal.animalName.isEmpty ? 'Animal' : animal.animalName}'),
+        title: Text('${'create_appointment'.tr} - ${animal.animalName.isEmpty ? 'animal'.tr : animal.animalName}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Disease (checkbox)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              Text('disease_checkbox'.tr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               Obx(
                 () {
@@ -1212,14 +1244,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 },
               ),
               const SizedBox(height: 10),
-              const Text('Disease Details', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              Text('disease_details'.tr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               TextField(
                 controller: controller.diseaseDetailsController,
                 minLines: 1,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'Small details of disease',
+                  hintText: 'small_details_disease'.tr,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -1228,7 +1260,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Get.back(), child: Text('cancel'.tr)),
           Obx(
             () => ElevatedButton(
               onPressed: controller.isSubmittingRequest.value
@@ -1240,7 +1272,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       width: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Submit'),
+                  : Text('submit'.tr),
             ),
           ),
         ],
@@ -1286,14 +1318,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
               ),
               const SizedBox(height: 6),
-              Text('Doctor: ${request.doctorName}', style: const TextStyle(fontSize: 13)),
+              Text('${'doctor'.tr}: ${request.doctorName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
               Text(
                 'Treatment Date: ${_formatDateTimeLabel(request.completedAt)}',
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 6),
-              Text('Animal: ${request.animalName}', style: const TextStyle(fontSize: 13)),
+              Text('${'animal'.tr}: ${request.animalName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
               Text(
                 'Next Follow-up Date: ${_formatDateLabel(request.nextFollowupDate)}',
@@ -1443,7 +1475,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Close'),
+                  child: Text('close'.tr),
                 ),
               ),
               ],
@@ -1525,7 +1557,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
 
   Future<void> _addPrescriptionToCart(List<_PrescriptionItem> items) async {
     if (items.isEmpty) {
-      Get.snackbar('Unavailable', 'No prescription medicine found.');
+      Get.snackbar('unavailable'.tr, 'no_prescription_medicine_found'.tr);
       return;
     }
 
@@ -1544,7 +1576,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
         .toList();
 
     if (requests.isEmpty) {
-      Get.snackbar('Unavailable', 'No prescription medicine found.');
+      Get.snackbar('unavailable'.tr, 'no_prescription_medicine_found'.tr);
       return;
     }
 
@@ -1648,7 +1680,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Track Dr. ${widget.doctorName}'),
+        title: Text('${'track_doctor'.tr} ${widget.doctorName}'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -1908,7 +1940,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
   Future<void> _openDialPad(String rawPhone) async {
     final cleaned = rawPhone.trim().replaceAll(RegExp(r'[^0-9+]'), '');
     if (cleaned.isEmpty) {
-      Get.snackbar('Error', 'Doctor phone number is not available.');
+      Get.snackbar('error'.tr, 'doctor_phone_not_available'.tr);
       return;
     }
 
@@ -1919,7 +1951,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
     );
 
     if (!launched) {
-      Get.snackbar('Error', 'Unable to open dial pad on this device.');
+      Get.snackbar('error'.tr, 'unable_open_dial_pad'.tr);
     }
   }
 

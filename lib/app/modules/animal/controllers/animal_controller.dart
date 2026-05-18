@@ -20,7 +20,12 @@ class AnimalController extends GetxController {
   final TextEditingController aiDateController = TextEditingController();
   final TextEditingController breedNameController = TextEditingController();
   final TextEditingController birthDateController = TextEditingController();
+  final TextEditingController ageController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
+  final FocusNode animalNameFocus = FocusNode();
+  final FocusNode tagNumberFocus = FocusNode();
+  final FocusNode ageFocus = FocusNode();
+  final FocusNode weightFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
@@ -213,6 +218,14 @@ class AnimalController extends GetxController {
     }
   }
 
+  void clearAiDate() {
+    aiDateController.clear();
+  }
+
+  void clearBirthDate() {
+    birthDateController.clear();
+  }
+
   Future<void> pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (image != null) {
@@ -242,6 +255,22 @@ class AnimalController extends GetxController {
       Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
       return;
     }
+    final ageText = ageController.text.trim();
+    final ageValue = int.tryParse(ageText);
+    if (ageText.isEmpty || ageValue == null || ageValue < 0) {
+      Get.snackbar('Error', 'Please enter valid age', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    final weightText = weightController.text.trim();
+    final weightValue = double.tryParse(weightText);
+    if (weightText.isEmpty || weightValue == null || weightValue <= 0) {
+      Get.snackbar('Error', 'Please enter valid weight', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (selectedImage.value == null) {
+      Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
 
     try {
       isSubmitting.value = true;
@@ -263,11 +292,12 @@ class AnimalController extends GetxController {
       if (showMotherAnimalDropdown && selectedMotherAnimal.value != null) {
         request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
       }
-      request.fields['birth_date'] = birthDateController.text.trim();
+      request.fields['birth_date'] = _resolvedBirthDateForRequest(
+        ageYears: ageValue,
+      );
+      request.fields['age'] = ageController.text.trim();
       request.fields['gender'] = selectedGender.value;
-      if (weightController.text.trim().isNotEmpty) {
-        request.fields['weight'] = weightController.text.trim();
-      }
+      request.fields['weight'] = weightController.text.trim();
       if (selectedImage.value != null) {
         final imagePath = selectedImage.value!.path;
         final fileName = imagePath.split(Platform.pathSeparator).last;
@@ -343,6 +373,16 @@ class AnimalController extends GetxController {
     return null;
   }
 
+  String _resolvedBirthDateForRequest({required int ageYears}) {
+    final enteredBirth = birthDateController.text.trim();
+    if (enteredBirth.isNotEmpty) {
+      return enteredBirth;
+    }
+    final now = DateTime.now();
+    final derived = DateTime(now.year - ageYears, now.month, now.day);
+    return DateFormat('dd/MM/yyyy').format(derived);
+  }
+
   void clearForm() {
     animalNameController.clear();
     tagNumberController.clear();
@@ -350,6 +390,7 @@ class AnimalController extends GetxController {
     aiDateController.clear();
     breedNameController.clear();
     birthDateController.clear();
+    ageController.clear();
     weightController.clear();
     selectedGender.value = '';
     selectedImage.value = null;
@@ -368,7 +409,12 @@ class AnimalController extends GetxController {
     aiDateController.dispose();
     breedNameController.dispose();
     birthDateController.dispose();
+    ageController.dispose();
     weightController.dispose();
+    animalNameFocus.dispose();
+    tagNumberFocus.dispose();
+    ageFocus.dispose();
+    weightFocus.dispose();
     super.onClose();
   }
 }

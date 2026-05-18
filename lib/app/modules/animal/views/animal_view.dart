@@ -28,6 +28,7 @@ class AnimalView extends GetView<AnimalController> {
                       Expanded(
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                           child: Form(
                             key: controller.formKey,
@@ -68,8 +69,8 @@ class AnimalView extends GetView<AnimalController> {
   }
 
   Widget _buildHeroCard() {
-    const title = 'Add a new animal';
-    const description = 'Add complete details to keep your dairy records clean and organized.';
+    final title = 'animal_add_new_title'.tr;
+    final description = 'animal_add_new_desc'.tr;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -97,22 +98,22 @@ class AnimalView extends GetView<AnimalController> {
       decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(22), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.045), blurRadius: 20, offset: const Offset(0, 10))]),
       child: Column(
         children: [
-          _sectionTitle('Basic Details'),
+          _sectionTitle('basic_details'.tr),
           const SizedBox(height: 14),
-          _fieldLabel('Animal Type', requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, hint: const Text('Select animal type'), isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('Select animal type'), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'Please select animal type' : null)), const SizedBox(height: 16),
-          _fieldLabel('Animal Name', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter animal name'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter animal name' : null),
+          _fieldLabel('animal_type_label'.tr, requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, hint: Text('select_animal_type'.tr), isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('select_animal_type'.tr), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'please_select_animal_type'.tr : null)), const SizedBox(height: 16),
+          _fieldLabel('animal_name_label'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, focusNode: controller.animalNameFocus, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_animal_name'.tr), validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_animal_name'.tr : null),
           Obx(() => controller.showMotherAnimalDropdown ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
             const SizedBox(height: 16),
-            _fieldLabel('Mother Animal (Name/Tag)', requiredField: true),
+            _fieldLabel('mother_animal_name_tag'.tr, requiredField: true),
             const SizedBox(height: 8),
             DropdownButtonFormField<MotherAnimalModel>(
                 initialValue: controller.selectedMotherAnimal.value,
                 isExpanded: true,
                 dropdownColor: const Color(0xFFF4FAF4),
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)),
-                decoration: _animalTypeDecoration('Select mother animal'),
+                decoration: _animalTypeDecoration('select_mother_animal'.tr),
                 items: controller.motherAnimals
                     .map(
                       (animal) => DropdownMenuItem<MotherAnimalModel>(
@@ -124,40 +125,94 @@ class AnimalView extends GetView<AnimalController> {
                 onChanged: (value) => controller.selectedMotherAnimal.value = value,
                 validator: (value) {
                   if (!controller.showMotherAnimalDropdown) return null;
-                  return value == null ? 'Please select mother animal' : null;
+                  return value == null ? 'please_select_mother_animal'.tr : null;
                 },
               ),
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Select the animal from which this calf/new born is born.',
+                'mother_animal_helper_text'.tr,
                 style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700),
               ),
             ),
           ],
           ) : const SizedBox.shrink()),
           const SizedBox(height: 16),
-          _fieldLabel('Tag Number', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.tagNumberController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter tag number'), validator: (value) => value == null || value.trim().isEmpty ? 'Please enter tag number' : null),
+          _fieldLabel('tag_number_label'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.tagNumberController, focusNode: controller.tagNumberFocus, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_tag_number'.tr), validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_tag_number'.tr : null),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('Lactation Number'), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter lactation no.'))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('AI Date'), const SizedBox(height: 8), TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)))]))]),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('lactation_number'.tr), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_lactation_no'.tr))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('ai_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.aiDateController, builder: (_, value, _) => TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearAiDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear'))))]))]),
           const SizedBox(height: 16),
-          _fieldLabel('Breed Name'), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('Enter breed name')),
+          _fieldLabel('breed_name'.tr), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_breed_name'.tr)),
           const SizedBox(height: 18),
-          _sectionTitle('Animal Info'), const SizedBox(height: 14),
-          _fieldLabel('Birthdate/Purchase date', requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.birthDateController, readOnly: true, onTap: controller.pickBirthDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)), validator: (value) => value == null || value.trim().isEmpty ? 'Please select birthdate/purchase date' : null),
+          _sectionTitle('animal_info'.tr), const SizedBox(height: 14),
+          _fieldLabel('birth_purchase_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.birthDateController, builder: (_, value, _) => TextFormField(controller: controller.birthDateController, readOnly: true, onTap: controller.pickBirthDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearBirthDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear')))),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('Gender', requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<String>(initialValue: controller.selectedGender.value.isEmpty ? null : controller.selectedGender.value, isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('Select gender'), items: controller.genderList.map((gender) => DropdownMenuItem<String>(value: gender, child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedGender.value = value ?? '', validator: (value) => value == null || value.isEmpty ? 'Select gender' : null))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('Weight'), const SizedBox(height: 8), TextFormField(controller: controller.weightController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('Enter weight'))]))]),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('gender'.tr, requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<String>(initialValue: controller.selectedGender.value.isEmpty ? null : controller.selectedGender.value, isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('select_gender'.tr), items: controller.genderList.map((gender) => DropdownMenuItem<String>(value: gender, child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedGender.value = value ?? '', validator: (value) => value == null || value.isEmpty ? 'please_select_gender'.tr : null))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('age'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.ageController, focusNode: controller.ageFocus, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: _inputDecoration('age'.tr), validator: (value) { final text = (value ?? '').trim(); if (text.isEmpty) return 'Please enter age'; final parsed = int.tryParse(text); if (parsed == null || parsed < 0) return 'Please enter valid age'; return null; })]))]),
+          const SizedBox(height: 16),
+          _fieldLabel('weight'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.weightController, focusNode: controller.weightFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_weight'.tr), validator: (value) { final text = (value ?? '').trim(); if (text.isEmpty) return 'Please enter weight'; final parsed = double.tryParse(text); if (parsed == null || parsed <= 0) return 'Please enter valid weight'; return null; }),
           const SizedBox(height: 18),
-          _sectionTitle('Animal Image'), const SizedBox(height: 12),
-          Obx(() => InkWell(borderRadius: BorderRadius.circular(18), onTap: controller.pickImage, child: Ink(width: double.infinity, height: 170, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2)), child: controller.selectedImage.value == null ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(height: 56, width: 56, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle), child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 30)), const SizedBox(height: 12), const Text('Upload animal image', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)), const SizedBox(height: 4), Text('Tap to select from gallery', style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))]) : Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(File(controller.selectedImage.value!.path), width: double.infinity, height: 170, fit: BoxFit.cover)), Positioned(top: 10, right: 10, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle), child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18))) ]))))
+          _fieldLabel('animal_image'.tr, requiredField: true), const SizedBox(height: 12),
+          Obx(() => InkWell(borderRadius: BorderRadius.circular(18), onTap: controller.pickImage, child: Ink(width: double.infinity, height: 170, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2)), child: controller.selectedImage.value == null ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(height: 56, width: 56, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle), child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 30)), const SizedBox(height: 12), Text('upload_animal_image'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)), const SizedBox(height: 4), Text('tap_select_gallery'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))]) : Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(File(controller.selectedImage.value!.path), width: double.infinity, height: 170, fit: BoxFit.cover)), Positioned(top: 10, right: 10, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle), child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18))) ])))),
         ],
       ),
     );
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value ? null : controller.submitAnimal, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: controller.isSubmitting.value ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), const Text('Save Animal', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700))]))));
+    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value ? null : _onSubmitTap, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: controller.isSubmitting.value ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_animal'.tr, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700))]))));
+  }
+
+  void _onSubmitTap() {
+    final currentForm = controller.formKey.currentState;
+    if (currentForm == null) return;
+
+    final isValid = currentForm.validate();
+    if (!isValid) {
+      _focusFirstInvalidField();
+      return;
+    }
+
+    if (controller.selectedAnimalType.value == null) {
+      Get.snackbar('Error', 'Please select animal type', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.showMotherAnimalDropdown && controller.selectedMotherAnimal.value == null) {
+      Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedGender.value.trim().isEmpty) {
+      Get.snackbar('Error', 'Please select gender', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedImage.value == null) {
+      Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    controller.submitAnimal();
+  }
+
+  void _focusFirstInvalidField() {
+    if (controller.animalNameController.text.trim().isEmpty) {
+      controller.animalNameFocus.requestFocus();
+      return;
+    }
+    if (controller.tagNumberController.text.trim().isEmpty) {
+      controller.tagNumberFocus.requestFocus();
+      return;
+    }
+    final ageText = controller.ageController.text.trim();
+    final age = int.tryParse(ageText);
+    if (ageText.isEmpty || age == null || age < 0) {
+      controller.ageFocus.requestFocus();
+      return;
+    }
+    final weightText = controller.weightController.text.trim();
+    final weight = double.tryParse(weightText);
+    if (weightText.isEmpty || weight == null || weight <= 0) {
+      controller.weightFocus.requestFocus();
+    }
   }
 
   Widget _sectionTitle(String title) => Align(alignment: Alignment.centerLeft, child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black)));

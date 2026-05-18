@@ -58,7 +58,7 @@ class ShopView extends GetView<ShopController> {
                         const SizedBox(width: 6),
                         IconButton(
                           onPressed: () => Scaffold.of(context).openDrawer(),
-                          icon: const Icon(Icons.menu_rounded),
+                          icon: const Icon(Icons.menu),
                           color: Colors.white,
                         ),
                       ],

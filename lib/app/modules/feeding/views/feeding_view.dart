@@ -23,7 +23,8 @@ class FeedingView extends GetView<FeedingController> {
                     _header(context),
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: EdgeInsets.fromLTRB(16, 14, 16, MediaQuery.of(context).viewInsets.bottom + 24),
                         child: Form(
                           key: controller.formKey,
                           child: Column(
@@ -146,14 +147,14 @@ class FeedingView extends GetView<FeedingController> {
           ),
         ),
         const SizedBox(height: 12),
-        _label('Select PAN', requiredField: true),
+        _label('select_pan'.tr, requiredField: true),
         const SizedBox(height: 6),
         Obx(
           () => DropdownButtonFormField<FeedingPanModel>(
             initialValue: controller.selectedPan.value,
             isExpanded: true,
             dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('Select PAN'),
+            decoration: _decoration('select_pan'.tr),
             items: controller.pans
                 .map(
                   (pan) => DropdownMenuItem(
@@ -168,100 +169,35 @@ class FeedingView extends GetView<FeedingController> {
           ),
         ),
         const SizedBox(height: 12),
-        _label('feed_type'.tr, requiredField: true),
+        _label('diet_plan'.tr, requiredField: true),
         const SizedBox(height: 6),
         Obx(
-          () => DropdownButtonFormField<FeedTypeModel>(
-            initialValue: controller.selectedFeedType.value,
-            hint: Text('select_feed_type'.tr),
+          () => DropdownButtonFormField<int>(
+            initialValue: controller.selectedDietPlanId.value,
             isExpanded: true,
             dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('select_feed_type'.tr),
-            items: controller.feedTypes
+            decoration: _decoration('select_diet_plan'.tr),
+            items: controller.dietPlans
                 .map(
-                  (type) => DropdownMenuItem(
-                    value: type,
-                    child: Text(type.name, overflow: TextOverflow.ellipsis),
+                  (plan) => DropdownMenuItem<int>(
+                    value: plan.id,
+                    child: Text(plan.displayLabel, overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(),
-            onChanged: controller.onFeedTypeChanged,
-            validator: (value) => value == null ? 'select_feed_type'.tr : null,
+            onChanged: controller.dietPlans.isEmpty
+                ? null
+                : controller.selectDietPlanById,
           ),
         ),
         const SizedBox(height: 12),
-        Obx(
-          () {
-            final selectedType = controller.selectedFeedType.value;
-            if (selectedType == null || selectedType.subtypes.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _label('Subtypes', requiredField: true),
-                const SizedBox(height: 6),
-                ...selectedType.subtypes.map(
-                  (subtype) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Obx(
-                          () => Checkbox(
-                            value: controller.subtypeSelected[subtype.id] ?? false,
-                            activeColor: AppColors.primary,
-                            onChanged: (value) => controller.onSubtypeChecked(subtype.id, value ?? false),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            subtype.name,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.grey.shade800,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 86,
-                          child: TextField(
-                            controller: controller.subtypeQuantityControllers[subtype.id],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            enabled: controller.subtypeSelected[subtype.id] ?? false,
-                            decoration: _decoration('Qty'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Obx(
-                  () => Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'Total ${controller.selectedUnit.value}: ${controller.totalSubtypeQuantity.value.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            );
-          },
-        ),
         Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _label('Package Quantity', requiredField: true),
+                  _label('package_quantity'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   Obx(
                     () => TextFormField(
@@ -279,10 +215,11 @@ class FeedingView extends GetView<FeedingController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _label('Feeding Quantity', requiredField: true),
+                  _label('feeding_quantity'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: controller.quantityController,
+                    focusNode: controller.quantityFocus,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: _decoration('enter_quantity'.tr),
                     validator: (value) {
@@ -306,7 +243,7 @@ class FeedingView extends GetView<FeedingController> {
           () => Align(
             alignment: Alignment.centerRight,
             child: Text(
-              'Balance: ${controller.balanceQuantity.value.toStringAsFixed(2)} ${controller.selectedUnit.value}',
+              '${'balance'.tr}: ${controller.balanceQuantity.value.toStringAsFixed(2)} ${controller.selectedUnit.value}',
               style: const TextStyle(
                 color: AppColors.primary,
                 fontSize: 12.5,
@@ -340,7 +277,7 @@ class FeedingView extends GetView<FeedingController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _label('Feeding Time', requiredField: true),
+                  _label('feeding_time'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   Obx(
                     () => DropdownButtonFormField<String>(
@@ -351,8 +288,8 @@ class FeedingView extends GetView<FeedingController> {
                       dropdownColor: const Color(0xFFF4FAF4),
                       decoration: _decoration(
                         controller.availableFeedingTimes.isEmpty
-                            ? 'No time left'
-                            : 'Select feeding time',
+                            ? 'no_time_left'.tr
+                            : 'select_feeding_time'.tr,
                       ),
                       items: controller.availableFeedingTimes
                           .map(
@@ -394,12 +331,12 @@ class FeedingView extends GetView<FeedingController> {
       child: ElevatedButton(
         onPressed:
             controller.isSubmitting.value ||
-                controller.isScheduleLoading.value ||
+            controller.isScheduleLoading.value ||
                 controller.animals.isEmpty ||
                 controller.availableFeedingTimes.isEmpty ||
                 controller.feedTypes.isEmpty
             ? null
-            : controller.submitFeeding,
+            : _onSubmitTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(
@@ -464,4 +401,37 @@ class FeedingView extends GetView<FeedingController> {
       borderSide: const BorderSide(color: AppColors.primary),
     ),
   );
+
+  void _onSubmitTap() {
+    final currentForm = controller.formKey.currentState;
+    if (currentForm == null) return;
+
+    final isValid = currentForm.validate();
+    if (!isValid) {
+      _focusFirstInvalidField();
+      return;
+    }
+
+    if (controller.selectedAnimal.value == null && controller.selectedPan.value == null) {
+      Get.snackbar('Error', 'Please select an animal or PAN', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.dietPlans.isNotEmpty && controller.selectedDietPlan.value == null) {
+      Get.snackbar('Error', 'Please select diet plan for selected animal/PAN.', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedFeedingTime.value.trim().isEmpty || !controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value)) {
+      Get.snackbar('Info', 'No feeding time is available for selected date.', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    controller.submitFeeding();
+  }
+
+  void _focusFirstInvalidField() {
+    final qty = double.tryParse(controller.quantityController.text.trim());
+    if (qty == null || qty <= 0) {
+      controller.quantityFocus.requestFocus();
+    }
+  }
 }
