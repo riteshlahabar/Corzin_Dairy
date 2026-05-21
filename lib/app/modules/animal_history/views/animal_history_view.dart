@@ -12,7 +12,9 @@ import '../../milk/views/milk_history_view.dart';
 import '../controllers/animal_history_controller.dart';
 
 class AnimalHistoryView extends GetView<AnimalHistoryController> {
-  const AnimalHistoryView({super.key});
+  const AnimalHistoryView({super.key, this.onlyForSale = false});
+
+  final bool onlyForSale;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'animal_list'.tr,
+                      onlyForSale ? 'animal_for_sale'.tr : 'animal_list'.tr,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
@@ -73,11 +75,15 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             ),
             Expanded(
               child: Obx(
-                () => controller.isLoading.value
+                () {
+                  final items = onlyForSale
+                      ? controller.filteredHistory.where((item) => item.isForSale).toList()
+                      : controller.filteredHistory;
+                  return controller.isLoading.value
                     ? const Center(child: CircularProgressIndicator())
                     : RefreshIndicator(
                         onRefresh: controller.fetchHistory,
-                        child: controller.filteredHistory.isEmpty
+                        child: items.isEmpty
                             ? ListView(
                                 padding: const EdgeInsets.all(24),
                                 children: [
@@ -94,13 +100,14 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                               )
                             : ListView.builder(
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                                itemCount: controller.filteredHistory.length,
+                                itemCount: items.length,
                                 itemBuilder: (context, index) {
-                                  final item = controller.filteredHistory[index];
+                                  final item = items[index];
                                   return _animalCard(item);
                                 },
                               ),
-                      ),
+                      );
+                },
               ),
             ),
           ],
@@ -188,7 +195,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             children: [
               _detailTile('pan'.tr.toUpperCase(), item.panName.isEmpty ? '-' : item.panName, Icons.grid_view_rounded),
               _detailTile('gender'.tr, item.gender.isEmpty ? '-' : item.gender, Icons.female_rounded),
-              _detailTile('birth_purchase_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate, Icons.event_rounded),
+              _detailTile('birth_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate, Icons.cake_rounded),
+              _detailTile('purchase_date'.tr, item.purchaseDate.isEmpty ? '-' : item.purchaseDate, Icons.shopping_bag_outlined),
               _detailTile('age'.tr, item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
               _detailTile('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
               _detailTile('breed'.tr, item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),

@@ -38,6 +38,7 @@ class Api {
   static const String feedingTypeSubtypeUpdate = "$baseUrl/feeding/types";
   static const String feedingTypeSubtypeDelete = "$baseUrl/feeding/types";
   static const String feedingDietPlans = "$baseUrl/feeding/diet-plans";
+  static const String feedingDietMetrics = "$baseUrl/feeding/diet-metrics";
   static const String feedingDietPlanUpdate = "$baseUrl/feeding/diet-plans";
   static const String feedingDietPlanDelete = "$baseUrl/feeding/diet-plans";
   static const String feedingList = "$baseUrl/feeding/list";
@@ -53,6 +54,8 @@ class Api {
   static const String dairyList = "$baseUrl/dairy/list";
   static const String dairyPayments = "$baseUrl/dairy/payments";
   static const String dairyPaymentEntry = "$baseUrl/dairy/payments/entry";
+  static const String livestockReport = "$baseUrl/reports/livestock";
+  static const String profitLossReport = "$baseUrl/reports/profit-loss";
 
   static const String dashboardSummary = "$baseUrl/dashboard/summary";
   static const String doctorList = "$baseUrl/doctor/list";

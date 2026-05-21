@@ -66,6 +66,42 @@ class DietPlanView extends StatelessWidget {
   }
 
   Widget _formCard(DietPlanController controller) {
+    final uniqueAnimals = <int, FeedingAnimalModel>{};
+    for (final animal in controller.animals) {
+      if (animal.id <= 0) continue;
+      uniqueAnimals.putIfAbsent(animal.id, () => animal);
+    }
+    final animalItems = uniqueAnimals.values.toList();
+
+    FeedingAnimalModel? selectedAnimalValue;
+    final selectedAnimal = controller.selectedAnimal.value;
+    if (selectedAnimal != null) {
+      for (final animal in animalItems) {
+        if (animal.id == selectedAnimal.id) {
+          selectedAnimalValue = animal;
+          break;
+        }
+      }
+    }
+
+    final uniquePans = <String, FeedingPanModel>{};
+    for (final pan in controller.pans) {
+      final key = pan.id > 0 ? 'id_${pan.id}' : 'name_${pan.name.trim().toLowerCase()}';
+      uniquePans.putIfAbsent(key, () => pan);
+    }
+    final panItems = uniquePans.values.toList();
+
+    FeedingPanModel? selectedPanValue;
+    final selectedPan = controller.selectedPan.value;
+    if (selectedPan != null) {
+      for (final pan in panItems) {
+        if (pan.matches(selectedPan)) {
+          selectedPanValue = pan;
+          break;
+        }
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -148,11 +184,11 @@ class DietPlanView extends StatelessWidget {
                   _fieldLabel('choose_animal'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<FeedingAnimalModel>(
-                    initialValue: controller.selectedAnimal.value,
+                    initialValue: selectedAnimalValue,
                     isExpanded: true,
                     dropdownColor: const Color(0xFFF1FAF1),
                     decoration: _decoration('choose_animal'.tr),
-                    items: controller.animals
+                    items: animalItems
                         .map(
                           (animal) => DropdownMenuItem<FeedingAnimalModel>(
                             value: animal,
@@ -160,8 +196,40 @@ class DietPlanView extends StatelessWidget {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => controller.selectedAnimal.value = value,
-                    validator: (value) => value == null ? 'select_animal_error'.tr : null,
+                    onChanged: controller.onAnimalChanged,
+                    validator: (value) {
+                      if (controller.selectedPan.value != null) return null;
+                      return value == null ? 'select_animal_error'.tr : null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _fieldLabel('select_pan'.tr, requiredField: false),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<FeedingPanModel>(
+                    initialValue: selectedPanValue,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFFF1FAF1),
+                    decoration: _decoration('select_pan'.tr),
+                    items: panItems
+                        .map(
+                          (pan) => DropdownMenuItem<FeedingPanModel>(
+                            value: pan,
+                            child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: controller.onPanChanged,
+                  ),
+                  const SizedBox(height: 10),
+                  _fieldLabel('date'.tr, requiredField: true),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: controller.referenceDateController,
+                    readOnly: true,
+                    onTap: controller.pickReferenceDate,
+                    decoration: _decoration('select_date'.tr),
+                    validator: (value) =>
+                        value == null || value.trim().isEmpty ? 'select_date_error'.tr : null,
                   ),
                   const SizedBox(height: 10),
                   _fieldLabel('diet_plan'.tr, requiredField: true),
@@ -178,108 +246,44 @@ class DietPlanView extends StatelessWidget {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 10),
-                  _fieldLabel('select_feed_type'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<FeedTypeModel>(
-                    initialValue: controller.selectedFeedType.value,
-                    isExpanded: true,
-                    dropdownColor: const Color(0xFFF1FAF1),
-                    decoration: _decoration('select_feed_type'.tr),
-                    items: controller.feedTypes
-                        .map(
-                          (type) => DropdownMenuItem<FeedTypeModel>(
-                            value: type,
-                            child: Text(type.name, overflow: TextOverflow.ellipsis),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: controller.onFeedTypeChanged,
-                    validator: (value) => value == null ? 'select_feed_type'.tr : null,
-                  ),
                 ],
               ),
             ),
-            Obx(
-              () {
-                final type = controller.selectedFeedType.value;
-                if (type == null) return const SizedBox.shrink();
-                return Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2EEE3)),
+            const SizedBox(height: 12),
+            Obx(() {
+              final blocks = controller.feedBlocks;
+              return Column(
+                children: [
+                  ...blocks.asMap().entries.map(
+                    (entry) => _feedTypeBlockCard(
+                      controller: controller,
+                      block: entry.value,
+                      index: entry.key,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('${'subtype_name'.tr} (${controller.unit.value})', requiredField: true),
-                      const SizedBox(height: 8),
-                      ...type.subtypes.map(
-                        (subtype) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF7FBF7),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Obx(
-                                () => Checkbox(
-                                  value: controller.subtypeSelected[subtype.id] ?? false,
-                                  onChanged: (value) => controller.onSubtypeToggle(subtype.id, value ?? false),
-                                  activeColor: AppColors.primary,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  subtype.name,
-                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              SizedBox(
-                                width: 94,
-                                child: TextField(
-                                  controller: controller.subtypeQtyControllers[subtype.id],
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  decoration: _decoration('qty'.tr).copyWith(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: controller.addFeedBlock,
+                      icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+                      label: Text(
+                        'add_more_feed'.tr,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Obx(
-                        () => Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF9F0),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${'total'.tr}: ${controller.totalQuantity.value.toStringAsFixed(2)} ${controller.unit.value}',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       ),
-                    ],
+                    ),
                   ),
-                );
-              },
-            ),
+                ],
+              );
+            }),
+            const SizedBox(height: 8),
+            Obx(() => _liveDmiSummaryCard(controller)),
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
@@ -321,6 +325,231 @@ class DietPlanView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _liveDmiSummaryCard(DietPlanController controller) {
+    final planned = controller.plannedDryMatterTotal;
+    final target = controller.targetDmi.value;
+    final gap = controller.dmiGap.value;
+    final isPositiveGap = gap >= 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4FAF4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDEDDC)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${'body_weight'.tr}: ${controller.bodyWeight.value.toStringAsFixed(2)} kg',
+                  style: const TextStyle(
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2C6B36),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${'total_milk'.tr}: ${controller.milkProduction.value.toStringAsFixed(2)} L',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2C6B36),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${'dry_matter'.tr}: ${planned.toStringAsFixed(2)} kg',
+                  style: const TextStyle(
+                    fontSize: 12.4,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${'required_dmi'.tr}: ${target.toStringAsFixed(2)} kg',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 12.4,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1565C0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${'gap'.tr}: ${gap.toStringAsFixed(2)} kg',
+              style: TextStyle(
+                fontSize: 12.6,
+                fontWeight: FontWeight.w800,
+                color: isPositiveGap ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedTypeBlockCard({
+    required DietPlanController controller,
+    required DietFeedBlock block,
+    required int index,
+  }) {
+    final availableFeedTypes = controller.availableFeedTypesForBlock(block);
+    final selectedType = block.selectedFeedType;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2EEE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _fieldLabel('${'select_feed_type'.tr} ${index + 1}', requiredField: true),
+              ),
+              if (index > 0)
+                InkWell(
+                  onTap: () => controller.removeFeedBlock(block),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<FeedTypeModel>(
+            initialValue: selectedType,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF1FAF1),
+            decoration: _decoration('select_feed_type'.tr),
+            items: availableFeedTypes
+                .map(
+                  (type) => DropdownMenuItem<FeedTypeModel>(
+                    value: type,
+                    child: Text(type.name, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) => controller.onFeedTypeChangedForBlock(block, value),
+          ),
+          if (selectedType != null) ...[
+            const SizedBox(height: 10),
+            _fieldLabel('${'subtype_name'.tr} (${block.unit})', requiredField: true),
+            const SizedBox(height: 8),
+            ...selectedType.subtypes.map(
+              (subtype) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7FBF7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: block.subtypeSelected[subtype.id] ?? false,
+                      onChanged: (value) => controller.onSubtypeToggleForBlock(
+                        block,
+                        subtype.id,
+                        value ?? false,
+                      ),
+                      activeColor: AppColors.primary,
+                    ),
+                    Expanded(
+                      child: Text(
+                        subtype.name,
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      width: 86,
+                      child: TextField(
+                        controller: block.subtypeQtyControllers[subtype.id],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _decoration('qty'.tr).copyWith(
+                          hintText: 'qty'.tr,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      width: 86,
+                      child: TextField(
+                        controller: block.subtypeDmPercentControllers[subtype.id],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _decoration('dm_percent'.tr).copyWith(
+                          hintText: 'dm_percent'.tr,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF9F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${'total'.tr}: ${block.totalQuantity.toStringAsFixed(2)} ${block.unit}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -502,11 +731,30 @@ class DietPlanView extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        '${plan.animalName} (${plan.tagNumber})',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13.2, fontWeight: FontWeight.w800),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _dietPlanTitle(plan),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13.2,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _planOwnerLabel(controller, plan),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.4,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black.withValues(alpha: 0.65),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -542,6 +790,24 @@ class DietPlanView extends StatelessWidget {
                       bgColor: const Color(0xFFE3F2FD),
                       textColor: const Color(0xFF0D47A1),
                     ),
+                    _infoBadge(
+                      icon: Icons.science_rounded,
+                      text: '${'dry_matter'.tr}: ${plan.planDryMatterQuantity.toStringAsFixed(2)} ${plan.unit}',
+                      bgColor: const Color(0xFFF3E5F5),
+                      textColor: const Color(0xFF6A1B9A),
+                    ),
+                    _infoBadge(
+                      icon: Icons.show_chart_rounded,
+                      text: '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)}',
+                      bgColor: const Color(0xFFE3F2FD),
+                      textColor: const Color(0xFF0D47A1),
+                    ),
+                    _infoBadge(
+                      icon: plan.dmiGap >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      text: '${'gap'.tr}: ${plan.dmiGap.toStringAsFixed(2)}',
+                      bgColor: plan.dmiGap >= 0 ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+                      textColor: plan.dmiGap >= 0 ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -559,7 +825,7 @@ class DietPlanView extends StatelessWidget {
                               border: Border.all(color: const Color(0xFFD6EFD8)),
                             ),
                             child: Text(
-                              '${subtype.name}: ${subtype.quantity.toStringAsFixed(2)}',
+                              '${subtype.name}: ${subtype.quantity.toStringAsFixed(2)} ${plan.unit} | DM ${subtype.dmPercent.toStringAsFixed(2)}% | ${subtype.dryMatterQuantity.toStringAsFixed(2)} ${plan.unit}',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
@@ -576,6 +842,30 @@ class DietPlanView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _dietPlanTitle(FeedDietPlanModel plan) {
+    final name = plan.dietPlanName.trim();
+    if (name.isNotEmpty) return name;
+    return 'diet_plan'.tr;
+  }
+
+  String _planOwnerLabel(DietPlanController controller, FeedDietPlanModel plan) {
+    if (plan.panId > 0) {
+      for (final pan in controller.pans) {
+        if (pan.id == plan.panId) {
+          final panName = pan.name.trim();
+          if (panName.isNotEmpty) return panName;
+          break;
+        }
+      }
+      return 'PAN #${plan.panId}';
+    }
+
+    final animalName = plan.animalName.trim();
+    final tag = plan.tagNumber.trim();
+    if (tag.isEmpty) return animalName;
+    return '$animalName ($tag)';
   }
 
   Widget _actionIcon({
@@ -686,12 +976,9 @@ class DietPlanView extends StatelessWidget {
       return;
     }
 
-    if (controller.selectedAnimal.value == null) {
-      Get.snackbar('error'.tr, 'please_select_animal_for_diet'.tr);
-      return;
-    }
-    if (controller.selectedFeedType.value == null) {
-      Get.snackbar('error'.tr, 'select_feed_type_error'.tr);
+    if (controller.selectedAnimal.value == null &&
+        controller.selectedPan.value == null) {
+      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr);
       return;
     }
 
@@ -711,6 +998,18 @@ class DietPlanView extends StatelessWidget {
       for (var i = 0; i < plan.subtypeDetails.length; i++)
         i: TextEditingController(text: plan.subtypeDetails[i].quantity.toStringAsFixed(2)),
     };
+    final dmControllers = <int, TextEditingController>{
+      for (var i = 0; i < plan.subtypeDetails.length; i++)
+        i: TextEditingController(
+          text: plan.subtypeDetails[i].dmPercent > 0
+              ? plan.subtypeDetails[i].dmPercent.toStringAsFixed(2)
+              : '',
+        ),
+    };
+    final editListenables = <Listenable>[
+      ...qtyControllers.values,
+      ...dmControllers.values,
+    ];
 
     await Get.dialog(
       Dialog(
@@ -798,7 +1097,7 @@ class DietPlanView extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               SizedBox(
-                                width: 88,
+                                width: 76,
                                 child: TextFormField(
                                   controller: qtyControllers[index],
                                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -817,12 +1116,95 @@ class DietPlanView extends StatelessWidget {
                                   },
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 76,
+                                child: TextFormField(
+                                  controller: dmControllers[index],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: const TextStyle(fontSize: 12.2),
+                                  decoration: _decoration('dm_percent'.tr).copyWith(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 7,
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    final dm = double.tryParse((value ?? '').trim()) ?? 0;
+                                    if (dm <= 0 || dm > 100) return 'invalid_dm_percent'.tr;
+                                    return null;
+                                  },
+                                ),
+                              ),
                             ],
                           ),
                         );
                       }).toList(),
                     ),
                   ),
+                ),
+                const SizedBox(height: 4),
+                AnimatedBuilder(
+                  animation: Listenable.merge(editListenables),
+                  builder: (context, child) {
+                    double plannedDm = 0;
+                    for (final entry in plan.subtypeDetails.asMap().entries) {
+                      final index = entry.key;
+                      final qty = double.tryParse(qtyControllers[index]?.text.trim() ?? '') ?? 0;
+                      final dm = double.tryParse(dmControllers[index]?.text.trim() ?? '') ?? 0;
+                      if (qty > 0 && dm > 0 && dm <= 100) {
+                        plannedDm += (qty * dm) / 100;
+                      }
+                    }
+                    final gap = plannedDm - plan.targetDmi;
+                    final gapColor = gap >= 0 ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4FAF4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFDDEDDC)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${'dry_matter'.tr}: ${plannedDm.toStringAsFixed(2)} ${plan.unit}',
+                            style: const TextStyle(
+                              fontSize: 12.4,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)} kg',
+                                  style: const TextStyle(
+                                    fontSize: 12.1,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1565C0),
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${'gap'.tr}: ${gap.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 12.3,
+                                  fontWeight: FontWeight.w800,
+                                  color: gapColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -859,11 +1241,16 @@ class DietPlanView extends StatelessWidget {
                                       'subtype_id': subtype.subtypeId > 0 ? subtype.subtypeId : null,
                                       'name': subtype.name,
                                       'quantity': double.tryParse(qtyControllers[index]?.text.trim() ?? '0') ?? 0,
+                                      'dm_percent': double.tryParse(dmControllers[index]?.text.trim() ?? '0') ?? 0,
                                     };
                                   }).toList();
 
                                   final ok = await controller.updatePlan(
                                     planId: plan.id,
+                                    panId: plan.panId > 0 ? plan.panId : null,
+                                    referenceDate: plan.referenceDate.trim().isNotEmpty
+                                        ? plan.referenceDate.trim()
+                                        : null,
                                     subtypeDetails: nextSubtypes,
                                   );
                                   if (ok) {
@@ -896,10 +1283,12 @@ class DietPlanView extends StatelessWidget {
       ),
       barrierDismissible: false,
     );
-
-    // Keep controllers alive for the full dialog lifecycle.
-    // Disposing immediately after Get.dialog can race with close/rebuild frames
-    // and trigger "TextEditingController was used after being disposed".
+    for (final item in qtyControllers.values) {
+      item.dispose();
+    }
+    for (final item in dmControllers.values) {
+      item.dispose();
+    }
   }
 
   Future<void> _confirmDeletePlan(

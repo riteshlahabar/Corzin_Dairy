@@ -172,23 +172,31 @@ class FeedingView extends GetView<FeedingController> {
         _label('diet_plan'.tr, requiredField: true),
         const SizedBox(height: 6),
         Obx(
-          () => DropdownButtonFormField<int>(
-            initialValue: controller.selectedDietPlanId.value,
-            isExpanded: true,
-            dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('select_diet_plan'.tr),
-            items: controller.dietPlans
-                .map(
-                  (plan) => DropdownMenuItem<int>(
-                    value: plan.id,
-                    child: Text(plan.displayLabel, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: controller.dietPlans.isEmpty
-                ? null
-                : controller.selectDietPlanById,
-          ),
+          () {
+            final selectedId = controller.selectedDietPlanId.value;
+            final resolvedSelectedId = (selectedId != null &&
+                    controller.dietPlans.any((plan) => plan.id == selectedId))
+                ? selectedId
+                : null;
+
+            return DropdownButtonFormField<int>(
+              initialValue: resolvedSelectedId,
+              isExpanded: true,
+              dropdownColor: const Color(0xFFF4FAF4),
+              decoration: _decoration('select_diet_plan'.tr),
+              items: controller.dietPlans
+                  .map(
+                    (plan) => DropdownMenuItem<int>(
+                      value: plan.id,
+                      child: Text(plan.displayLabel, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
+              onChanged: controller.dietPlans.isEmpty
+                  ? null
+                  : controller.selectDietPlanById,
+            );
+          },
         ),
         const SizedBox(height: 12),
         Row(

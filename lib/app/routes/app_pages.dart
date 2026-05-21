@@ -7,6 +7,7 @@ import '../modules/animal/bindings/animal_binding.dart';
 import '../modules/animal/views/animal_view.dart';
 import '../modules/animal_history/bindings/animal_history_binding.dart';
 import '../modules/animal_history/views/animal_history_view.dart';
+import '../modules/animal_sale/views/buy_animal_view.dart';
 import '../modules/manage_animal/bindings/manage_animal_binding.dart';
 import '../modules/manage_animal/views/manage_animal_view.dart';
 import '../modules/dairy/bindings/dairy_binding.dart';
@@ -37,6 +38,8 @@ import '../modules/payment/bindings/payment_binding.dart';
 import '../modules/payment/views/payment_view.dart';
 import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/profile/views/profile_view.dart';
+import '../modules/reports/views/livestock_report_view.dart';
+import '../modules/reports/views/profit_loss_view.dart';
 import '../modules/shop/bindings/shop_binding.dart';
 import '../modules/shop/views/shop_view.dart';
 import '../modules/splash/bindings/splash_binding.dart';
@@ -62,6 +65,12 @@ class AppPages {
     GetPage(name: _Paths.ANIMAL, page: () => AnimalView(), binding: AnimalBinding()),
     GetPage(name: _Paths.MANAGE_ANIMAL, page: () => const ManageAnimalView(), binding: ManageAnimalBinding()),
     GetPage(name: _Paths.ANIMAL_HISTORY, page: () => const AnimalHistoryView(), binding: AnimalHistoryBinding()),
+    GetPage(
+      name: _Paths.ANIMAL_FOR_SALE,
+      page: () => const AnimalHistoryView(onlyForSale: true),
+      binding: AnimalHistoryBinding(),
+    ),
+    GetPage(name: _Paths.BUY_ANIMAL, page: () => const BuyAnimalView()),
     GetPage(name: _Paths.MILK, page: () => const MilkView(), binding: MilkBinding()),
     GetPage(name: _Paths.FEEDING, page: () => const FeedingView(), binding: FeedingBinding()),
     GetPage(name: _Paths.FEED_SETTINGS, page: () => const FeedSettingsView(mode: FeedSettingsViewMode.add), binding: FeedSettingsBinding()),
@@ -76,6 +85,8 @@ class AppPages {
     GetPage(name: _Paths.UPGRADE, page: () => const UpgradeView(), binding: UpgradeBinding()),
     GetPage(name: _Paths.DAIRY, page: () => const DairyView(initialMode: DairyViewMode.add), binding: DairyBinding()),
     GetPage(name: _Paths.DAIRY_LIST, page: () => const DairyView(initialMode: DairyViewMode.list), binding: DairyBinding()),
+    GetPage(name: _Paths.LIVESTOCK_REPORT, page: () => const LivestockReportView()),
+    GetPage(name: _Paths.PROFIT_LOSS, page: () => const ProfitLossView()),
   ];
 }
 

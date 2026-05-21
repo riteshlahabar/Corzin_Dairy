@@ -70,44 +70,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         ),
                       ),
                     ),
-                    Obx(
-                      () {
-                        final count = homeController.notificationHistory.length;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            IconButton(
-                              onPressed: _openNotificationSheet,
-                              icon: const Icon(Icons.notifications_none_rounded),
-                              color: Colors.white,
-                            ),
-                            if (count > 0)
-                              Positioned(
-                                right: 5,
-                                top: 5,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  constraints: const BoxConstraints(minWidth: 18),
-                                  child: Text(
-                                    count > 99 ? '99+' : '$count',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 2),
                     IconButton(
                       onPressed: () => Scaffold.of(context).openDrawer(),
                       icon: const Icon(Icons.menu),
@@ -265,92 +228,6 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       return;
     }
     Get.back();
-  }
-
-  void _openNotificationSheet() {
-    Get.bottomSheet(
-      SafeArea(
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Notifications',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        await homeController.clearNotificationHistory();
-                      },
-                      child: Text('clear'.tr),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Obx(() {
-                if (homeController.notificationHistory.isEmpty) {
-                  return Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('no_notifications_yet'.tr),
-                  );
-                }
-
-                return SizedBox(
-                  height: Get.height * 0.5,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: homeController.notificationHistory.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, index) {
-                      final item = homeController.notificationHistory[index];
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7FAF7),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE3ECE3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.body,
-                              style: const TextStyle(fontSize: 12.5),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt.toLocal()),
-                              style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-      isScrollControlled: true,
-    );
   }
 
   Widget _sectionTitle(String text) {

@@ -230,6 +230,7 @@ class AnimalHistoryItem {
   final String breedName;
   final String age;
   final String birthDate;
+  final String purchaseDate;
   final String gender;
   final String weight;
   final String lifecycleStatus;
@@ -252,6 +253,7 @@ class AnimalHistoryItem {
     required this.breedName,
     required this.age,
     required this.birthDate,
+    required this.purchaseDate,
     required this.gender,
     required this.weight,
     required this.lifecycleStatus,
@@ -282,6 +284,7 @@ class AnimalHistoryItem {
         breedName,
         age,
         birthDate,
+        purchaseDate,
         gender,
         weight,
         lifecycleStatus,
@@ -301,8 +304,9 @@ class AnimalHistoryItem {
       lactationNumber: json['lactation_number']?.toString() ?? '',
       aiDate: json['ai_date']?.toString() ?? '',
       breedName: json['breed_name']?.toString() ?? '',
-      age: json['age']?.toString() ?? '',
+      age: json['age_display']?.toString() ?? json['age']?.toString() ?? '',
       birthDate: json['birth_date']?.toString() ?? '',
+      purchaseDate: json['purchase_date']?.toString() ?? '',
       gender: json['gender']?.toString() ?? '',
       weight: json['weight']?.toString() ?? '',
       lifecycleStatus: json['lifecycle_status']?.toString() ?? 'active',

@@ -146,11 +146,128 @@ class AnimalView extends GetView<AnimalController> {
           _fieldLabel('breed_name'.tr), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_breed_name'.tr)),
           const SizedBox(height: 18),
           _sectionTitle('animal_info'.tr), const SizedBox(height: 14),
-          _fieldLabel('birth_purchase_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.birthDateController, builder: (_, value, _) => TextFormField(controller: controller.birthDateController, readOnly: true, onTap: controller.pickBirthDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearBirthDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear')))),
+          _fieldLabel('birth_date'.tr, requiredField: true),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller.birthDateController,
+            builder: (_, value, _) => TextFormField(
+              controller: controller.birthDateController,
+              readOnly: true,
+              onTap: controller.pickBirthDate,
+              decoration: _inputDecoration('dd/MM/yyyy').copyWith(
+                suffixIcon: value.text.trim().isEmpty
+                    ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)
+                    : IconButton(
+                        onPressed: controller.clearBirthDate,
+                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary),
+                        tooltip: 'Clear',
+                      ),
+              ),
+              validator: (fieldValue) => (fieldValue ?? '').trim().isEmpty ? 'Please select birth date' : null,
+            ),
+          ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller.ageController,
+            builder: (context, value, _) {
+              final ageText = value.text.trim();
+              if (ageText.isEmpty) return const SizedBox.shrink();
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF8EF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFCFE6CF)),
+                  ),
+                  child: Text(
+                    '${'age'.tr}: $ageText',
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('gender'.tr, requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<String>(initialValue: controller.selectedGender.value.isEmpty ? null : controller.selectedGender.value, isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('select_gender'.tr), items: controller.genderList.map((gender) => DropdownMenuItem<String>(value: gender, child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedGender.value = value ?? '', validator: (value) => value == null || value.isEmpty ? 'please_select_gender'.tr : null))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('age'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.ageController, focusNode: controller.ageFocus, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: _inputDecoration('age'.tr), validator: (value) { final text = (value ?? '').trim(); if (text.isEmpty) return 'Please enter age'; final parsed = int.tryParse(text); if (parsed == null || parsed < 0) return 'Please enter valid age'; return null; })]))]),
+          _fieldLabel('purchase_date'.tr),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller.purchaseDateController,
+            builder: (_, value, _) => TextFormField(
+              controller: controller.purchaseDateController,
+              readOnly: true,
+              onTap: controller.pickPurchaseDate,
+              decoration: _inputDecoration('dd/MM/yyyy').copyWith(
+                suffixIcon: value.text.trim().isEmpty
+                    ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)
+                    : IconButton(
+                        onPressed: controller.clearPurchaseDate,
+                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary),
+                        tooltip: 'Clear',
+                      ),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          _fieldLabel('weight'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.weightController, focusNode: controller.weightFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_weight'.tr), validator: (value) { final text = (value ?? '').trim(); if (text.isEmpty) return 'Please enter weight'; final parsed = double.tryParse(text); if (parsed == null || parsed <= 0) return 'Please enter valid weight'; return null; }),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _fieldLabel('gender'.tr, requiredField: true),
+                    const SizedBox(height: 8),
+                    Obx(
+                      () => DropdownButtonFormField<String>(
+                        initialValue: controller.selectedGender.value.isEmpty ? null : controller.selectedGender.value,
+                        isExpanded: true,
+                        dropdownColor: const Color(0xFFF4FAF4),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)),
+                        decoration: _animalTypeDecoration('select_gender'.tr),
+                        items: controller.genderList
+                            .map((gender) => DropdownMenuItem<String>(
+                                  value: gender,
+                                  child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                ))
+                            .toList(),
+                        onChanged: (value) => controller.selectedGender.value = value ?? '',
+                        validator: (value) => value == null || value.isEmpty ? 'please_select_gender'.tr : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _fieldLabel('weight'.tr, requiredField: true),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: controller.weightController,
+                      focusNode: controller.weightFocus,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _inputDecoration('enter_weight'.tr),
+                      validator: (value) {
+                        final text = (value ?? '').trim();
+                        if (text.isEmpty) return 'Please enter weight';
+                        final parsed = double.tryParse(text);
+                        if (parsed == null || parsed <= 0) return 'Please enter valid weight';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 18),
           _fieldLabel('animal_image'.tr, requiredField: true), const SizedBox(height: 12),
           Obx(() => InkWell(borderRadius: BorderRadius.circular(18), onTap: controller.pickImage, child: Ink(width: double.infinity, height: 170, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2)), child: controller.selectedImage.value == null ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(height: 56, width: 56, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle), child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 30)), const SizedBox(height: 12), Text('upload_animal_image'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)), const SizedBox(height: 4), Text('tap_select_gallery'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))]) : Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(File(controller.selectedImage.value!.path), width: double.infinity, height: 170, fit: BoxFit.cover)), Positioned(top: 10, right: 10, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle), child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18))) ])))),
@@ -202,10 +319,7 @@ class AnimalView extends GetView<AnimalController> {
       controller.tagNumberFocus.requestFocus();
       return;
     }
-    final ageText = controller.ageController.text.trim();
-    final age = int.tryParse(ageText);
-    if (ageText.isEmpty || age == null || age < 0) {
-      controller.ageFocus.requestFocus();
+    if (controller.birthDateController.text.trim().isEmpty) {
       return;
     }
     final weightText = controller.weightController.text.trim();

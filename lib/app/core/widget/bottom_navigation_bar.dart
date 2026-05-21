@@ -12,11 +12,12 @@ import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
 import '../../modules/milk/views/milk_history_view.dart';
 import '../../modules/pan/views/pan_management_view.dart';
+import '../../modules/payment/controllers/payment_controller.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
 import '../../modules/profile/views/profile_view.dart';
+import '../../modules/reports/views/livestock_report_view.dart';
 import '../../modules/shop/controllers/shop_controller.dart';
-import '../../modules/shop/views/my_orders_view.dart';
-import '../../modules/shop/views/shop_view.dart';
+// import '../../modules/shop/views/my_orders_view.dart';
 import '../../routes/app_pages.dart';
 import '../services/session_service.dart';
 import '../theme/colors.dart';
@@ -63,6 +64,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
         _tabBackStack.removeAt(0);
       }
     }
+    unawaited(_runSilentSync(force: true));
   }
 
   void resetTabHistory() {
@@ -94,6 +96,10 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
         await Get.find<DoctorController>().silentRefresh();
       }
 
+      if (Get.isRegistered<PaymentController>()) {
+        await Get.find<PaymentController>().loadPayments(silent: true);
+      }
+
       _silentSyncTick++;
       if (_silentSyncTick % 3 == 0 && Get.isRegistered<ShopController>()) {
         await Get.find<ShopController>().loadShopData();
@@ -116,6 +122,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     if (_tabBackStack.length > 1) {
       _tabBackStack.removeLast();
       currentIndex.value = _tabBackStack.last;
+      unawaited(_runSilentSync(force: true));
       return true;
     }
 
@@ -124,6 +131,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
       _tabBackStack
         ..clear()
         ..add(0);
+      unawaited(_runSilentSync(force: true));
       return true;
     }
 
@@ -133,6 +141,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   bool closeDrawerPage() {
     if (activeDrawerPage.value == null) return false;
     activeDrawerPage.value = null;
+    unawaited(_runSilentSync(force: true));
     return true;
   }
 
@@ -204,6 +213,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     );
     if (route == null) {
       Get.toNamed(routeName);
+      unawaited(_runSilentSync(force: true));
       return;
     }
 
@@ -224,10 +234,12 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     } catch (_) {}
 
     activeDrawerPage.value = route.page();
+    unawaited(_runSilentSync(force: true));
   }
 
   void openDrawerPage(Widget page) {
     activeDrawerPage.value = page;
+    unawaited(_runSilentSync(force: true));
   }
 
   Widget _sheetAction({
@@ -317,7 +329,8 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       const HomeView(),
       const DoctorAppointmentsNearbyView(),
       const SizedBox(),
-      const ShopView(),
+      // Temporary swap: hide Shop tab and show Livestock Report tab.
+      const LivestockReportView(),
       const ProfileView(),
     ];
 
@@ -406,10 +419,11 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           onTap: () => controller.changeTab(1),
                         ),
                         const SizedBox(width: 44),
+                        // Temporary swap: Shop tab hidden in bottom navigation.
                         _navItem(
-                          icon: Icons.storefront_outlined,
-                          selectedIcon: Icons.storefront_rounded,
-                          label: 'shop'.tr,
+                          icon: Icons.summarize_outlined,
+                          selectedIcon: Icons.summarize_rounded,
+                          label: 'menu_report'.tr,
                           isSelected: controller.currentIndex.value == 3,
                           onTap: () => controller.changeTab(3),
                         ),
@@ -475,6 +489,22 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           onTap: () {
                             Get.back();
                             controller.openDrawerRoute(Routes.MANAGE_ANIMAL);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'animal_for_sale'.tr,
+                          icon: Icons.sell_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.ANIMAL_FOR_SALE);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'buy_animal'.tr,
+                          icon: Icons.shopping_cart_checkout_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.BUY_ANIMAL);
                           },
                         ),
                       ],
@@ -600,6 +630,28 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                         ),
                       ],
                     ),
+                    _drawerGroup(
+                      icon: Icons.assessment_outlined,
+                      title: 'menu_report'.tr,
+                      children: [
+                        _drawerSubTile(
+                          title: 'livestock_report'.tr,
+                          icon: Icons.summarize_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.LIVESTOCK_REPORT);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'profit_loss'.tr,
+                          icon: Icons.account_balance_wallet_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.PROFIT_LOSS);
+                          },
+                        ),
+                      ],
+                    ),
                     _drawerTile(
                       icon: Icons.health_and_safety_outlined,
                       title: 'health'.tr,
@@ -608,14 +660,14 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                         controller.openDrawerRoute(Routes.HEALTH);
                       },
                     ),
-                    _drawerTile(
-                      icon: Icons.receipt_long_outlined,
-                      title: 'my_orders'.tr,
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerPage(const MyOrdersView());
-                      },
-                    ),
+                    // _drawerTile(
+                    //   icon: Icons.receipt_long_outlined,
+                    //   title: 'my_orders'.tr,
+                    //   onTap: () {
+                    //     Get.back();
+                    //     controller.openDrawerPage(const MyOrdersView());
+                    //   },
+                    // ),
                     _drawerTile(
                       icon: Icons.translate_rounded,
                       title: 'change_language'.tr,

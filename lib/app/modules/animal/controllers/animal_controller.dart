@@ -20,11 +20,11 @@ class AnimalController extends GetxController {
   final TextEditingController aiDateController = TextEditingController();
   final TextEditingController breedNameController = TextEditingController();
   final TextEditingController birthDateController = TextEditingController();
+  final TextEditingController purchaseDateController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
   final FocusNode animalNameFocus = FocusNode();
   final FocusNode tagNumberFocus = FocusNode();
-  final FocusNode ageFocus = FocusNode();
   final FocusNode weightFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
@@ -138,14 +138,10 @@ class AnimalController extends GetxController {
     }
   }
 
-  Future<void> pickBirthDate() async {
-    DateTime initialDate = DateTime.now();
-    if (birthDateController.text.isNotEmpty) {
-      try {
-        initialDate = DateFormat('dd/MM/yyyy').parse(birthDateController.text);
-      } catch (_) {}
-    }
-    final DateTime? picked = await showDatePicker(
+  Future<DateTime?> _showGreenDatePicker({
+    required DateTime initialDate,
+  }) async {
+    return showDatePicker(
       context: Get.context!,
       initialDate: initialDate,
       firstDate: DateTime(2000),
@@ -173,8 +169,77 @@ class AnimalController extends GetxController {
         );
       },
     );
+  }
+
+  _AgeInfo? _calculateAgeInfoFromBirthDate(DateTime birthDate) {
+    final now = DateTime.now();
+    if (birthDate.isAfter(now)) return null;
+
+    var years = now.year - birthDate.year;
+    var months = now.month - birthDate.month;
+    var days = now.day - birthDate.day;
+
+    if (days < 0) {
+      final previousMonthLastDay = DateTime(now.year, now.month, 0).day;
+      days += previousMonthLastDay;
+      months -= 1;
+    }
+
+    if (months < 0) {
+      months += 12;
+      years -= 1;
+    }
+
+    if (years < 0) {
+      years = 0;
+      months = 0;
+      days = 0;
+    }
+
+    final display = '$years years $months month $days days';
+    return _AgeInfo(years: years, months: months, days: days, display: display);
+  }
+
+  _AgeInfo? _calculateAgeInfoFromText(String birthDateText) {
+    final text = birthDateText.trim();
+    if (text.isEmpty) return null;
+    try {
+      final parsed = DateFormat('dd/MM/yyyy').parseStrict(text);
+      return _calculateAgeInfoFromBirthDate(parsed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _syncAgeFromBirthDateText() {
+    final ageInfo = _calculateAgeInfoFromText(birthDateController.text);
+    ageController.text = ageInfo?.display ?? '';
+  }
+
+  Future<void> pickBirthDate() async {
+    DateTime initialDate = DateTime.now();
+    if (birthDateController.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy').parseStrict(birthDateController.text);
+      } catch (_) {}
+    }
+    final DateTime? picked = await _showGreenDatePicker(initialDate: initialDate);
     if (picked != null) {
       birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+      _syncAgeFromBirthDateText();
+    }
+  }
+
+  Future<void> pickPurchaseDate() async {
+    DateTime initialDate = DateTime.now();
+    if (purchaseDateController.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy').parseStrict(purchaseDateController.text);
+      } catch (_) {}
+    }
+    final DateTime? picked = await _showGreenDatePicker(initialDate: initialDate);
+    if (picked != null) {
+      purchaseDateController.text = DateFormat('dd/MM/yyyy').format(picked);
     }
   }
 
@@ -224,6 +289,11 @@ class AnimalController extends GetxController {
 
   void clearBirthDate() {
     birthDateController.clear();
+    ageController.clear();
+  }
+
+  void clearPurchaseDate() {
+    purchaseDateController.clear();
   }
 
   Future<void> pickImage() async {
@@ -255,10 +325,10 @@ class AnimalController extends GetxController {
       Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
       return;
     }
-    final ageText = ageController.text.trim();
-    final ageValue = int.tryParse(ageText);
-    if (ageText.isEmpty || ageValue == null || ageValue < 0) {
-      Get.snackbar('Error', 'Please enter valid age', snackPosition: SnackPosition.BOTTOM);
+    final birthDateText = birthDateController.text.trim();
+    final ageInfo = _calculateAgeInfoFromText(birthDateText);
+    if (ageInfo == null) {
+      Get.snackbar('Error', 'Please select valid birth date', snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final weightText = weightController.text.trim();
@@ -292,10 +362,11 @@ class AnimalController extends GetxController {
       if (showMotherAnimalDropdown && selectedMotherAnimal.value != null) {
         request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
       }
-      request.fields['birth_date'] = _resolvedBirthDateForRequest(
-        ageYears: ageValue,
-      );
-      request.fields['age'] = ageController.text.trim();
+      request.fields['birth_date'] = birthDateText;
+      if (purchaseDateController.text.trim().isNotEmpty) {
+        request.fields['purchase_date'] = purchaseDateController.text.trim();
+      }
+      request.fields['age'] = ageInfo.years.toString();
       request.fields['gender'] = selectedGender.value;
       request.fields['weight'] = weightController.text.trim();
       if (selectedImage.value != null) {
@@ -373,16 +444,6 @@ class AnimalController extends GetxController {
     return null;
   }
 
-  String _resolvedBirthDateForRequest({required int ageYears}) {
-    final enteredBirth = birthDateController.text.trim();
-    if (enteredBirth.isNotEmpty) {
-      return enteredBirth;
-    }
-    final now = DateTime.now();
-    final derived = DateTime(now.year - ageYears, now.month, now.day);
-    return DateFormat('dd/MM/yyyy').format(derived);
-  }
-
   void clearForm() {
     animalNameController.clear();
     tagNumberController.clear();
@@ -390,6 +451,7 @@ class AnimalController extends GetxController {
     aiDateController.clear();
     breedNameController.clear();
     birthDateController.clear();
+    purchaseDateController.clear();
     ageController.clear();
     weightController.clear();
     selectedGender.value = '';
@@ -409,14 +471,28 @@ class AnimalController extends GetxController {
     aiDateController.dispose();
     breedNameController.dispose();
     birthDateController.dispose();
+    purchaseDateController.dispose();
     ageController.dispose();
     weightController.dispose();
     animalNameFocus.dispose();
     tagNumberFocus.dispose();
-    ageFocus.dispose();
     weightFocus.dispose();
     super.onClose();
   }
+}
+
+class _AgeInfo {
+  final int years;
+  final int months;
+  final int days;
+  final String display;
+
+  const _AgeInfo({
+    required this.years,
+    required this.months,
+    required this.days,
+    required this.display,
+  });
 }
 
 class AnimalTypeModel {

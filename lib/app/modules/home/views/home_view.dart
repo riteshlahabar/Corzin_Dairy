@@ -198,7 +198,7 @@ class HomeView extends GetView<HomeController> {
             ),
           ),
           Obx(() {
-            final count = controller.notificationHistory.length;
+            final count = controller.unreadNotificationCount;
             return Stack(
               clipBehavior: Clip.none,
               children: [
@@ -305,31 +305,64 @@ class HomeView extends GetView<HomeController> {
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) {
                       final item = controller.notificationHistory[index];
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7FAF7),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE3ECE3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      final isRead = item.isRead == true;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => controller.markNotificationAsRead(item),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isRead ? const Color(0xFFF4FAF4) : const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isRead ? const Color(0xFFE4EFE4) : const Color(0xFFFFE082),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.body,
-                              style: const TextStyle(fontSize: 12.5),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt.toLocal()),
-                              style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
-                            ),
-                          ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.title,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: isRead ? AppColors.black : const Color(0xFF8A6D00),
+                                      ),
+                                    ),
+                                  ),
+                                  if (!isRead)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFE082),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        'unread'.tr,
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF8A6D00),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                item.body,
+                                style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt.toLocal()),
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

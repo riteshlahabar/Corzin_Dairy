@@ -15,6 +15,8 @@ abstract class Routes {
   static const ANIMAL = _Paths.ANIMAL;
   static const MANAGE_ANIMAL = _Paths.MANAGE_ANIMAL;
   static const ANIMAL_HISTORY = _Paths.ANIMAL_HISTORY;
+  static const ANIMAL_FOR_SALE = _Paths.ANIMAL_FOR_SALE;
+  static const BUY_ANIMAL = _Paths.BUY_ANIMAL;
   static const MILK = _Paths.MILK;
   static const FEEDING = _Paths.FEEDING;
   static const FEED_SETTINGS = _Paths.FEED_SETTINGS;
@@ -29,6 +31,8 @@ abstract class Routes {
   static const UPGRADE = _Paths.UPGRADE;
   static const DAIRY = _Paths.DAIRY;
   static const DAIRY_LIST = _Paths.DAIRY_LIST;
+  static const LIVESTOCK_REPORT = _Paths.LIVESTOCK_REPORT;
+  static const PROFIT_LOSS = _Paths.PROFIT_LOSS;
 }
 
 abstract class _Paths {
@@ -44,6 +48,8 @@ abstract class _Paths {
   static const ANIMAL = '/animal';
   static const MANAGE_ANIMAL = '/manage-animal';
   static const ANIMAL_HISTORY = '/animal-history';
+  static const ANIMAL_FOR_SALE = '/animal-for-sale';
+  static const BUY_ANIMAL = '/buy-animal';
   static const MILK = '/milk';
   static const FEEDING = '/feeding';
   static const FEED_SETTINGS = '/feed-settings';
@@ -58,4 +64,6 @@ abstract class _Paths {
   static const UPGRADE = '/upgrade';
   static const DAIRY = '/dairy';
   static const DAIRY_LIST = '/dairy-list';
+  static const LIVESTOCK_REPORT = '/livestock-report';
+  static const PROFIT_LOSS = '/profit-loss';
 }

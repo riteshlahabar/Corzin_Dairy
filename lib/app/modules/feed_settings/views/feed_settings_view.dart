@@ -561,6 +561,7 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
                   DropdownButtonFormField<int>(
                     initialValue: _selectedTypeId,
                     isExpanded: true,
+                    dropdownColor: const Color(0xFFF4FAF4),
                     decoration: widget.inputDecorationBuilder('feed_type'.tr).copyWith(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                         ),

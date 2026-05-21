@@ -20,7 +20,7 @@ class PaymentController extends GetxController {
     loadPayments();
   }
 
-  Future<void> loadPayments() async {
+  Future<void> loadPayments({bool silent = false}) async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
     if (farmerId == 0) {
@@ -30,7 +30,9 @@ class PaymentController extends GetxController {
     }
 
     try {
-      isLoading.value = true;
+      if (!silent) {
+        isLoading.value = true;
+      }
       final response = await http.get(
         Uri.parse('${Api.dairyPayments}/$farmerId'),
         headers: {'Accept': 'application/json'},
@@ -61,7 +63,9 @@ class PaymentController extends GetxController {
       payments.clear();
       dairyOptions.clear();
     } finally {
-      isLoading.value = false;
+      if (!silent) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -93,7 +97,7 @@ class PaymentController extends GetxController {
       if (response.statusCode != 200 || data['status'] != true) {
         throw Exception(_extractApiMessage(data) ?? 'Failed to save payment entry.');
       }
-      await loadPayments();
+      await loadPayments(silent: true);
     } finally {
       isSaving.value = false;
     }
@@ -120,7 +124,8 @@ class PaymentController extends GetxController {
     }
     final latest = summary.history.first;
     if (latest.dateKey == _todayDateIso()) {
-      return latest.previousBalance;
+      final remaining = latest.previousBalance - latest.paidAmount;
+      return remaining > 0 ? remaining : 0;
     }
     return latest.balanceAmount;
   }
@@ -132,7 +137,9 @@ class PaymentController extends GetxController {
     }
     final latest = summary.history.first;
     if (latest.dateKey == _todayDateIso()) {
-      return latest.dayTotalAmount;
+      final paidAfterPrevious = latest.paidAmount - latest.previousBalance;
+      final remaining = latest.dayTotalAmount - (paidAfterPrevious > 0 ? paidAfterPrevious : 0);
+      return remaining > 0 ? remaining : 0;
     }
     return 0;
   }
@@ -144,7 +151,7 @@ class PaymentController extends GetxController {
     }
     final latest = summary.history.first;
     if (latest.dateKey == _todayDateIso()) {
-      return latest.totalAmount;
+      return latest.balanceAmount;
     }
     return latest.balanceAmount;
   }

@@ -196,6 +196,18 @@ class FeedingController extends GetxController {
         selectedDietPlan.value = matched;
         selectedDietPlanId.value = matched.id;
       }
+    } else if (selectedDietPlanId.value != null) {
+      final matched = dietPlans.firstWhereOrNull(
+        (plan) => plan.id == selectedDietPlanId.value,
+      );
+      if (matched == null) {
+        selectedDietPlanId.value = null;
+        dietPlanDays.value = 0;
+        dietPlanDaysRemaining.value = 0;
+      } else {
+        selectedDietPlan.value = matched;
+        selectedDietPlanId.value = matched.id;
+      }
     }
   }
 
@@ -277,7 +289,7 @@ class FeedingController extends GetxController {
     );
     if (matchedType != null) {
       if (selectedFeedType.value?.id != matchedType.id) {
-        onFeedTypeChanged(matchedType);
+        onFeedTypeChanged(matchedType, clearSelectedDietPlan: false);
       } else {
         selectedUnit.value = value.unit;
       }
@@ -322,8 +334,10 @@ class FeedingController extends GetxController {
       subtypeQuantityControllers[target.id]?.text = detail.quantity.toStringAsFixed(2);
     }
 
-    packageQuantity.value = plan.planQuantity;
-    totalSubtypeQuantity.value = plan.planQuantity;
+    // In Add Feeding, package quantity should reflect current remaining balance
+    // from selected diet plan (not original total planned quantity).
+    packageQuantity.value = plan.remainingQuantity;
+    totalSubtypeQuantity.value = plan.remainingQuantity;
     balanceQuantity.value = plan.remainingQuantity;
     _recalculateBalance();
   }
@@ -339,6 +353,9 @@ class FeedingController extends GetxController {
       Get.snackbar('Error', 'No feed type found for selected diet plan');
       return;
     }
+    if (selectedDietPlan.value == null && selectedDietPlanId.value != null) {
+      selectDietPlanById(selectedDietPlanId.value);
+    }
     if (dietPlans.isNotEmpty && selectedDietPlan.value == null) {
       Get.snackbar('Error', 'Please select diet plan for selected animal/PAN.');
       return;
@@ -352,6 +369,25 @@ class FeedingController extends GetxController {
     if (feedingQty <= 0) {
       Get.snackbar('Error', 'Please enter feeding quantity');
       return;
+    }
+
+    final plan = selectedDietPlan.value;
+    if (plan != null) {
+      final availableQty = packageQuantity.value;
+      if (availableQty <= 0.000001) {
+        Get.snackbar(
+          'Error',
+          'No balance package quantity is left. Please update this diet plan or create a new diet plan.',
+        );
+        return;
+      }
+      if ((feedingQty - availableQty) > 0.000001) {
+        Get.snackbar(
+          'Error',
+          'Feeding quantity cannot be greater than balance package quantity. Please update this diet plan or create a new diet plan.',
+        );
+        return;
+      }
     }
 
     final subtypePayload = _dietSubtypePayload();
@@ -393,7 +429,7 @@ class FeedingController extends GetxController {
         packageQuantityPerAnimal: perAnimalPackageQty,
         balanceQuantityPerAnimal: perAnimalBalanceQty,
         subtypePayloadPerAnimal: perAnimalSubtypePayload,
-        includeDietPlanId: false,
+        includeDietPlanId: true,
       );
       final successCount = result['success'] ?? 0;
       final failedCount = result['failed'] ?? 0;
@@ -727,12 +763,17 @@ class FeedingController extends GetxController {
         .replaceAll(RegExp(r'\.$'), '');
   }
 
-  void onFeedTypeChanged(FeedTypeModel? value) {
+  void onFeedTypeChanged(
+    FeedTypeModel? value, {
+    bool clearSelectedDietPlan = true,
+  }) {
     selectedFeedType.value = value;
-    selectedDietPlan.value = null;
-    selectedDietPlanId.value = null;
-    dietPlanDays.value = 0;
-    dietPlanDaysRemaining.value = 0;
+    if (clearSelectedDietPlan) {
+      selectedDietPlan.value = null;
+      selectedDietPlanId.value = null;
+      dietPlanDays.value = 0;
+      dietPlanDaysRemaining.value = 0;
+    }
     if (value != null) {
       selectedUnit.value = value.defaultUnit;
       packageQuantity.value = 0;
@@ -974,33 +1015,49 @@ class FeedSubtypeModel {
 class FeedDietPlanModel {
   final int id;
   final int animalId;
+  final int panId;
   final String animalName;
   final String tagNumber;
   final String dietPlanName;
   final int feedTypeId;
   final String feedType;
+  final String referenceDate;
+  final double bodyWeight;
+  final double milkProduction;
+  final double targetDmi;
   final String unit;
   final int daysCount;
   final int daysRemaining;
   final double planQuantity;
   final double consumedQuantity;
   final double remainingQuantity;
+  final double planDryMatterQuantity;
+  final double remainingDryMatterQuantity;
+  final double dmiGap;
   final List<FeedDietSubtypeDetail> subtypeDetails;
 
   FeedDietPlanModel({
     required this.id,
     required this.animalId,
+    required this.panId,
     required this.animalName,
     required this.tagNumber,
     required this.dietPlanName,
     required this.feedTypeId,
     required this.feedType,
+    required this.referenceDate,
+    required this.bodyWeight,
+    required this.milkProduction,
+    required this.targetDmi,
     required this.unit,
     required this.daysCount,
     required this.daysRemaining,
     required this.planQuantity,
     required this.consumedQuantity,
     required this.remainingQuantity,
+    required this.planDryMatterQuantity,
+    required this.remainingDryMatterQuantity,
+    required this.dmiGap,
     required this.subtypeDetails,
   });
 
@@ -1017,11 +1074,16 @@ class FeedDietPlanModel {
     return FeedDietPlanModel(
       id: int.tryParse((json['id'] ?? '').toString()) ?? 0,
       animalId: int.tryParse((json['animal_id'] ?? '').toString()) ?? 0,
+      panId: int.tryParse((json['pan_id'] ?? '').toString()) ?? 0,
       animalName: (json['animal_name'] ?? '').toString(),
       tagNumber: (json['tag_number'] ?? '').toString(),
       dietPlanName: (json['diet_plan_name'] ?? json['plan_name'] ?? '').toString(),
       feedTypeId: int.tryParse((json['feed_type_id'] ?? '').toString()) ?? 0,
       feedType: (json['feed_type'] ?? '').toString(),
+      referenceDate: (json['reference_date'] ?? '').toString(),
+      bodyWeight: double.tryParse((json['body_weight'] ?? '0').toString()) ?? 0,
+      milkProduction: double.tryParse((json['milk_production'] ?? '0').toString()) ?? 0,
+      targetDmi: double.tryParse((json['target_dmi'] ?? '0').toString()) ?? 0,
       unit: (json['unit'] ?? 'Kg').toString(),
       daysCount: int.tryParse((json['days_count'] ?? '').toString()) ?? 0,
       daysRemaining: int.tryParse((json['days_remaining'] ?? '').toString()) ?? 0,
@@ -1030,6 +1092,11 @@ class FeedDietPlanModel {
           double.tryParse((json['consumed_quantity'] ?? '0').toString()) ?? 0,
       remainingQuantity:
           double.tryParse((json['remaining_quantity'] ?? '0').toString()) ?? 0,
+      planDryMatterQuantity:
+          double.tryParse((json['plan_dry_matter_quantity'] ?? '0').toString()) ?? 0,
+      remainingDryMatterQuantity:
+          double.tryParse((json['remaining_dry_matter_quantity'] ?? '0').toString()) ?? 0,
+      dmiGap: double.tryParse((json['dmi_gap'] ?? '0').toString()) ?? 0,
       subtypeDetails: rawSubtypes
           .whereType<Map>()
           .map((item) => FeedDietSubtypeDetail.fromJson(item.cast<String, dynamic>()))
@@ -1042,18 +1109,28 @@ class FeedDietSubtypeDetail {
   final int subtypeId;
   final String name;
   final double quantity;
+  final double dmPercent;
+  final double dryMatterQuantity;
 
   FeedDietSubtypeDetail({
     required this.subtypeId,
     required this.name,
     required this.quantity,
+    required this.dmPercent,
+    required this.dryMatterQuantity,
   });
 
   factory FeedDietSubtypeDetail.fromJson(Map<String, dynamic> json) {
+    final qty = double.tryParse((json['quantity'] ?? '0').toString()) ?? 0;
+    final dm = double.tryParse((json['dm_percent'] ?? '0').toString()) ?? 0;
     return FeedDietSubtypeDetail(
       subtypeId: int.tryParse((json['subtype_id'] ?? '').toString()) ?? 0,
       name: (json['name'] ?? '').toString(),
-      quantity: double.tryParse((json['quantity'] ?? '0').toString()) ?? 0,
+      quantity: qty,
+      dmPercent: dm,
+      dryMatterQuantity:
+          double.tryParse((json['dry_matter_quantity'] ?? '').toString()) ??
+              ((qty * dm) / 100),
     );
   }
 }

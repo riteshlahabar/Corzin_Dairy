@@ -64,6 +64,8 @@ class HomeController extends GetxController {
       saleAnimals.where((animal) => animal.farmerId == farmerId).toList();
 
   int get heroBannerCount => publicSaleAnimals.length + farmerBanners.length;
+  int get unreadNotificationCount =>
+      notificationHistory.where((item) => item.isRead != true).length;
 
   @override
   void onInit() {
@@ -317,22 +319,34 @@ class HomeController extends GetxController {
       final list = data['data'] is List ? data['data'] as List : <dynamic>[];
       double todayMilkTotal = 0;
       double totalMilkTotal = 0;
+      final now = DateTime.now();
+      final todayKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
       final mappedPayments = list.map((item) {
         final row = item is Map<String, dynamic>
             ? item
             : Map<String, dynamic>.from(item as Map);
 
-        final history = row['history'] is List
-            ? row['history'] as List
-            : <dynamic>[];
+        final history = row['history'] is List ? row['history'] as List : <dynamic>[];
+        final parsedHistory = history
+            .whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList();
 
-        final latest = history.isNotEmpty
-            ? Map<String, dynamic>.from(history.first as Map)
+        final latest = parsedHistory.isNotEmpty
+            ? parsedHistory.first
             : <String, dynamic>{};
 
-        final todayPayment = _asDouble(latest['paid_amount']);
-        final totalPayment = _asDouble(latest['total_amount']);
+        double todayPayment = 0;
+        double totalPayment = 0;
+        for (final entry in parsedHistory) {
+          final paid = _asDouble(entry['paid_amount']);
+          totalPayment += paid;
+          if ((entry['date_key'] ?? '').toString() == todayKey) {
+            todayPayment = paid;
+          }
+        }
         final pendingPayment = _asDouble(latest['balance_amount']);
 
         final todayMilk = _asDouble(row['today_milk']);
@@ -745,6 +759,7 @@ class HomeController extends GetxController {
       title: finalTitle,
       body: finalBody,
       createdAt: DateTime.now(),
+      isRead: false,
       type: message.data['type']?.toString() ?? '',
       notificationId: notificationId,
       appointmentId: int.tryParse(
@@ -942,6 +957,23 @@ class HomeController extends GetxController {
     } catch (_) {}
   }
 
+  Future<void> markNotificationAsRead(FarmerNotificationItem item) async {
+    final index = notificationHistory.indexWhere(
+      (row) =>
+          row.createdAt == item.createdAt &&
+          row.title == item.title &&
+          row.body == item.body,
+    );
+    if (index == -1) return;
+
+    final current = notificationHistory[index];
+    if (current.isRead == true) return;
+
+    notificationHistory[index] = current.copyWith(isRead: true);
+    notificationHistory.refresh();
+    await _persistNotificationHistory();
+  }
+
   String _notificationStorageKey() {
     if (farmerId > 0) {
       return 'farmer_notifications_$farmerId';
@@ -1046,6 +1078,7 @@ class FarmerNotificationItem {
   final String title;
   final String body;
   final DateTime createdAt;
+  final bool? isRead;
   final String type;
   final int? notificationId;
   final int? appointmentId;
@@ -1054,10 +1087,31 @@ class FarmerNotificationItem {
     required this.title,
     required this.body,
     required this.createdAt,
+    this.isRead = false,
     required this.type,
     this.notificationId,
     this.appointmentId,
   });
+
+  FarmerNotificationItem copyWith({
+    String? title,
+    String? body,
+    DateTime? createdAt,
+    bool? isRead,
+    String? type,
+    int? notificationId,
+    int? appointmentId,
+  }) {
+    return FarmerNotificationItem(
+      title: title ?? this.title,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      isRead: isRead ?? this.isRead ?? false,
+      type: type ?? this.type,
+      notificationId: notificationId ?? this.notificationId,
+      appointmentId: appointmentId ?? this.appointmentId,
+    );
+  }
 
   factory FarmerNotificationItem.fromJson(Map<String, dynamic> json) {
     return FarmerNotificationItem(
@@ -1066,6 +1120,7 @@ class FarmerNotificationItem {
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
+      isRead: json['is_read'] == true || json['is_read']?.toString() == '1',
       type: json['type']?.toString() ?? '',
       notificationId: int.tryParse(json['notification_id']?.toString() ?? ''),
       appointmentId: int.tryParse(json['appointment_id']?.toString() ?? ''),
@@ -1077,6 +1132,7 @@ class FarmerNotificationItem {
       'title': title,
       'body': body,
       'created_at': createdAt.toIso8601String(),
+      'is_read': isRead,
       'type': type,
       'notification_id': notificationId,
       'appointment_id': appointmentId,
