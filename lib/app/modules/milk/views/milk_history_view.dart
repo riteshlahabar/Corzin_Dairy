@@ -11,7 +11,16 @@ import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
 
 class MilkHistoryView extends StatefulWidget {
-  const MilkHistoryView({super.key});
+  const MilkHistoryView({
+    super.key,
+    this.initialAnimalId,
+    this.initialAnimalName = '',
+    this.initialTagNumber = '',
+  });
+
+  final int? initialAnimalId;
+  final String initialAnimalName;
+  final String initialTagNumber;
 
   @override
   State<MilkHistoryView> createState() => _MilkHistoryViewState();
@@ -21,6 +30,24 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
   bool _isLoading = true;
   int _farmerId = 0;
   final List<_MilkHistoryItem> _history = <_MilkHistoryItem>[];
+
+  List<_MilkHistoryItem> get _visibleHistory {
+    final selectedAnimalId = widget.initialAnimalId ?? 0;
+    final selectedName = widget.initialAnimalName.trim();
+    final selectedTag = widget.initialTagNumber.trim();
+    if (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) {
+      return _history;
+    }
+    return _history
+        .where(
+          (item) => item.matchesAnimal(
+            animalId: selectedAnimalId,
+            animalName: selectedName,
+            tagNumber: selectedTag,
+          ),
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -281,6 +308,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleHistory = _visibleHistory;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.primary,
@@ -291,7 +319,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
         title: Text(
-          'milk_record'.tr,
+          widget.initialAnimalName.trim().isEmpty
+              ? 'milk_record'.tr
+              : '${widget.initialAnimalName.trim()} ${'milk_record'.tr}',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
@@ -299,7 +329,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
         onRefresh: _loadHistory,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _history.isEmpty
+            : visibleHistory.isEmpty
                 ? Center(
                     child: Text(
                       'no_milk_history_found'.tr,
@@ -308,10 +338,10 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.all(12),
-                    itemCount: _history.length,
+                    itemCount: visibleHistory.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, index) {
-                      final item = _history[index];
+                      final item = visibleHistory[index];
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -386,6 +416,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
 class _MilkHistoryItem {
   _MilkHistoryItem({
     required this.id,
+    required this.animalId,
     required this.animalName,
     required this.tagNumber,
     required this.dairyId,
@@ -402,6 +433,7 @@ class _MilkHistoryItem {
   });
 
   final int id;
+  final int animalId;
   final String animalName;
   final String tagNumber;
   final int dairyId;
@@ -419,6 +451,24 @@ class _MilkHistoryItem {
   String get animalDisplay {
     if (tagNumber.trim().isEmpty) return animalName;
     return '$animalName (Tag: $tagNumber)';
+  }
+
+  bool matchesAnimal({
+    required int animalId,
+    required String animalName,
+    required String tagNumber,
+  }) {
+    if (animalId > 0 && this.animalId > 0) {
+      return this.animalId == animalId;
+    }
+    final normalizedName = animalName.trim().toLowerCase();
+    final normalizedTag = tagNumber.trim().toLowerCase();
+    final currentName = this.animalName.trim().toLowerCase();
+    final currentTag = this.tagNumber.trim().toLowerCase();
+    if (normalizedTag.isNotEmpty && currentTag.isNotEmpty) {
+      return currentTag == normalizedTag;
+    }
+    return normalizedName.isNotEmpty && currentName == normalizedName;
   }
 
   String get editShift {
@@ -455,6 +505,7 @@ class _MilkHistoryItem {
 
     return _MilkHistoryItem(
       id: int.tryParse((json['id'] ?? '0').toString()) ?? 0,
+      animalId: int.tryParse((json['animal_id'] ?? '0').toString()) ?? 0,
       animalName: (json['animal_name'] ?? '').toString(),
       tagNumber: (json['tag_number'] ?? '').toString(),
       dairyId: int.tryParse((json['dairy_id'] ?? '0').toString()) ?? 0,

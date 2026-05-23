@@ -23,9 +23,11 @@ class AnimalController extends GetxController {
   final TextEditingController purchaseDateController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
+  final TextEditingController defaultMilkPerSessionController = TextEditingController();
   final FocusNode animalNameFocus = FocusNode();
   final FocusNode tagNumberFocus = FocusNode();
   final FocusNode weightFocus = FocusNode();
+  final FocusNode defaultMilkPerSessionFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
@@ -369,6 +371,9 @@ class AnimalController extends GetxController {
       request.fields['age'] = ageInfo.years.toString();
       request.fields['gender'] = selectedGender.value;
       request.fields['weight'] = weightController.text.trim();
+      if (defaultMilkPerSessionController.text.trim().isNotEmpty) {
+        request.fields['default_milk_per_session'] = defaultMilkPerSessionController.text.trim();
+      }
       if (selectedImage.value != null) {
         final imagePath = selectedImage.value!.path;
         final fileName = imagePath.split(Platform.pathSeparator).last;
@@ -454,6 +459,7 @@ class AnimalController extends GetxController {
     purchaseDateController.clear();
     ageController.clear();
     weightController.clear();
+    defaultMilkPerSessionController.clear();
     selectedGender.value = '';
     selectedImage.value = null;
     selectedMotherAnimal.value = null;
@@ -474,9 +480,11 @@ class AnimalController extends GetxController {
     purchaseDateController.dispose();
     ageController.dispose();
     weightController.dispose();
+    defaultMilkPerSessionController.dispose();
     animalNameFocus.dispose();
     tagNumberFocus.dispose();
     weightFocus.dispose();
+    defaultMilkPerSessionFocus.dispose();
     super.onClose();
   }
 }

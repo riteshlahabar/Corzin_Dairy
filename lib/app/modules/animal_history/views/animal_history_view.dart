@@ -1,15 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
 import '../../feeding/views/feeding_history_view.dart';
+import '../../manage_animal/controllers/manage_animal_controller.dart';
 import '../../milk/views/milk_history_view.dart';
 import '../controllers/animal_history_controller.dart';
+import 'edit_animal_view.dart';
 
 class AnimalHistoryView extends GetView<AnimalHistoryController> {
   const AnimalHistoryView({super.key, this.onlyForSale = false});
@@ -47,7 +46,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
               child: TextField(
                 controller: controller.searchController,
                 decoration: InputDecoration(
@@ -73,6 +72,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 ),
               ),
             ),
+            _animalTypeFilters(),
+            const SizedBox(height: 10),
             Expanded(
               child: Obx(
                 () {
@@ -121,6 +122,49 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
       return;
     }
     Get.back();
+  }
+
+  Widget _animalTypeFilters() {
+    return SizedBox(
+      height: 40,
+      child: Obx(
+        () => ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          children: [
+            _typeChip(0, 'all'.tr),
+            ...controller.animalTypes.map(
+              (type) => _typeChip(type.id, type.name),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _typeChip(int id, String label) {
+    final isSelected = controller.selectedAnimalTypeId.value == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 9),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => controller.selectedAnimalTypeId.value = id,
+        selectedColor: AppColors.primary.withValues(alpha: 0.15),
+        backgroundColor: Colors.white,
+        labelStyle: TextStyle(
+          color: isSelected ? AppColors.primary : AppColors.black,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+        side: BorderSide(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.45)
+              : AppColors.primary.withValues(alpha: 0.12),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
   }
 
   Widget _animalCard(AnimalHistoryItem item) {
@@ -180,6 +224,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                       children: [
                         _miniChip(Icons.confirmation_number_outlined, item.uniqueId.isEmpty ? '-' : item.uniqueId),
                         _miniChip(Icons.sell_outlined, '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}'),
+                        if (onlyForSale)
+                          _miniChip(Icons.currency_rupee_rounded, _priceText(item.sellingPrice)),
                         _miniChip(Icons.category_outlined, item.animalTypeName.isEmpty ? '-' : item.animalTypeName),
                       ],
                     ),
@@ -217,11 +263,29 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 ),
               ),
               const SizedBox(width: 8),
-              _squareActionButton(
-                icon: Icons.edit_rounded,
-                color: AppColors.primary,
-                onTap: () => _openEditSheet(item),
-              ),
+              if (onlyForSale)
+                Expanded(
+                  child: _actionButton(
+                    label: 'Cancel selling',
+                    icon: Icons.cancel_presentation_rounded,
+                    onTap: () => _confirmCancelSellingAnimal(item),
+                    filled: false,
+                  ),
+                )
+              else
+                _squareActionButton(
+                  icon: Icons.edit_rounded,
+                  color: AppColors.primary,
+                  onTap: () {
+                    if (Get.isRegistered<BottomNavController>()) {
+                      Get.find<BottomNavController>().openNestedDrawerPage(
+                        EditAnimalView(item: item),
+                      );
+                      return;
+                    }
+                    Get.to(() => EditAnimalView(item: item));
+                  },
+                ),
             ],
           ),
         ],
@@ -301,6 +365,12 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
         ],
       ),
     );
+  }
+
+  String _priceText(String value) {
+    final display = value.trim();
+    if (display.isEmpty || display == 'null') return '-';
+    return 'Rs $display';
   }
 
   Widget _actionButton({
@@ -409,15 +479,28 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
               const SizedBox(height: 10),
               Text(
-                item.animalName.isEmpty ? 'animal_history'.tr : '${item.animalName} ${'history'.tr}',
+                item.animalName.isEmpty ? 'record'.tr : '${item.animalName} ${'record'.tr}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               _historyActionTile(
                 icon: Icons.pets_rounded,
-                title: 'animal_history'.tr,
+                title: 'manage_animal'.tr,
                 subtitle: 'current_animal_lifecycle_details'.tr,
-                onTap: Get.back,
+                onTap: () {
+                  Get.back();
+                  if (Get.isRegistered<ManageAnimalController>()) {
+                    Get.delete<ManageAnimalController>(force: true);
+                  }
+                  Get.toNamed(
+                    Routes.MANAGE_ANIMAL,
+                    arguments: {
+                      'animal_id': item.id,
+                      'animal_name': item.animalName,
+                      'tag_number': item.tagNumber,
+                    },
+                  );
+                },
               ),
               _historyActionTile(
                 icon: Icons.local_drink_rounded,
@@ -425,7 +508,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 subtitle: 'open_milk_records_page'.tr,
                 onTap: () {
                   Get.back();
-                  Get.to(() => const MilkHistoryView());
+                  Get.to(
+                    () => MilkHistoryView(
+                      initialAnimalId: item.id,
+                      initialAnimalName: item.animalName,
+                      initialTagNumber: item.tagNumber,
+                    ),
+                  );
                 },
               ),
               _historyActionTile(
@@ -434,7 +523,15 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 subtitle: 'open_feeding_records_page'.tr,
                 onTap: () {
                   Get.back();
-                  Get.to(() => const FeedingHistoryView());
+                  Get.to(
+                    () => FeedingHistoryView(
+                      initialTab: 0,
+                      showTabs: false,
+                      initialAnimalId: item.id,
+                      initialAnimalName: item.animalName,
+                      initialTagNumber: item.tagNumber,
+                    ),
+                  );
                 },
               ),
               _historyActionTile(
@@ -445,9 +542,107 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   Get.back();
                   Get.toNamed(
                     Routes.DOCTOR,
-                    arguments: {'initial_tab': 2},
+                    arguments: {
+                      'initial_tab': 2,
+                      'animal_id': item.id,
+                      'animal_name': item.animalName,
+                    },
                   );
                 },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmCancelSellingAnimal(AnimalHistoryItem item) {
+    final animalName = item.animalName.isEmpty ? 'this animal' : item.animalName;
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 54,
+                width: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFB25E00).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cancel_presentation_rounded, color: Color(0xFFB25E00), size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Cancel Selling',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Are you sure you want to cancel selling $animalName?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: Get.back,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.black,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text('cancel'.tr),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Obx(
+                      () => ElevatedButton(
+                        onPressed: controller.isSubmitting.value
+                            ? null
+                            : () async {
+                                Get.back();
+                                final ok = await controller.cancelSellingAnimal(item);
+                                if (ok && Get.isRegistered<BottomNavController>()) {
+                                  Get.find<BottomNavController>().runSilentSyncNow();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB25E00),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: controller.isSubmitting.value
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                              )
+                            : const Text('Confirm'),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -496,170 +691,4 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
     );
   }
 
-  void _openEditSheet(AnimalHistoryItem item) {
-    final nameController = TextEditingController(text: item.animalName);
-    final tagController = TextEditingController(text: item.tagNumber);
-    final birthDateController = TextEditingController(text: item.birthDate);
-    final weightController = TextEditingController(text: item.weight);
-    final selectedGender = (item.gender.isEmpty ? 'Female' : item.gender).obs;
-    final selectedTypeId = item.animalTypeId.obs;
-    final selectedImage = Rxn<XFile>();
-
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 22),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Obx(
-              () => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'edit_animal'.tr,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: InkWell(
-                      onTap: () async {
-                        final file = await controller.pickAnimalPhoto();
-                        if (file != null) selectedImage.value = file;
-                      },
-                      borderRadius: BorderRadius.circular(50),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(42),
-                        child: SizedBox(
-                          height: 84,
-                          width: 84,
-                          child: selectedImage.value != null
-                              ? Image.file(File(selectedImage.value!.path), fit: BoxFit.cover)
-                              : (item.image.isNotEmpty
-                                  ? Image.network(
-                                      item.image,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => _imageFallback(),
-                                    )
-                                  : _imageFallback()),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _input(nameController, 'animal_name_label'.tr),
-                  const SizedBox(height: 10),
-                  _input(tagController, 'tag_number_label'.tr),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedTypeId.value == 0 ? null : selectedTypeId.value,
-                    decoration: _decoration('animal_type_label'.tr),
-                    items: controller.animalTypes
-                        .map((type) => DropdownMenuItem<int>(value: type.id, child: Text(type.name)))
-                        .toList(),
-                    onChanged: (value) => selectedTypeId.value = value ?? 0,
-                  ),
-                  const SizedBox(height: 10),
-                  _input(birthDateController, 'birth_date_ddmmyyyy'.tr),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedGender.value,
-                    decoration: _decoration('gender'.tr),
-                    items: [
-                      DropdownMenuItem(value: 'Male', child: Text('male'.tr)),
-                      DropdownMenuItem(value: 'Female', child: Text('female'.tr)),
-                    ],
-                    onChanged: (value) => selectedGender.value = value ?? 'Female',
-                  ),
-                  const SizedBox(height: 10),
-                  _input(weightController, 'weight'.tr, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: controller.isSubmitting.value
-                          ? null
-                          : () async {
-                              if (selectedTypeId.value == 0) {
-                                Get.snackbar('error'.tr, 'please_select_animal_type'.tr);
-                                return;
-                              }
-                              final ok = await controller.updateAnimal(
-                                item: item,
-                                animalName: nameController.text,
-                                tagNumber: tagController.text,
-                                animalTypeId: selectedTypeId.value,
-                                birthDate: birthDateController.text,
-                                gender: selectedGender.value,
-                                weight: weightController.text,
-                                imageFile: selectedImage.value,
-                              );
-                              if (ok) Get.back();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: controller.isSubmitting.value
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                            )
-                          : Text(
-                              'update_animal'.tr,
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      isScrollControlled: true,
-    ).whenComplete(() {
-      nameController.dispose();
-      tagController.dispose();
-      birthDateController.dispose();
-      weightController.dispose();
-    });
-  }
-
-  Widget _input(
-    TextEditingController controller,
-    String hint, {
-    TextInputType? keyboardType,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: _decoration(hint),
-    );
-  }
-
-  InputDecoration _decoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: const Color(0xFFF8FBF8),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: const OutlineInputBorder(
-        borderSide: BorderSide(color: AppColors.primary),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    );
-  }
 }

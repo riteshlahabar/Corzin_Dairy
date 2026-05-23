@@ -24,6 +24,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
   late final DoctorController controller;
   late final HomeController homeController;
   int _initialTabIndex = 0;
+  int _historyAnimalId = 0;
+  String _historyAnimalName = '';
 
   @override
   void initState() {
@@ -36,6 +38,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       final raw = args['initial_tab'];
       final parsed = raw is int ? raw : int.tryParse(raw?.toString() ?? '0') ?? 0;
       _initialTabIndex = parsed.clamp(0, 2);
+      _historyAnimalId = int.tryParse((args['animal_id'] ?? '0').toString()) ?? 0;
+      _historyAnimalName = (args['animal_name'] ?? '').toString();
     }
   }
 
@@ -106,7 +110,10 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   final currentCards = List<VetRequestModel>.from(currentRequests)
                     ..sort((a, b) => b.sortDate.compareTo(a.sortDate));
                   final historyRequests = controller.sortedRequests
-                      .where((request) => request.status.trim().toLowerCase() == 'completed')
+                      .where((request) {
+                        final isCompleted = request.status.trim().toLowerCase() == 'completed';
+                        return isCompleted && _matchesSelectedHistoryAnimal(request);
+                      })
                       .toList();
                   final historyByAnimal = <String, List<VetRequestModel>>{};
                   for (final request in historyRequests) {
@@ -224,7 +231,9 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
 
   void _goHome() {
     if (Get.isRegistered<BottomNavController>()) {
-      Get.find<BottomNavController>().changeTab(0);
+      final bottomNav = Get.find<BottomNavController>();
+      if (bottomNav.popRouteOrCloseDrawerPage()) return;
+      bottomNav.changeTab(0);
       return;
     }
     Get.back();
@@ -912,6 +921,18 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
         ],
       ),
     );
+  }
+
+  bool _matchesSelectedHistoryAnimal(VetRequestModel request) {
+    if (_historyAnimalId <= 0 && _historyAnimalName.trim().isEmpty) {
+      return true;
+    }
+    if (_historyAnimalId > 0 && request.animalId > 0) {
+      return request.animalId == _historyAnimalId;
+    }
+    final selectedName = _historyAnimalName.trim().toLowerCase();
+    if (selectedName.isEmpty) return true;
+    return request.animalName.trim().toLowerCase() == selectedName;
   }
 
   Future<void> _openRatingPopup(VetRequestModel request) async {

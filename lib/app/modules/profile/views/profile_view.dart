@@ -174,7 +174,9 @@ class ProfileView extends GetView<ProfileController> {
 
   void _goHome() {
     if (Get.isRegistered<BottomNavController>()) {
-      Get.find<BottomNavController>().changeTab(0);
+      final bottomNav = Get.find<BottomNavController>();
+      if (bottomNav.popRouteOrCloseDrawerPage()) return;
+      bottomNav.changeTab(0);
       return;
     }
     Get.back();

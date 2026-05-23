@@ -27,6 +27,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   final RxInt currentIndex = 0.obs;
   final Rx<Widget?> activeDrawerPage = Rx<Widget?>(null);
   final List<int> _tabBackStack = <int>[0];
+  final List<Widget> _drawerPageStack = <Widget>[];
   Timer? _silentSyncTimer;
   bool _silentSyncInFlight = false;
   int _silentSyncTick = 0;
@@ -56,6 +57,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   void changeTab(int index) {
     if (index == 2) return;
     activeDrawerPage.value = null;
+    _drawerPageStack.clear();
     if (currentIndex.value == index) return;
     currentIndex.value = index;
     if (_tabBackStack.isEmpty || _tabBackStack.last != index) {
@@ -114,6 +116,10 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  void runSilentSyncNow() {
+    unawaited(_runSilentSync(force: true));
+  }
+
   bool handleRootBackPress() {
     if (closeDrawerPage()) {
       return true;
@@ -139,10 +145,34 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   }
 
   bool closeDrawerPage() {
+    if (activeDrawerPage.value != null &&
+        (Get.key.currentState?.canPop() ?? false)) {
+      Get.back();
+      unawaited(_runSilentSync(force: true));
+      return true;
+    }
+
+    if (_drawerPageStack.isNotEmpty) {
+      activeDrawerPage.value = _drawerPageStack.removeLast();
+      unawaited(_runSilentSync(force: true));
+      return true;
+    }
+
     if (activeDrawerPage.value == null) return false;
     activeDrawerPage.value = null;
+    _drawerPageStack.clear();
     unawaited(_runSilentSync(force: true));
     return true;
+  }
+
+  bool popRouteOrCloseDrawerPage() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+      unawaited(_runSilentSync(force: true));
+      return true;
+    }
+
+    return closeDrawerPage();
   }
 
   void openAddAction() {
@@ -234,10 +264,21 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     } catch (_) {}
 
     activeDrawerPage.value = route.page();
+    _drawerPageStack.clear();
     unawaited(_runSilentSync(force: true));
   }
 
   void openDrawerPage(Widget page) {
+    activeDrawerPage.value = page;
+    _drawerPageStack.clear();
+    unawaited(_runSilentSync(force: true));
+  }
+
+  void openNestedDrawerPage(Widget page) {
+    final current = activeDrawerPage.value;
+    if (current != null) {
+      _drawerPageStack.add(current);
+    }
     activeDrawerPage.value = page;
     unawaited(_runSilentSync(force: true));
   }
@@ -383,25 +424,16 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
             ],
           );
         }),
-        floatingActionButton: keyboardVisible
-            ? null
-            : FloatingActionButton(
-                backgroundColor: AppColors.primary,
-                elevation: 1,
-                onPressed: controller.openAddAction,
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
-        floatingActionButtonLocation: keyboardVisible ? null : FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: keyboardVisible
             ? null
             : Obx(
                 () => BottomAppBar(
-                  shape: const CircularNotchedRectangle(),
-                  notchMargin: 8,
                   color: AppColors.white,
                   elevation: 10,
+                  height: 60,
+                  padding: EdgeInsets.zero,
                   child: SizedBox(
-                    height: 72,
+                    height: 60,
                     child: Row(
                       children: [
                         _navItem(
@@ -418,7 +450,40 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           isSelected: controller.currentIndex.value == 1,
                           onTap: () => controller.changeTab(1),
                         ),
-                        const SizedBox(width: 44),
+                        Expanded(
+                          child: Center(
+                            child: GestureDetector(
+                              onTap: controller.openAddAction,
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      AppColors.primary.withValues(alpha: 0.96),
+                                      AppColors.primary,
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.18),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.add_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         // Temporary swap: Shop tab hidden in bottom navigation.
                         _navItem(
                           icon: Icons.summarize_outlined,
@@ -489,6 +554,14 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           onTap: () {
                             Get.back();
                             controller.openDrawerRoute(Routes.MANAGE_ANIMAL);
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'manage_pregnancy'.tr,
+                          icon: Icons.favorite_border_rounded,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerRoute(Routes.MANAGE_PREGNANCY);
                           },
                         ),
                         _drawerSubTile(
@@ -888,13 +961,14 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          height: 72,
+          height: 60,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 isSelected ? selectedIcon : icon,
                 color: isSelected ? AppColors.primary : AppColors.grey,
+                size: 20,
               ),
               const SizedBox(height: 4),
               Text(

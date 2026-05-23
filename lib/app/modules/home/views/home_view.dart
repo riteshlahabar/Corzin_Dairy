@@ -379,11 +379,10 @@ class HomeView extends GetView<HomeController> {
 
   Widget _buildHeroCard() {
     return Obx(() {
-      final publicAnimals = controller.publicSaleAnimals;
       final adminBanners = controller.farmerBanners;
-      final total = publicAnimals.length + adminBanners.length;
+      final total = adminBanners.length;
       if (total > 0) {
-        return _heroBannerCarousel(publicAnimals, adminBanners, total);
+        return _heroBannerCarousel(adminBanners, total);
       }
       return Container(
         padding: const EdgeInsets.all(18),
@@ -394,22 +393,18 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget _heroBannerCarousel(
-    List<HomeSaleAnimalModel> saleAnimals,
     List<HomeAdminBannerModel> adminBanners,
     int total,
   ) {
     final index = controller.heroBannerIndex.value % total;
-    final isSaleBanner = index < saleAnimals.length;
-    final child = isSaleBanner
-        ? _saleAnimalBanner(saleAnimals[index])
-        : _adminBannerCard(adminBanners[index - saleAnimals.length]);
+    final child = _adminBannerCard(adminBanners[index]);
 
     return Stack(
       children: [
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
           child: KeyedSubtree(
-            key: ValueKey('${isSaleBanner ? 'sale' : 'admin'}-$index'),
+            key: ValueKey('admin-$index'),
             child: child,
           ),
         ),
@@ -462,27 +457,16 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  Widget _saleAnimalBanner(HomeSaleAnimalModel animal) {
-    return SizedBox(
-      height: 132,
-      child: _saleAnimalCard(
-        animal,
-        width: double.infinity,
-        title: 'animal_for_sale'.tr,
-      ),
-    );
-  }
-
   Widget _buildMySellingAnimalsSection() {
     return Obx(() {
-      final animals = controller.mySellingAnimals;
+      final animals = controller.publicSaleAnimals;
       if (animals.isEmpty) return const SizedBox.shrink();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 14),
           Text(
-            'my_selling_animals'.tr,
+            'buy_animal'.tr,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.black),
           ),
           const SizedBox(height: 10),
@@ -495,7 +479,6 @@ class HomeView extends GetView<HomeController> {
                 return _saleAnimalCard(
                   animals[index],
                   width: 292,
-                  title: 'your_listing'.tr,
                   margin: const EdgeInsets.only(right: 12),
                 );
               },
@@ -509,174 +492,101 @@ class HomeView extends GetView<HomeController> {
   Widget _saleAnimalCard(
     HomeSaleAnimalModel animal, {
     required double width,
-    required String title,
     EdgeInsetsGeometry? margin,
   }) {
-    return Container(
-      width: width,
-      margin: margin,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
+    return InkWell(
+      onTap: () => Get.toNamed(Routes.BUY_ANIMAL),
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        width: width,
+        margin: margin,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              height: 86,
-              width: 86,
-              color: Colors.white.withValues(alpha: 0.14),
-              child: animal.image.isEmpty
-                  ? const Icon(Icons.pets_rounded, color: Colors.white, size: 34)
-                  : Image.network(
-                      animal.image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(Icons.pets_rounded, color: Colors.white, size: 34),
-                    ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.18),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
             ),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 10.5, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text(
-                  animal.animalName.isEmpty ? 'animal'.tr : animal.animalName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${'tag'.tr}: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}  |  ${'type'.tr}: ${animal.animalTypeName.trim().isEmpty ? '-' : animal.animalTypeName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: () => _openSaleAnimalDetails(animal),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
-                      child: Text('view_more'.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
-                    ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                height: 86,
+                width: 86,
+                color: Colors.white.withValues(alpha: 0.14),
+                child: animal.image.isEmpty
+                    ? const Icon(Icons.pets_rounded, color: Colors.white, size: 34)
+                    : Image.network(
+                        animal.image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(Icons.pets_rounded, color: Colors.white, size: 34),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_salePriceText(animal.sellingPrice), style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontSize: 14.5, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${animal.animalName.isEmpty ? 'animal'.tr : animal.animalName} (${animal.uniqueId.trim().isEmpty ? '-' : animal.uniqueId})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  Text(
+                    '${'tag'.tr}: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}  |  ${'type'.tr}: ${animal.animalTypeName.trim().isEmpty ? '-' : animal.animalTypeName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${'age'.tr}: ${animal.age.trim().isEmpty ? '-' : animal.age}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${'milk_production'.tr}: ${_saleMilkText(animal.dailyMilkProduction)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openSaleAnimalDetails(HomeSaleAnimalModel animal) {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(child: Container(height: 4, width: 52, margin: const EdgeInsets.only(bottom: 14), decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(99)))),
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        height: 78,
-                        width: 78,
-                        color: const Color(0xFFEAF5EC),
-                        child: animal.image.isEmpty
-                            ? const Icon(Icons.pets_rounded, color: AppColors.primary, size: 34)
-                            : Image.network(animal.image, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.pets_rounded, color: AppColors.primary, size: 34)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('animal_for_sale'.tr, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 4),
-                          Text(animal.animalName.isEmpty ? 'animal'.tr : animal.animalName, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.black)),
-                          const SizedBox(height: 3),
-                          Text('${'tag'.tr}: ${animal.tagNumber.trim().isEmpty ? '-' : animal.tagNumber}', style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _saleDetailChip('unique_id'.tr, animal.uniqueId),
-                    _saleDetailChip('type'.tr, animal.animalTypeName),
-                    _saleDetailChip('pan'.tr, animal.panName),
-                    _saleDetailChip('gender'.tr, animal.gender),
-                    _saleDetailChip('age'.tr, animal.age),
-                    _saleDetailChip('birth_purchase_date'.tr, animal.birthDate),
-                    _saleDetailChip('weight'.tr, animal.weight.isEmpty ? '' : '${animal.weight} Kg'),
-                    _saleDetailChip('breed_name'.tr, animal.breedName),
-                    _saleDetailChip('lactation'.tr, animal.lactationNumber),
-                    _saleDetailChip('ai_date'.tr, animal.aiDate),
-                    _saleDetailChip('listed_at'.tr, animal.listedAt),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
-      isScrollControlled: true,
     );
   }
 
-  Widget _saleDetailChip(String label, String value) {
-    final display = value.trim().isEmpty ? '-' : value;
-    return Container(
-      width: (Get.width - 46) / 2,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4FAF5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(display, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.black, fontWeight: FontWeight.w800)),
-        ],
-      ),
-    );
+  String _saleMilkText(String value) {
+    final display = value.trim();
+    if (display.isEmpty || display == 'null') return '-';
+    return '$display L/day';
+  }
+
+  String _salePriceText(String value) {
+    final display = value.trim();
+    if (display.isEmpty || display == 'null') return '-';
+    return 'Rs $display';
   }
 
   Widget _buildPlanCard() {

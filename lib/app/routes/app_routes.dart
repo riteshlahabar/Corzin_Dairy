@@ -14,6 +14,7 @@ abstract class Routes {
   static const HOME = _Paths.HOME;
   static const ANIMAL = _Paths.ANIMAL;
   static const MANAGE_ANIMAL = _Paths.MANAGE_ANIMAL;
+  static const MANAGE_PREGNANCY = _Paths.MANAGE_PREGNANCY;
   static const ANIMAL_HISTORY = _Paths.ANIMAL_HISTORY;
   static const ANIMAL_FOR_SALE = _Paths.ANIMAL_FOR_SALE;
   static const BUY_ANIMAL = _Paths.BUY_ANIMAL;
@@ -47,6 +48,7 @@ abstract class _Paths {
   static const HOME = '/home';
   static const ANIMAL = '/animal';
   static const MANAGE_ANIMAL = '/manage-animal';
+  static const MANAGE_PREGNANCY = '/manage-pregnancy';
   static const ANIMAL_HISTORY = '/animal-history';
   static const ANIMAL_FOR_SALE = '/animal-for-sale';
   static const BUY_ANIMAL = '/buy-animal';

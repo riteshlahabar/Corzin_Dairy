@@ -1187,6 +1187,8 @@ class HomeSaleAnimalModel {
   final String breedName;
   final String lactationNumber;
   final String aiDate;
+  final String sellingPrice;
+  final String dailyMilkProduction;
   final String image;
   final String listedAt;
 
@@ -1205,6 +1207,8 @@ class HomeSaleAnimalModel {
     required this.breedName,
     required this.lactationNumber,
     required this.aiDate,
+    required this.sellingPrice,
+    required this.dailyMilkProduction,
     required this.image,
     required this.listedAt,
   });
@@ -1219,12 +1223,14 @@ class HomeSaleAnimalModel {
       animalTypeName: json['animal_type_name']?.toString() ?? '',
       panName: json['pan_name']?.toString() ?? '',
       gender: json['gender']?.toString() ?? '',
-      age: json['age']?.toString() ?? '',
+      age: json['age_display']?.toString() ?? json['age']?.toString() ?? '',
       birthDate: json['birth_date']?.toString() ?? '',
       weight: json['weight']?.toString() ?? '',
       breedName: json['breed_name']?.toString() ?? '',
       lactationNumber: json['lactation_number']?.toString() ?? '',
       aiDate: json['ai_date']?.toString() ?? '',
+      sellingPrice: json['selling_price']?.toString() ?? '',
+      dailyMilkProduction: json['daily_milk_production']?.toString() ?? '',
       image: json['image']?.toString() ?? '',
       listedAt: json['listed_for_sale_at']?.toString() ?? '',
     );

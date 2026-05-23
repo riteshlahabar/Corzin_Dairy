@@ -269,6 +269,23 @@ class AnimalView extends GetView<AnimalController> {
             ],
           ),
           const SizedBox(height: 18),
+          _fieldLabel('default_milk_per_milking'.tr),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller.defaultMilkPerSessionController,
+            focusNode: controller.defaultMilkPerSessionFocus,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.next,
+            decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isEmpty) return null;
+              final parsed = double.tryParse(text);
+              if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
+              return null;
+            },
+          ),
+          const SizedBox(height: 18),
           _fieldLabel('animal_image'.tr, requiredField: true), const SizedBox(height: 12),
           Obx(() => InkWell(borderRadius: BorderRadius.circular(18), onTap: controller.pickImage, child: Ink(width: double.infinity, height: 170, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.primary.withValues(alpha: 0.25), width: 1.2)), child: controller.selectedImage.value == null ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(height: 56, width: 56, decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle), child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 30)), const SizedBox(height: 12), Text('upload_animal_image'.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.black)), const SizedBox(height: 4), Text('tap_select_gallery'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700))]) : Stack(children: [ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(File(controller.selectedImage.value!.path), width: double.infinity, height: 170, fit: BoxFit.cover)), Positioned(top: 10, right: 10, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle), child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18))) ])))),
         ],

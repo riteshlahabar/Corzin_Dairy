@@ -247,6 +247,7 @@ class MilkView extends GetView<MilkController> {
           _fieldLabel('quantity_liters'.tr, requiredField: true),
           const SizedBox(height: 8),
           TextFormField(controller: controller.quantityController, focusNode: controller.quantityFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_milk_quantity'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'enter_quantity_error'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'valid_quantity'.tr; return null; }),
+          _buildPanCowMilkSection(),
           const SizedBox(height: 16),
           Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('fat_upper'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.fatController, focusNode: controller.fatFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_fat'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'fat_required'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'enter_valid_fat'.tr; return null; })])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('snf_upper'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.snfController, focusNode: controller.snfFocus, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: _inputDecoration('enter_snf'.tr), validator: (value) { if (value == null || value.trim().isEmpty) return 'snf_required'.tr; final parsed = double.tryParse(value.trim()); if (parsed == null || parsed <= 0) return 'enter_valid_snf'.tr; return null; })]))]),
           const SizedBox(height: 16),
@@ -271,8 +272,159 @@ class MilkView extends GetView<MilkController> {
     );
   }
 
+  Widget _buildPanCowMilkSection() {
+    return Obx(() {
+      if (controller.selectedPan.value == null) return const SizedBox.shrink();
+
+      final matched = controller.isCowMilkMatched;
+      final statusColor = matched ? AppColors.primary : Colors.red.shade600;
+
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FBF7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: statusColor.withValues(alpha: matched ? 0.16 : 0.28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 34,
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(Icons.pets_rounded, color: AppColors.primary, size: 19),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('cow_wise_milk_distribution'.tr, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppColors.black)),
+                      const SizedBox(height: 2),
+                      Text('edit_cow_milk_before_save'.tr, style: TextStyle(fontSize: 11.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (controller.panCowMilkEntries.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7E7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFFD98A)),
+                ),
+                child: Text('no_cows_found_in_selected_pan'.tr, style: const TextStyle(fontSize: 12.5, color: Color(0xFF7A5314), fontWeight: FontWeight.w600)),
+              )
+            else
+              ...controller.panCowMilkEntries.map(_cowMilkRow),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: matched ? AppColors.primary.withValues(alpha: 0.08) : Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _summaryLine('total_cow_milk'.tr, '${controller.cowMilkTotal.value.toStringAsFixed(2)} L', statusColor),
+                  const SizedBox(height: 5),
+                  _summaryLine('difference'.tr, controller.cowMilkDifferenceLabel, statusColor),
+                  const SizedBox(height: 5),
+                  _summaryLine('status'.tr, controller.cowMilkStatusLabel, statusColor),
+                  if (!matched) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'cow_total_mismatch_warning'.tr,
+                      style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _cowMilkRow(PanCowMilkEntry entry) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(entry.animal.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.black)),
+                const SizedBox(height: 3),
+                Text(
+                  '${'default_milk_per_milking'.tr}: ${entry.animal.defaultMilkPerSession.toStringAsFixed(2)} L',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: AppColors.grey.shade700, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 96,
+            child: TextFormField(
+              controller: entry.quantityController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.right,
+              decoration: _inputDecoration('0.00').copyWith(
+                suffixText: 'L',
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+              validator: (_) {
+                if (controller.selectedPan.value == null) return null;
+                final value = double.tryParse(entry.quantityController.text.trim());
+                if (value == null || value < 0) return 'Invalid';
+                return null;
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryLine(String label, String value, Color color) {
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: AppColors.grey.shade800, fontWeight: FontWeight.w700))),
+        Text(value, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w900)),
+      ],
+    );
+  }
+
   Widget _buildSubmitButton() {
-    return Obx(() => SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty || controller.availableShifts.isEmpty ? null : _onSubmitTap, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))]))));
+    return Obx(() {
+      final panMismatch = controller.selectedPan.value != null && !controller.isCowMilkMatched;
+      return SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty || controller.availableShifts.isEmpty || panMismatch ? null : _onSubmitTap, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))])));
+    });
   }
 
   void _onSubmitTap() {
@@ -295,6 +447,10 @@ class MilkView extends GetView<MilkController> {
     }
     if (controller.selectedShift.value.trim().isEmpty || !controller.availableShifts.contains(controller.selectedShift.value)) {
       Get.snackbar('info'.tr, 'no_milk_shift_available_for_date'.tr, snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (controller.selectedPan.value != null && !controller.isCowMilkMatched) {
+      Get.snackbar('validation'.tr, 'cow_total_mismatch_warning'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 

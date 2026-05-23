@@ -17,6 +17,8 @@ class ManageAnimalController extends GetxController {
   final RxString selectedFilter = 'all'.obs;
 
   int farmerId = 0;
+  int selectedAnimalId = 0;
+  String selectedAnimalName = '';
 
   List<ManageAnimalItem> get filteredAnimals {
     final query = searchQuery.value.trim().toLowerCase();
@@ -24,13 +26,19 @@ class ManageAnimalController extends GetxController {
       final matchesSearch = query.isEmpty || item.searchText.contains(query);
       final filter = selectedFilter.value;
       final matchesFilter = filter == 'all' || item.lifecycleStatus == filter;
-      return matchesSearch && matchesFilter;
+      final matchesSelectedAnimal = selectedAnimalId <= 0 || item.id == selectedAnimalId;
+      return matchesSearch && matchesFilter && matchesSelectedAnimal;
     }).toList();
   }
 
   @override
   void onInit() {
     super.onInit();
+    final args = Get.arguments;
+    if (args is Map) {
+      selectedAnimalId = int.tryParse((args['animal_id'] ?? '0').toString()) ?? 0;
+      selectedAnimalName = (args['animal_name'] ?? '').toString();
+    }
     searchController.addListener(() => searchQuery.value = searchController.text);
     initData();
   }
@@ -135,7 +143,10 @@ class ManageAnimalController extends GetxController {
     }
   }
 
-  Future<bool> sellAnimal(ManageAnimalItem item) async {
+  Future<bool> sellAnimal(
+    ManageAnimalItem item, {
+    required double sellingPrice,
+  }) async {
     if (farmerId == 0) {
       Get.snackbar('Error', 'Farmer not found. Please login again.');
       return false;
@@ -146,7 +157,10 @@ class ManageAnimalController extends GetxController {
       final response = await http.post(
         Uri.parse('${Api.animalSell}/${item.id}'),
         headers: {'Accept': 'application/json'},
-        body: {'farmer_id': farmerId.toString()},
+        body: {
+          'farmer_id': farmerId.toString(),
+          'selling_price': sellingPrice.toStringAsFixed(2),
+        },
       );
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -162,6 +176,43 @@ class ManageAnimalController extends GetxController {
       Get.snackbar(
         'Error',
         data['message']?.toString() ?? 'Failed to list animal for sale',
+      );
+      return false;
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<bool> cancelSellingAnimal(ManageAnimalItem item) async {
+    if (farmerId == 0) {
+      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      return false;
+    }
+
+    try {
+      isSubmitting.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.animalCancelSell}/${item.id}/cancel'),
+        headers: {'Accept': 'application/json'},
+        body: {'farmer_id': farmerId.toString()},
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        await fetchAnimals();
+        Get.snackbar(
+          'Success',
+          data['message']?.toString() ?? '${item.animalName.isEmpty ? 'Animal' : item.animalName} removed from sale',
+        );
+        return true;
+      }
+
+      Get.snackbar(
+        'Error',
+        data['message']?.toString() ?? 'Failed to cancel animal selling',
       );
       return false;
     } catch (e) {
@@ -228,7 +279,7 @@ class ManageAnimalItem {
       lifecycleStatus: (json['lifecycle_status']?.toString() ?? 'active')
           .toLowerCase(),
       gender: json['gender']?.toString() ?? '',
-      age: json['age']?.toString() ?? '',
+      age: json['age_display']?.toString() ?? json['age']?.toString() ?? '',
       birthDate: json['birth_date']?.toString() ?? '',
       weight: json['weight']?.toString() ?? '',
       image: json['image']?.toString() ?? '',

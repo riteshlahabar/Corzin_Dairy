@@ -160,11 +160,22 @@ class BuyAnimalView extends GetView<HomeController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _textOrDash(item.animalName),
+                      _priceText(item.sellingPrice),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${_textOrDash(item.animalName)} (${_textOrDash(item.uniqueId)})',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -197,41 +208,9 @@ class BuyAnimalView extends GetView<HomeController> {
             runSpacing: 8,
             children: [
               _chip('unique_id'.tr, _textOrDash(item.uniqueId)),
-              _chip('pan'.tr, _textOrDash(item.panName)),
-              _chip('gender'.tr, _textOrDash(item.gender)),
               _chip('age'.tr, _textOrDash(item.age)),
-              _chip('weight'.tr, item.weight.trim().isEmpty ? '-' : '${item.weight} Kg'),
+              _chip('milk_production'.tr, _milkText(item.dailyMilkProduction)),
             ],
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: () => _openDetails(item),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                icon: const Icon(
-                  Icons.visibility_rounded,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                label: Text(
-                  'view_more'.tr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -257,65 +236,20 @@ class BuyAnimalView extends GetView<HomeController> {
     );
   }
 
-  void _openDetails(HomeSaleAnimalModel item) {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    height: 4,
-                    width: 50,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
-                Text(
-                  _textOrDash(item.animalName),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _chip('unique_id'.tr, _textOrDash(item.uniqueId)),
-                    _chip('tag'.tr, _textOrDash(item.tagNumber)),
-                    _chip('type'.tr, _textOrDash(item.animalTypeName)),
-                    _chip('pan'.tr, _textOrDash(item.panName)),
-                    _chip('gender'.tr, _textOrDash(item.gender)),
-                    _chip('age'.tr, _textOrDash(item.age)),
-                    _chip('birth_date'.tr, _textOrDash(item.birthDate)),
-                    _chip('weight'.tr, item.weight.trim().isEmpty ? '-' : '${item.weight} Kg'),
-                    _chip('breed_name'.tr, _textOrDash(item.breedName)),
-                    _chip('lactation'.tr, _textOrDash(item.lactationNumber)),
-                    _chip('ai_date'.tr, _textOrDash(item.aiDate)),
-                    _chip('listed_at'.tr, _textOrDash(item.listedAt)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      isScrollControlled: true,
-    );
-  }
-
   String _textOrDash(String value) {
     final v = value.trim();
     return v.isEmpty ? '-' : v;
+  }
+
+  String _milkText(String value) {
+    final v = value.trim();
+    if (v.isEmpty || v == 'null') return '-';
+    return '$v L/day';
+  }
+
+  String _priceText(String value) {
+    final v = value.trim();
+    if (v.isEmpty || v == 'null') return '-';
+    return 'Rs $v';
   }
 }

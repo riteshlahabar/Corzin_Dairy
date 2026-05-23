@@ -30,11 +30,14 @@ class MilkController extends GetxController {
   final RxList<MilkAnimalModel> animals = <MilkAnimalModel>[].obs;
   final RxList<MilkPanModel> pans = <MilkPanModel>[].obs;
   final RxList<MilkDairyModel> dairies = <MilkDairyModel>[].obs;
+  final RxList<PanCowMilkEntry> panCowMilkEntries = <PanCowMilkEntry>[].obs;
   final Rxn<MilkAnimalModel> selectedAnimal = Rxn<MilkAnimalModel>();
   final Rxn<MilkPanModel> selectedPan = Rxn<MilkPanModel>();
   final Rxn<MilkDairyModel> selectedDairy = Rxn<MilkDairyModel>();
   final RxString selectedShift = 'Morning'.obs;
   final RxList<String> availableShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
+  final RxDouble cowMilkTotal = 0.0.obs;
+  final RxDouble cowMilkDifference = 0.0.obs;
   final RxBool isScheduleLoading = false.obs;
 
   int farmerId = 0;
@@ -45,6 +48,7 @@ class MilkController extends GetxController {
   void onInit() {
     super.onInit();
     milkDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    quantityController.addListener(recalculateCowMilkTotal);
     initData();
   }
 
@@ -181,6 +185,7 @@ class MilkController extends GetxController {
     selectedAnimal.value = animal;
     if (animal != null) {
       selectedPan.value = null;
+      clearPanCowDistribution();
     }
     updateAvailableShifts();
   }
@@ -190,7 +195,72 @@ class MilkController extends GetxController {
     if (pan != null) {
       selectedAnimal.value = null;
     }
+    rebuildPanCowDistribution();
     updateAvailableShifts();
+  }
+
+  double get enteredQuantityLiters => double.tryParse(quantityController.text.trim()) ?? 0;
+
+  bool get isCowMilkMatched {
+    if (selectedPan.value == null) return true;
+    if (panCowMilkEntries.isEmpty) return false;
+    if (enteredQuantityLiters <= 0) return false;
+    return cowMilkDifference.value.abs() <= 0.01;
+  }
+
+  String get cowMilkDifferenceLabel {
+    final diff = cowMilkDifference.value;
+    if (diff.abs() <= 0.01) return '0.00 liter';
+    final prefix = diff > 0 ? '+' : '';
+    return '$prefix${diff.toStringAsFixed(2)} liter';
+  }
+
+  String get cowMilkStatusLabel {
+    if (selectedPan.value == null || panCowMilkEntries.isEmpty) return '';
+    return isCowMilkMatched ? 'Matched' : 'Mismatch';
+  }
+
+  void rebuildPanCowDistribution() {
+    final oldEntries = List<PanCowMilkEntry>.from(panCowMilkEntries);
+    panCowMilkEntries.clear();
+    for (final entry in oldEntries) {
+      entry.dispose();
+    }
+
+    final pan = selectedPan.value;
+    if (pan == null) {
+      recalculateCowMilkTotal();
+      return;
+    }
+
+    final panAnimals = animals.where((animal) => animal.belongsToPan(pan)).toList()
+      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    final entries = panAnimals.map(PanCowMilkEntry.fromAnimal).toList();
+    for (final entry in entries) {
+      entry.quantityController.addListener(recalculateCowMilkTotal);
+    }
+    panCowMilkEntries.assignAll(entries);
+    recalculateCowMilkTotal();
+  }
+
+  void clearPanCowDistribution() {
+    final oldEntries = List<PanCowMilkEntry>.from(panCowMilkEntries);
+    panCowMilkEntries.clear();
+    for (final entry in oldEntries) {
+      entry.dispose();
+    }
+    recalculateCowMilkTotal();
+  }
+
+  void recalculateCowMilkTotal() {
+    final total = panCowMilkEntries.fold<double>(
+      0,
+      (sum, entry) => sum + (double.tryParse(entry.quantityController.text.trim()) ?? 0),
+    );
+    final roundedTotal = double.parse(total.toStringAsFixed(2));
+    final roundedDiff = double.parse((roundedTotal - enteredQuantityLiters).toStringAsFixed(2));
+    cowMilkTotal.value = roundedTotal;
+    cowMilkDifference.value = roundedDiff;
   }
 
   Future<void> submitMilk() async {
@@ -211,8 +281,7 @@ class MilkController extends GetxController {
     }
     if (selectedPan.value != null) {
       final pan = selectedPan.value!;
-      final panAnimals = animals.where((animal) => animal.belongsToPan(pan)).toList();
-      if (panAnimals.isEmpty) {
+      if (panCowMilkEntries.isEmpty) {
         Get.snackbar('Error', 'No animals found in selected PAN', snackPosition: SnackPosition.BOTTOM);
         return;
       }
@@ -222,30 +291,20 @@ class MilkController extends GetxController {
         Get.snackbar('Error', 'Please enter valid milk quantity', snackPosition: SnackPosition.BOTTOM);
         return;
       }
-      final perAnimalQty = totalQty / panAnimals.length;
-      final qty = _formatDistributedValue(perAnimalQty);
-      final fatPerAnimal = _formatOptionalDistributedValue(
-        fatController.text.trim(),
-        panAnimals.length,
-      );
-      final snfPerAnimal = _formatOptionalDistributedValue(
-        snfController.text.trim(),
-        panAnimals.length,
-      );
-      final quantityByAnimal = <int, String>{
-        for (final animal in panAnimals) animal.id: qty,
-      };
+      recalculateCowMilkTotal();
+      if (!isCowMilkMatched) {
+        Get.snackbar(
+          'Validation',
+          'Cow-wise total does not match quantity liters.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
 
-      final result = await submitBulkMilk(
-        quantityByAnimal,
-        fatPerAnimal: fatPerAnimal,
-        snfPerAnimal: snfPerAnimal,
-      );
-      final successCount = result['success'] ?? 0;
-      final failedCount = result['failed'] ?? 0;
+      final saved = await submitPanMilk();
 
-      if (successCount > 0 && failedCount == 0) {
-        final successMessage = 'Milk record saved successfully for $successCount animals in ${pan.name}';
+      if (saved) {
+        final successMessage = 'Milk record saved successfully for ${panCowMilkEntries.length} animals in ${pan.name}';
         await refreshAutoSchedule();
         clearForm();
         Get.back(result: {'success': true, 'message': successMessage});
@@ -256,12 +315,6 @@ class MilkController extends GetxController {
             snackPosition: SnackPosition.BOTTOM,
           );
         });
-      } else if (successCount > 0) {
-        Get.snackbar(
-          'Partial Success',
-          'Saved for $successCount animals, failed for $failedCount.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
       } else {
         Get.snackbar(
           'Error',
@@ -330,12 +383,88 @@ class MilkController extends GetxController {
     }
   }
 
+  Future<bool> submitPanMilk() async {
+    if (farmerId == 0) {
+      Get.snackbar('Error', 'Farmer ID not found. Please login again.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+    final pan = selectedPan.value;
+    final dairy = selectedDairy.value;
+    if (pan == null) {
+      Get.snackbar('Error', 'Please select a PAN.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+    if (dairy == null) {
+      Get.snackbar('Error', 'Please select a dairy first.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+    if (panCowMilkEntries.isEmpty) {
+      Get.snackbar('Error', 'No animals found in selected PAN.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+
+    final invalid = panCowMilkEntries.any((entry) {
+      final value = double.tryParse(entry.quantityController.text.trim());
+      return value == null || value < 0;
+    });
+    if (invalid) {
+      Get.snackbar('Error', 'Please enter valid cow-wise milk quantities.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+    recalculateCowMilkTotal();
+    if (!isCowMilkMatched) {
+      Get.snackbar('Validation', 'Cow-wise total does not match quantity liters.', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    }
+
+    try {
+      isSubmitting.value = true;
+      final payload = {
+        'farmer_id': farmerId.toString(),
+        'pan_id': pan.id.toString(),
+        'dairy_id': dairy.id.toString(),
+        'date': _formatDateForApi(milkDateController.text.trim()),
+        'shift': selectedShift.value,
+        'quantity_liters': quantityController.text.trim(),
+        'fat': fatController.text.trim(),
+        'snf': snfController.text.trim(),
+        'rate': rateController.text.trim(),
+        'notes': notesController.text.trim(),
+        'cow_milk_details': panCowMilkEntries
+            .map(
+              (entry) => {
+                'animal_id': entry.animal.id.toString(),
+                'final_milk_qty': _formatDistributedValue(
+                  double.tryParse(entry.quantityController.text.trim()) ?? 0,
+                ),
+              },
+            )
+            .toList(),
+      };
+
+      final response = await http.post(
+        Uri.parse(Api.addPanMilk),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return data['status'] == true;
+      }
+      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to save PAN milk record', snackPosition: SnackPosition.BOTTOM);
+      return false;
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
   Future<Map<String, int>> submitBulkMilk(
     Map<int, String> quantityByAnimal,
-    {
-    String? fatPerAnimal,
-    String? snfPerAnimal,
-  }) async {
+  ) async {
     if (farmerId == 0) {
       Get.snackbar(
         'Error',
@@ -383,8 +512,8 @@ class MilkController extends GetxController {
           'date': _formatDateForApi(milkDateController.text.trim()),
           'shift': selectedShift.value,
           'quantity': entry.value,
-          'fat': fatPerAnimal ?? fatController.text.trim(),
-          'snf': snfPerAnimal ?? snfController.text.trim(),
+          'fat': fatController.text.trim(),
+          'snf': snfController.text.trim(),
           'rate': rateController.text.trim(),
           'notes': notesController.text.trim(),
         };
@@ -426,13 +555,6 @@ class MilkController extends GetxController {
         .toStringAsFixed(4)
         .replaceAll(RegExp(r'0+$'), '')
         .replaceAll(RegExp(r'\.$'), '');
-  }
-
-  String? _formatOptionalDistributedValue(String value, int divisor) {
-    if (value.isEmpty || divisor <= 0) return null;
-    final parsed = double.tryParse(value);
-    if (parsed == null) return value;
-    return _formatDistributedValue(parsed / divisor);
   }
 
   Future<void> refreshAutoSchedule() async {
@@ -569,6 +691,7 @@ class MilkController extends GetxController {
     selectedAnimal.value = null;
     selectedPan.value = null;
     selectedDairy.value = null;
+    clearPanCowDistribution();
     quantityController.clear();
     fatController.clear();
     snfController.clear();
@@ -579,6 +702,7 @@ class MilkController extends GetxController {
 
   @override
   void onClose() {
+    clearPanCowDistribution();
     milkDateController.dispose();
     quantityController.dispose();
     fatController.dispose();
@@ -609,7 +733,33 @@ class MilkController extends GetxController {
     final current = selectedPan.value;
     if (current != null) {
       selectedPan.value = next.firstWhereOrNull((pan) => pan.matches(current));
+      rebuildPanCowDistribution();
     }
+  }
+}
+
+class PanCowMilkEntry {
+  final MilkAnimalModel animal;
+  final TextEditingController quantityController;
+
+  PanCowMilkEntry({
+    required this.animal,
+    required this.quantityController,
+  });
+
+  factory PanCowMilkEntry.fromAnimal(MilkAnimalModel animal) {
+    return PanCowMilkEntry(
+      animal: animal,
+      quantityController: TextEditingController(
+        text: animal.defaultMilkPerSession <= 0
+            ? ''
+            : animal.defaultMilkPerSession.toStringAsFixed(2),
+      ),
+    );
+  }
+
+  void dispose() {
+    quantityController.dispose();
   }
 }
 
@@ -621,6 +771,7 @@ class MilkAnimalModel {
   final int panId;
   final String panName;
   final List<String> panMilkShifts;
+  final double defaultMilkPerSession;
 
   MilkAnimalModel({
     required this.id,
@@ -630,6 +781,7 @@ class MilkAnimalModel {
     required this.panId,
     required this.panName,
     required this.panMilkShifts,
+    required this.defaultMilkPerSession,
   });
 
   String get displayName {
@@ -664,6 +816,7 @@ class MilkAnimalModel {
       panId: int.tryParse((json['pan_id'] ?? '').toString()) ?? 0,
       panName: panFromFlat.trim().isNotEmpty ? panFromFlat : panFromNested,
       panMilkShifts: _parseMilkShifts(json['pan_milk_shifts']),
+      defaultMilkPerSession: double.tryParse((json['default_milk_per_session'] ?? '').toString()) ?? 0,
     );
   }
 

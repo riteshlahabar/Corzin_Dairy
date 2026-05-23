@@ -16,6 +16,7 @@ class Api {
   static const String animalList = "$baseUrl/animal/list";
   static const String animalUpdate = "$baseUrl/animal/update";
   static const String animalSell = "$baseUrl/animal/sell";
+  static const String animalCancelSell = "$baseUrl/animal/sell";
   static const String animalsForSale = "$baseUrl/animal/for-sale";
   static const String animalTypes = "$baseUrl/animal/types";
   static const String animalLifecycle = "$baseUrl/animal/lifecycle";
@@ -25,6 +26,7 @@ class Api {
   static const String animalPanTransfer = "$baseUrl/animal/pans/transfer";
 
   static const String addMilk = "$baseUrl/milk";
+  static const String addPanMilk = "$baseUrl/milk/pan";
   static const String milkByAnimal = "$baseUrl/milk/animal";
   static const String milkList = "$baseUrl/milk/list";
   static const String milkUpdate = "$baseUrl/milk/update";
@@ -44,6 +46,12 @@ class Api {
   static const String feedingList = "$baseUrl/feeding/list";
   static const String feedingSummary = "$baseUrl/feeding/summary";
   static const String feedingUpdate = "$baseUrl/feeding/update";
+
+  static const String pregnancyList = "$baseUrl/pregnancy/list";
+  static const String pregnancyStore = "$baseUrl/pregnancy";
+  static const String pregnancyUpdate = "$baseUrl/pregnancy/update";
+  static const String pregnancyStatus = "$baseUrl/pregnancy/status";
+  static const String pregnancyDelete = "$baseUrl/pregnancy/delete";
 
   static const String healthMedical = "$baseUrl/health/medical";
   static const String healthMastitis = "$baseUrl/health/mastitis";

@@ -15,10 +15,16 @@ class FeedingHistoryView extends StatefulWidget {
     super.key,
     this.initialTab = 0,
     this.showTabs = true,
+    this.initialAnimalId,
+    this.initialAnimalName = '',
+    this.initialTagNumber = '',
   });
 
   final int initialTab;
   final bool showTabs;
+  final int? initialAnimalId;
+  final String initialAnimalName;
+  final String initialTagNumber;
 
   @override
   State<FeedingHistoryView> createState() => _FeedingHistoryViewState();
@@ -31,6 +37,24 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   int _farmerId = 0;
   final List<_FeedingHistoryItem> _history = <_FeedingHistoryItem>[];
   final List<_FeedTypeEditorItem> _feedTypes = <_FeedTypeEditorItem>[];
+
+  List<_FeedingHistoryItem> get _visibleHistory {
+    final selectedAnimalId = widget.initialAnimalId ?? 0;
+    final selectedName = widget.initialAnimalName.trim();
+    final selectedTag = widget.initialTagNumber.trim();
+    if (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) {
+      return _history;
+    }
+    return _history
+        .where(
+          (item) => item.matchesAnimal(
+            animalId: selectedAnimalId,
+            animalName: selectedName,
+            tagNumber: selectedTag,
+          ),
+        )
+        .toList();
+  }
 
   @override
   void initState() {
@@ -648,7 +672,9 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
         title: Text(
-          ((widget.showTabs ? _selectedTab : widget.initialTab) == 0)
+          widget.initialAnimalName.trim().isNotEmpty
+              ? '${widget.initialAnimalName.trim()} ${'feeding_record'.tr}'
+              : ((widget.showTabs ? _selectedTab : widget.initialTab) == 0)
               ? 'feeding_record'.tr
               : 'diet_plan'.tr,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -701,7 +727,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
 
   List<_FeedingHistoryGroup> _buildHistoryGroups() {
     final grouped = <String, List<_FeedingHistoryItem>>{};
-    for (final item in _history) {
+    for (final item in _visibleHistory) {
       grouped.putIfAbsent(item.groupKey, () => <_FeedingHistoryItem>[]).add(item);
     }
 
@@ -752,6 +778,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
 
   Widget _buildHistoryTab() {
     final groups = _buildHistoryGroups();
+    final visibleHistory = _visibleHistory;
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
       child: _isLoading
@@ -762,7 +789,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                 Center(child: CircularProgressIndicator()),
               ],
             )
-          : _history.isEmpty
+          : visibleHistory.isEmpty
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
@@ -1060,6 +1087,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   }
 
   Widget _buildFeedTypeTab() {
+    final visibleHistory = _visibleHistory;
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
       child: (_isFeedTypeLoading || _isLoading)
@@ -1090,7 +1118,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (_history.isEmpty)
+                if (visibleHistory.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -1102,7 +1130,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                       style: TextStyle(fontSize: 14, color: Colors.black54),
                     ),
                   ),
-                ..._history.map(
+                ...visibleHistory.map(
                   (item) => Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
@@ -1255,6 +1283,24 @@ class _FeedingHistoryItem {
   }
 
   bool get hasPan => panName.trim().isNotEmpty;
+
+  bool matchesAnimal({
+    required int animalId,
+    required String animalName,
+    required String tagNumber,
+  }) {
+    if (animalId > 0 && this.animalId > 0) {
+      return this.animalId == animalId;
+    }
+    final normalizedName = animalName.trim().toLowerCase();
+    final normalizedTag = tagNumber.trim().toLowerCase();
+    final currentName = this.animalName.trim().toLowerCase();
+    final currentTag = this.tagNumber.trim().toLowerCase();
+    if (normalizedTag.isNotEmpty && currentTag.isNotEmpty) {
+      return currentTag == normalizedTag;
+    }
+    return normalizedName.isNotEmpty && currentName == normalizedName;
+  }
 
   String get groupKey {
     if (panId > 0) return 'pan_id_$panId';
