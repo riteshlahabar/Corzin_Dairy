@@ -35,7 +35,7 @@ class PaymentView extends GetView<PaymentController> {
           final items = controller.payments;
           final totalBalance = items.fold<double>(
             0,
-            (sum, item) => sum + (item.latest?.balanceAmount ?? item.currentBalance),
+            (sum, item) => sum + (item.latest?.totalBalance ?? item.currentBalance),
           );
 
           return RefreshIndicator(
@@ -47,8 +47,6 @@ class PaymentView extends GetView<PaymentController> {
                   dairyCount: items.length,
                   totalBalance: totalBalance,
                 ),
-                const SizedBox(height: 12),
-                _addEntryCard(context),
                 const SizedBox(height: 12),
                 if (items.isEmpty)
                   _emptyCard()
@@ -161,38 +159,6 @@ class PaymentView extends GetView<PaymentController> {
     );
   }
 
-  Widget _addEntryCard(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _openAddEntrySheet(context),
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE1E8E2)),
-        ),
-      child: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0x142E7D32),
-              child: Icon(Icons.add_rounded, color: AppColors.primary),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'add_new_payment_entry'.tr,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.primary),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _emptyCard() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -249,7 +215,7 @@ class PaymentView extends GetView<PaymentController> {
                   ),
                 ),
               ),
-              _statusBadge(latest?.balanceAmount ?? summary.currentBalance),
+              _statusBadge(latest?.totalBalance ?? summary.currentBalance),
             ],
           ),
           const SizedBox(height: 10),
@@ -294,8 +260,8 @@ class PaymentView extends GetView<PaymentController> {
                 Expanded(
                   child: _metricCard(
                     title: 'balance'.tr,
-                    value: _inr(latest.balanceAmount),
-                    color: latest.balanceAmount > 0 ? Colors.orange.shade800 : Colors.green.shade700,
+                    value: _inr(latest.totalBalance),
+                    color: latest.totalBalance > 0 ? Colors.orange.shade800 : Colors.green.shade700,
                   ),
                 ),
               ],
@@ -303,7 +269,7 @@ class PaymentView extends GetView<PaymentController> {
             const SizedBox(height: 8),
             Text(
               '${'previous_balance'.tr} + ${'today_balance'.tr} = ${'total_balance'.tr}\n'
-              '${_inr(_remainingPreviousBalance(latest))} + ${_inr(_remainingTodayBalance(latest))} = ${_inr(latest.balanceAmount)}',
+              '${_inr(latest.previousBalance)} + ${_inr(latest.todayBalance)} = ${_inr(latest.totalBalance)}',
               style: TextStyle(
                 color: AppColors.grey.shade700,
                 fontSize: 12,
@@ -734,7 +700,7 @@ class PaymentView extends GetView<PaymentController> {
                         Expanded(
                           child: _historyKpi(
                             title: 'current_balance'.tr,
-                            value: _inr(latest?.balanceAmount ?? summary.currentBalance),
+                            value: _inr(latest?.totalBalance ?? summary.currentBalance),
                           ),
                         ),
                       ],
@@ -758,7 +724,7 @@ class PaymentView extends GetView<PaymentController> {
                         itemBuilder: (context, index) {
                           final item = summary.history[index];
                           return Container(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
@@ -797,31 +763,99 @@ class PaymentView extends GetView<PaymentController> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
+                                if (item.animals.isNotEmpty) ...[
+                                  ...item.animals.map(
+                                    (animal) => Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF7FAF8),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: const Color(0xFFE5EEE7)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            animal.tagNumber.trim().isNotEmpty
+                                                ? '${animal.animalName} / ${animal.tagNumber}'
+                                                : animal.animalName,
+                                            style: const TextStyle(
+                                              fontSize: 12.4,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          if (animal.morningMilk > 0)
+                                            _historyAmountRow(
+                                              label: '${'morning'.tr} ${'milk'.tr}',
+                                              value: '${animal.morningMilk.toStringAsFixed(2)} L',
+                                              valueColor: const Color(0xFF2E7D32),
+                                            ),
+                                          if (animal.afternoonMilk > 0)
+                                            _historyAmountRow(
+                                              label: '${'afternoon'.tr} ${'milk'.tr}',
+                                              value: '${animal.afternoonMilk.toStringAsFixed(2)} L',
+                                              valueColor: const Color(0xFF2E7D32),
+                                            ),
+                                          if (animal.eveningMilk > 0)
+                                            _historyAmountRow(
+                                              label: '${'evening'.tr} ${'milk'.tr}',
+                                              value: '${animal.eveningMilk.toStringAsFixed(2)} L',
+                                              valueColor: const Color(0xFF2E7D32),
+                                            ),
+                                          _historyAmountRow(
+                                            label: 'animal_total'.tr,
+                                            value: '${animal.totalMilk.toStringAsFixed(2)} L',
+                                            valueColor: AppColors.primary,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 _historyAmountRow(
-                                  label: 'total_amount'.tr,
-                                  value: _inr(item.totalAmount),
+                                  label: 'date_total_milk'.tr,
+                                  value: '${item.totalMilk.toStringAsFixed(2)} L',
                                   valueColor: AppColors.primary,
+                                ),
+                                _historyAmountRow(
+                                  label: 'rate'.tr,
+                                  value: _inr(item.rate),
+                                  valueColor: const Color(0xFF1565C0),
+                                ),
+                                _historyAmountRow(
+                                  label: 'today_milk_amount'.tr,
+                                  value: _inr(item.dayTotalAmount),
+                                  valueColor: AppColors.primary,
+                                ),
+                                const SizedBox(height: 2),
+                                _historyAmountRow(
+                                  label: 'previous_balance'.tr,
+                                  value: _inr(item.previousBalance),
+                                  valueColor: Colors.blueGrey.shade700,
+                                ),
+                                _historyAmountRow(
+                                  label: 'today_balance'.tr,
+                                  value: _inr(item.todayBalance),
+                                  valueColor: Colors.blueGrey.shade700,
                                 ),
                                 _historyAmountRow(
                                   label: 'paid_amount'.tr,
                                   value: _inr(item.paidAmount),
-                                  valueColor: Colors.blueGrey.shade700,
+                                  valueColor: Colors.teal.shade700,
                                 ),
                                 _historyAmountRow(
-                                  label: 'balance'.tr,
-                                  value: _inr(item.balanceAmount),
-                                  valueColor:
-                                      item.balanceAmount > 0 ? Colors.orange.shade800 : Colors.green.shade700,
+                                  label: 'paid_date'.tr,
+                                  value: item.paidDate.trim().isNotEmpty ? item.paidDate : '-',
+                                  valueColor: AppColors.black,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${'previous_balance'.tr} + ${'today_balance'.tr} = ${'total_balance'.tr}\n'
-                                  '${_inr(_remainingPreviousBalance(item))} + ${_inr(_remainingTodayBalance(item))} = ${_inr(item.balanceAmount)}',
-                                  style: TextStyle(
-                                    color: AppColors.grey.shade700,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                _historyAmountRow(
+                                  label: 'total_balance'.tr,
+                                  value: _inr(item.totalBalance),
+                                  valueColor:
+                                      item.totalBalance > 0 ? Colors.orange.shade800 : Colors.green.shade700,
                                 ),
                                 if (item.notes.trim().isNotEmpty) ...[
                                   const SizedBox(height: 8),
@@ -945,17 +979,6 @@ class PaymentView extends GetView<PaymentController> {
         borderSide: BorderSide(color: AppColors.primary),
       ),
     );
-  }
-
-  static double _remainingPreviousBalance(PaymentDayEntry item) {
-    final remaining = item.previousBalance - item.paidAmount;
-    return remaining > 0 ? remaining : 0;
-  }
-
-  static double _remainingTodayBalance(PaymentDayEntry item) {
-    final paidAfterPrevious = item.paidAmount - item.previousBalance;
-    final remaining = item.dayTotalAmount - (paidAfterPrevious > 0 ? paidAfterPrevious : 0);
-    return remaining > 0 ? remaining : 0;
   }
 
   static double _toDouble(String value) {

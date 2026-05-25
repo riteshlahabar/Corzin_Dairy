@@ -22,6 +22,7 @@ class LivestockReportController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isExporting = false.obs;
   final RxString scope = 'animal'.obs;
+  final RxString reportType = 'all'.obs;
   final RxnInt selectedTargetId = RxnInt();
 
   final TextEditingController fromDateController = TextEditingController();
@@ -33,6 +34,19 @@ class LivestockReportController extends GetxController {
   final RxList<ReportSectionData> sectionReports = <ReportSectionData>[].obs;
 
   int farmerId = 0;
+
+  static const String reportTypeAll = 'all';
+  static const String reportTypeMilk = 'milk';
+  static const String reportTypeFeeding = 'feeding';
+  static const String reportTypeMedical = 'medical';
+  static const String reportTypeLifecycle = 'lifecycle';
+  static const String reportTypeProfitLoss = 'profit_loss';
+
+  static const String sectionMilk = 'Milk Report';
+  static const String sectionFeeding = 'Feeding Report';
+  static const String sectionMedical = 'Medical History';
+  static const String sectionLifecycle = 'Life Cycle History';
+  static const String sectionProfitLoss = 'Profit Loss Report';
 
   @override
   void onInit() {
@@ -64,6 +78,20 @@ class LivestockReportController extends GetxController {
     selectedTargetId.value = null;
     await fetchTargets();
     await fetchReport();
+  }
+
+  void changeReportType(String? value) {
+    final next = (value ?? '').trim().toLowerCase();
+    const allowed = <String>{
+      reportTypeAll,
+      reportTypeMilk,
+      reportTypeFeeding,
+      reportTypeMedical,
+      reportTypeLifecycle,
+      reportTypeProfitLoss,
+    };
+    if (!allowed.contains(next) || reportType.value == next) return;
+    reportType.value = next;
   }
 
   Future<void> fetchTargets() async {
@@ -211,10 +239,103 @@ class LivestockReportController extends GetxController {
     return '-';
   }
 
+  List<ReportSectionData> get visibleSections =>
+      _filterSectionsByType(sectionReports.toList());
+
+  List<ReportSummaryCardData> get summaryCards {
+    final currentSections = visibleSections;
+    if (currentSections.isEmpty) return const <ReportSummaryCardData>[];
+
+    final medicalTotal = _sumColumn(currentSections, sectionMedical, 'Total');
+    final profitDebit = _sumColumn(currentSections, sectionProfitLoss, 'Debit');
+    final profitCredit = _sumColumn(currentSections, sectionProfitLoss, 'Credit');
+    final profitNet = profitCredit - profitDebit;
+
+    switch (reportType.value) {
+      case reportTypeMilk:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'milk_quantity'.tr, value: '${totals.value.milkQuantity.toStringAsFixed(2)} L'),
+          ReportSummaryCardData(label: 'milk_earning'.tr, value: 'Rs ${totals.value.milkAmount.toStringAsFixed(2)}'),
+        ];
+      case reportTypeFeeding:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'feeding_quantity'.tr, value: '${totals.value.feedingQuantity.toStringAsFixed(2)} Kg'),
+          ReportSummaryCardData(label: 'feeding_cost'.tr, value: 'Rs ${totals.value.feedingCost.toStringAsFixed(2)}'),
+        ];
+      case reportTypeMedical:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'medical_cost'.tr, value: 'Rs ${medicalTotal.toStringAsFixed(2)}'),
+        ];
+      case reportTypeLifecycle:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'lifecycle_events'.tr, value: '${totals.value.lifecycleEvents}'),
+          ReportSummaryCardData(label: 'transfer_events'.tr, value: '${totals.value.lifecycleTransfer}'),
+          ReportSummaryCardData(label: 'sold_events'.tr, value: '${totals.value.lifecycleSold}'),
+          ReportSummaryCardData(label: 'death_events'.tr, value: '${totals.value.lifecycleDeath}'),
+        ];
+      case reportTypeProfitLoss:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'debit'.tr, value: 'Rs ${profitDebit.toStringAsFixed(2)}'),
+          ReportSummaryCardData(label: 'credit'.tr, value: 'Rs ${profitCredit.toStringAsFixed(2)}'),
+          ReportSummaryCardData(
+            label: profitNet >= 0 ? 'net_profit'.tr : 'net_loss'.tr,
+            value: 'Rs ${profitNet.abs().toStringAsFixed(2)}',
+          ),
+        ];
+      default:
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'milk_quantity'.tr, value: '${totals.value.milkQuantity.toStringAsFixed(2)} L'),
+          ReportSummaryCardData(label: 'milk_earning'.tr, value: 'Rs ${totals.value.milkAmount.toStringAsFixed(2)}'),
+          ReportSummaryCardData(label: 'feeding_quantity'.tr, value: '${totals.value.feedingQuantity.toStringAsFixed(2)} Kg'),
+          ReportSummaryCardData(label: 'feeding_cost'.tr, value: 'Rs ${totals.value.feedingCost.toStringAsFixed(2)}'),
+          ReportSummaryCardData(label: 'medical_cost'.tr, value: 'Rs ${medicalTotal.toStringAsFixed(2)}'),
+          ReportSummaryCardData(
+            label: 'profit_loss'.tr,
+            value: 'Rs ${profitNet.toStringAsFixed(2)}',
+          ),
+        ];
+    }
+  }
+
+  List<ReportSectionData> _filterSectionsByType(List<ReportSectionData> sections) {
+    if (sections.isEmpty) return const <ReportSectionData>[];
+    switch (reportType.value) {
+      case reportTypeMilk:
+        return sections.where((section) => section.title == sectionMilk).toList();
+      case reportTypeFeeding:
+        return sections.where((section) => section.title == sectionFeeding).toList();
+      case reportTypeMedical:
+        return sections.where((section) => section.title == sectionMedical).toList();
+      case reportTypeLifecycle:
+        return sections.where((section) => section.title == sectionLifecycle).toList();
+      case reportTypeProfitLoss:
+        return sections.where((section) => section.title == sectionProfitLoss).toList();
+      default:
+        return sections;
+    }
+  }
+
+  double _sumColumn(
+    List<ReportSectionData> sections,
+    String sectionTitle,
+    String header,
+  ) {
+    final section = sections.firstWhereOrNull((item) => item.title == sectionTitle);
+    if (section == null || section.rows.isEmpty) return 0;
+    final index = section.headers.indexOf(header);
+    if (index < 0) return 0;
+    double total = 0;
+    for (final row in section.rows) {
+      if (index >= row.length) continue;
+      total += _asDouble(row[index]);
+    }
+    return total;
+  }
+
   Future<void> exportExcel() async {
     try {
       isExporting.value = true;
-      final sections = await _buildDetailedSections();
+      final sections = _filterSectionsByType(await _buildDetailedSections());
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
         Get.snackbar('Info', 'no_report_data'.tr);
@@ -252,7 +373,7 @@ class LivestockReportController extends GetxController {
   Future<void> exportPdf() async {
     try {
       isExporting.value = true;
-      final sections = await _buildDetailedSections();
+      final sections = _filterSectionsByType(await _buildDetailedSections());
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
         Get.snackbar('Info', 'no_report_data'.tr);
@@ -332,7 +453,6 @@ class LivestockReportController extends GetxController {
       _fetchListFromApi('${Api.animalList}/$farmerId'),
       _fetchListFromApi('${Api.milkList}/$farmerId'),
       _fetchListFromApi('${Api.feedingList}/$farmerId'),
-      _fetchListFromApi('${Api.feedingDietPlans}/$farmerId'),
       _fetchListFromApi('${Api.animalHistory}/$farmerId'),
       _fetchListFromApi('${Api.doctorAppointmentsByFarmer}/$farmerId'),
     ]);
@@ -340,9 +460,8 @@ class LivestockReportController extends GetxController {
     final animals = result[0];
     final milkRowsRaw = result[1];
     final feedingRowsRaw = result[2];
-    final dietPlansRaw = result[3];
-    final lifecycleRowsRaw = result[4];
-    final appointmentsRaw = result[5];
+    final lifecycleRowsRaw = result[3];
+    final appointmentsRaw = result[4];
 
     final animalLookup = <int, _AnimalExportInfo>{};
     for (final item in animals) {
@@ -363,19 +482,6 @@ class LivestockReportController extends GetxController {
         gender: _asText(item['gender']),
         ageDisplay: _asText(item['age_display'], fallback: _asText(item['age'])),
         weight: _asText(item['weight']),
-      );
-    }
-
-    final dietLookup = <int, _DietPlanInfo>{};
-    for (final item in dietPlansRaw) {
-      final id = _asInt(item['id']);
-      if (id <= 0) continue;
-      final requiredDmi = _asDouble(item['target_dmi']);
-      final actualDmi = _asDouble(item['plan_dry_matter_quantity']);
-      dietLookup[id] = _DietPlanInfo(
-        requiredDmi: requiredDmi,
-        actualDmi: actualDmi,
-        difference: actualDmi - requiredDmi,
       );
     }
 
@@ -408,6 +514,7 @@ class LivestockReportController extends GetxController {
           animal?.tagNumber ?? _asText(item['tag_number']),
           animalId > 0 ? '$animalId' : '-',
           '-',
+          _format2(qty),
           fat,
           snf,
           dairyName,
@@ -425,6 +532,7 @@ class LivestockReportController extends GetxController {
           animal?.tagNumber ?? _asText(item['tag_number']),
           animalId > 0 ? '$animalId' : '-',
           shiftRow.key,
+          _format2(shiftRow.value),
           fat,
           snf,
           dairyName,
@@ -434,6 +542,7 @@ class LivestockReportController extends GetxController {
       }
     }
 
+    final debitByDateAnimal = <String, _ProfitAccumulator>{};
     final feedingRows = <List<String>>[];
     for (final item in feedingRowsRaw) {
       final date = _parseAnyDate(item['date']);
@@ -443,8 +552,16 @@ class LivestockReportController extends GetxController {
       final panId = animal?.panId ?? 0;
       if (!_matchesScope(animalId: animalId, panId: panId)) continue;
 
-      final planId = _asInt(item['diet_plan_id']);
-      final diet = dietLookup[planId];
+      final ratePerUnit = _asDouble(item['rate_per_unit']);
+      var feedingCost = _asDouble(item['feeding_cost']);
+      if (feedingCost <= 0 && ratePerUnit > 0) {
+        feedingCost = _asDouble(item['feeding_quantity']) * ratePerUnit;
+      }
+      if (feedingCost > 0) {
+        final key = '${_dateKey(date)}|$animalId';
+        debitByDateAnimal.putIfAbsent(key, _ProfitAccumulator.new).debit +=
+            feedingCost;
+      }
       feedingRows.add([
         _displayDate(date),
         animal?.panName ?? '-',
@@ -453,14 +570,13 @@ class LivestockReportController extends GetxController {
         animalId > 0 ? '$animalId' : '-',
         _asText(item['feeding_time']),
         _asText(item['diet_plan_name'], fallback: _asText(item['feed_type'])),
-        diet != null ? _format2(diet.requiredDmi) : '-',
-        diet != null ? _format2(diet.actualDmi) : '-',
-        diet != null ? _format2(diet.difference) : '-',
+        _format2(_asDouble(item['feeding_quantity']) > 0 ? _asDouble(item['feeding_quantity']) : _asDouble(item['quantity'])),
+        _format2(ratePerUnit),
+        _format2(feedingCost),
       ]);
     }
 
     final medicalRows = <List<String>>[];
-    final debitByDateAnimal = <String, _ProfitAccumulator>{};
     for (final item in appointmentsRaw) {
       final status = _asText(item['status']).toLowerCase();
       if (!(status == 'completed' ||
@@ -580,7 +696,7 @@ class LivestockReportController extends GetxController {
 
     return <ReportSectionData>[
       ReportSectionData(
-        title: 'Milk Report',
+        title: sectionMilk,
         headers: const [
           'Date',
           'Pen Name',
@@ -588,6 +704,7 @@ class LivestockReportController extends GetxController {
           'Cow Tag No',
           'Id',
           'Milk Shift',
+          'Milk Quantity',
           'Fat',
           'SNF',
           'Dairy Name',
@@ -597,7 +714,7 @@ class LivestockReportController extends GetxController {
         rows: milkRows,
       ),
       ReportSectionData(
-        title: 'Feeding Report',
+        title: sectionFeeding,
         headers: const [
           'Date',
           'Pen Name',
@@ -605,15 +722,15 @@ class LivestockReportController extends GetxController {
           'Cow Tag No',
           'Id',
           'Feeding Shift',
-          'Dite Name',
-          'Required DMI',
-          'Actual DMI',
-          'Difference',
+          'Diet/Feed Name',
+          'Quantity',
+          'Rate / Unit',
+          'Feeding Cost',
         ],
         rows: feedingRows,
       ),
       ReportSectionData(
-        title: 'Medical History',
+        title: sectionMedical,
         headers: const [
           'Date',
           'Pen Name',
@@ -631,7 +748,7 @@ class LivestockReportController extends GetxController {
         rows: medicalRows,
       ),
       ReportSectionData(
-        title: 'Life Cycle Report',
+        title: sectionLifecycle,
         headers: const [
           'Date',
           'Pen Name',
@@ -652,7 +769,7 @@ class LivestockReportController extends GetxController {
         rows: lifecycleRows,
       ),
       ReportSectionData(
-        title: 'Profit Loss Report',
+        title: sectionProfitLoss,
         headers: const [
           'Date',
           'Pen Name',
@@ -859,6 +976,7 @@ class LivestockReportRow {
   final double milkQuantity;
   final double milkAmount;
   final double feedingQuantity;
+  final double feedingCost;
   final int lifecycleEvents;
   final int lifecycleTransfer;
   final int lifecycleSold;
@@ -870,6 +988,7 @@ class LivestockReportRow {
     required this.milkQuantity,
     required this.milkAmount,
     required this.feedingQuantity,
+    required this.feedingCost,
     required this.lifecycleEvents,
     required this.lifecycleTransfer,
     required this.lifecycleSold,
@@ -883,6 +1002,7 @@ class LivestockReportRow {
       milkQuantity: _toDouble(json['milk_quantity']),
       milkAmount: _toDouble(json['milk_amount']),
       feedingQuantity: _toDouble(json['feeding_quantity']),
+      feedingCost: _toDouble(json['feeding_cost']),
       lifecycleEvents: int.tryParse((json['lifecycle_events'] ?? '').toString()) ?? 0,
       lifecycleTransfer: int.tryParse((json['lifecycle_transfer'] ?? '').toString()) ?? 0,
       lifecycleSold: int.tryParse((json['lifecycle_sold'] ?? '').toString()) ?? 0,
@@ -899,6 +1019,7 @@ class LivestockReportTotals {
   final double milkQuantity;
   final double milkAmount;
   final double feedingQuantity;
+  final double feedingCost;
   final int lifecycleEvents;
   final int lifecycleTransfer;
   final int lifecycleSold;
@@ -908,6 +1029,7 @@ class LivestockReportTotals {
     required this.milkQuantity,
     required this.milkAmount,
     required this.feedingQuantity,
+    required this.feedingCost,
     required this.lifecycleEvents,
     required this.lifecycleTransfer,
     required this.lifecycleSold,
@@ -919,6 +1041,7 @@ class LivestockReportTotals {
       milkQuantity: _toDouble(json['milk_quantity']),
       milkAmount: _toDouble(json['milk_amount']),
       feedingQuantity: _toDouble(json['feeding_quantity']),
+      feedingCost: _toDouble(json['feeding_cost']),
       lifecycleEvents: int.tryParse((json['lifecycle_events'] ?? '').toString()) ?? 0,
       lifecycleTransfer: int.tryParse((json['lifecycle_transfer'] ?? '').toString()) ?? 0,
       lifecycleSold: int.tryParse((json['lifecycle_sold'] ?? '').toString()) ?? 0,
@@ -931,6 +1054,7 @@ class LivestockReportTotals {
       milkQuantity: 0,
       milkAmount: 0,
       feedingQuantity: 0,
+      feedingCost: 0,
       lifecycleEvents: 0,
       lifecycleTransfer: 0,
       lifecycleSold: 0,
@@ -952,6 +1076,16 @@ class ReportSectionData {
     required this.title,
     required this.headers,
     required this.rows,
+  });
+}
+
+class ReportSummaryCardData {
+  final String label;
+  final String value;
+
+  const ReportSummaryCardData({
+    required this.label,
+    required this.value,
   });
 }
 
@@ -986,18 +1120,6 @@ class _AnimalExportInfo {
     required this.gender,
     required this.ageDisplay,
     required this.weight,
-  });
-}
-
-class _DietPlanInfo {
-  final double requiredDmi;
-  final double actualDmi;
-  final double difference;
-
-  const _DietPlanInfo({
-    required this.requiredDmi,
-    required this.actualDmi,
-    required this.difference,
   });
 }
 

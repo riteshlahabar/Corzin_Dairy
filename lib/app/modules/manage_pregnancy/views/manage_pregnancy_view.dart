@@ -236,39 +236,52 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _detailTile('AI Date', _dash(record.aiDate), Icons.event_rounded),
-              _detailTile(
-                'Check Due',
-                _dash(record.pregnancyCheckDueDate),
-                Icons.fact_check_rounded,
-              ),
-              _detailTile(
-                'Expected Calving',
-                _dash(record.expectedCalvingDate),
-                Icons.child_care_rounded,
-              ),
-              _detailTile(
-                'Remaining',
-                record.remainingDays == null
-                    ? '-'
-                    : '${record.remainingDays} days',
-                Icons.timelapse_rounded,
-              ),
-              _detailTile(
-                'Result',
-                controller.statusLabel(record.pregnancyResult),
-                Icons.verified_rounded,
-              ),
-              _detailTile(
-                'Current',
-                record.isCurrent ? 'Yes' : 'No',
-                Icons.radio_button_checked_rounded,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final tileWidth = (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _detailTile(
+                    'AI Date',
+                    _dash(record.aiDate),
+                    Icons.event_rounded,
+                    width: tileWidth,
+                  ),
+                  _detailTile(
+                    'Check Due',
+                    _dash(record.pregnancyCheckDueDate),
+                    Icons.fact_check_rounded,
+                    width: tileWidth,
+                  ),
+                  _detailTile(
+                    'Expected Calving',
+                    _dash(record.expectedCalvingDate),
+                    Icons.child_care_rounded,
+                    width: tileWidth,
+                  ),
+                  _detailTile(
+                    'Remaining',
+                    record.remainingDays == null ? '-' : '${record.remainingDays} days',
+                    Icons.timelapse_rounded,
+                    width: tileWidth,
+                  ),
+                  _detailTile(
+                    'Result',
+                    controller.statusLabel(record.pregnancyResult),
+                    Icons.verified_rounded,
+                    width: tileWidth,
+                  ),
+                  _detailTile(
+                    'Current',
+                    record.isCurrent ? 'Yes' : 'No',
+                    Icons.radio_button_checked_rounded,
+                    width: tileWidth,
+                  ),
+                ],
+              );
+            },
           ),
           if (record.notes.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -324,9 +337,14 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
     );
   }
 
-  Widget _detailTile(String label, String value, IconData icon) {
+  Widget _detailTile(
+    String label,
+    String value,
+    IconData icon, {
+    double? width,
+  }) {
     return Container(
-      width: 150,
+      width: width ?? 150,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FBF8),

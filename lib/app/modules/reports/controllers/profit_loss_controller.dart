@@ -110,12 +110,14 @@ class ProfitLossController extends GetxController {
     final results = await Future.wait<List<Map<String, dynamic>>>([
       _fetchList('${Api.animalList}/$farmerId'),
       _fetchList('${Api.milkList}/$farmerId'),
+      _fetchList('${Api.feedingList}/$farmerId'),
       _fetchList('${Api.doctorAppointmentsByFarmer}/$farmerId'),
     ]);
 
     final animals = results[0];
     final milk = results[1];
-    final appointments = results[2];
+    final feedings = results[2];
+    final appointments = results[3];
 
     final animalInfo = <int, _ProfitAnimalInfo>{};
     for (final item in animals) {
@@ -146,6 +148,19 @@ class ProfitLossController extends GetxController {
       final total = _toDouble(item['charges']) > 0 ? _toDouble(item['charges']) : (fees + med);
       final key = '${_dateKey(date)}|$animalId';
       debitByKey[key] = (debitByKey[key] ?? 0) + total;
+    }
+    for (final item in feedings) {
+      final date = _parseAnyDate(item['date']);
+      if (!_isInRange(date, startDate, endDate)) continue;
+      final animalId = _toInt(item['animal_id']);
+      if (animalId <= 0) continue;
+      final directCost = _toDouble(item['feeding_cost']);
+      final fallbackCost =
+          _toDouble(item['feeding_quantity']) * _toDouble(item['rate_per_unit']);
+      final cost = directCost > 0 ? directCost : fallbackCost;
+      if (cost <= 0) continue;
+      final key = '${_dateKey(date)}|$animalId';
+      debitByKey[key] = (debitByKey[key] ?? 0) + cost;
     }
 
     final creditByKey = <String, double>{};
@@ -283,6 +298,7 @@ class ProfitLossController extends GetxController {
 
 class ProfitLossSummary {
   final double milkEarning;
+  final double feedingCost;
   final double doctorCost;
   final double medicineCost;
   final double totalExpenses;
@@ -291,6 +307,7 @@ class ProfitLossSummary {
 
   const ProfitLossSummary({
     required this.milkEarning,
+    required this.feedingCost,
     required this.doctorCost,
     required this.medicineCost,
     required this.totalExpenses,
@@ -303,6 +320,7 @@ class ProfitLossSummary {
   factory ProfitLossSummary.fromJson(Map<String, dynamic> json) {
     return ProfitLossSummary(
       milkEarning: _toDouble(json['milk_earning']),
+      feedingCost: _toDouble(json['feeding_cost']),
       doctorCost: _toDouble(json['doctor_cost']),
       medicineCost: _toDouble(json['medicine_cost']),
       totalExpenses: _toDouble(json['total_expenses']),
@@ -314,6 +332,7 @@ class ProfitLossSummary {
   factory ProfitLossSummary.zero() {
     return const ProfitLossSummary(
       milkEarning: 0,
+      feedingCost: 0,
       doctorCost: 0,
       medicineCost: 0,
       totalExpenses: 0,

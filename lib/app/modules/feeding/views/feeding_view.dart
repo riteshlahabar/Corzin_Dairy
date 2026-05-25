@@ -260,6 +260,56 @@ class FeedingView extends GetView<FeedingController> {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label('rate_per_unit'.tr, requiredField: true),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: controller.ratePerUnitController,
+                    focusNode: controller.ratePerUnitFocus,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _decoration('enter_rate_per_unit'.tr),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'enter_rate_per_unit_error'.tr;
+                      }
+                      final parsed = double.tryParse(value.trim());
+                      if (parsed == null || parsed < 0) {
+                        return 'valid_rate_per_unit'.tr;
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label('feeding_cost'.tr, requiredField: true),
+                  const SizedBox(height: 6),
+                  Obx(
+                    () => TextFormField(
+                      key: ValueKey(
+                        'feeding_cost_${controller.feedingCost.value.toStringAsFixed(2)}',
+                      ),
+                      initialValue: controller.feedingCost.value.toStringAsFixed(2),
+                      readOnly: true,
+                      decoration: _decoration('0.00'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -440,6 +490,11 @@ class FeedingView extends GetView<FeedingController> {
     final qty = double.tryParse(controller.quantityController.text.trim());
     if (qty == null || qty <= 0) {
       controller.quantityFocus.requestFocus();
+      return;
+    }
+    final rate = double.tryParse(controller.ratePerUnitController.text.trim());
+    if (rate == null || rate < 0) {
+      controller.ratePerUnitFocus.requestFocus();
     }
   }
 }

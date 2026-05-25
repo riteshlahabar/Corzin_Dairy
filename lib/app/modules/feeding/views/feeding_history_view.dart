@@ -561,6 +561,11 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                           totalSubtypeQuantity.value.toStringAsFixed(2),
                                       'balance_quantity':
                                           balanceQuantity.value.toStringAsFixed(2),
+                                      'rate_per_unit':
+                                          item.ratePerUnit.toStringAsFixed(2),
+                                      'feeding_cost':
+                                          (feedingQty * item.ratePerUnit)
+                                              .toStringAsFixed(2),
                                       'feed_subtype_details': subtypePayload,
                                       'unit': item.unit,
                                       'feeding_time': item.feedingTime,
@@ -914,6 +919,13 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                       color: const Color(0xFFE8F5E9),
                                       textColor: const Color(0xFF256029),
                                     ),
+                                    _infoChip(
+                                      icon: Icons.currency_rupee_rounded,
+                                      label:
+                                          '${'feeding_cost'.tr}: ${_formatQuantity(item.feedingCost)}',
+                                      color: const Color(0xFFFFF3E0),
+                                      textColor: const Color(0xFFEF6C00),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
@@ -1059,6 +1071,11 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                 Text(
                                   '${'package_quantity'.tr}: ${_formatQuantity(row.packageQuantity)} ${row.unit}  |  ${'balance'.tr}: ${_formatQuantity(row.balanceQuantity)} ${row.unit}',
                                   style: const TextStyle(fontSize: 12.2, color: AppColors.primary, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${'rate_per_unit'.tr}: ${_formatQuantity(row.ratePerUnit)}  |  ${'feeding_cost'.tr}: ${_formatQuantity(row.feedingCost)}',
+                                  style: const TextStyle(fontSize: 12.2, color: Color(0xFFEF6C00), fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -1251,6 +1268,8 @@ class _FeedingHistoryItem {
     required this.feedingQuantity,
     required this.packageQuantity,
     required this.balanceQuantity,
+    required this.ratePerUnit,
+    required this.feedingCost,
     required this.unit,
     required this.feedingTime,
     required this.date,
@@ -1271,6 +1290,8 @@ class _FeedingHistoryItem {
   final double feedingQuantity;
   final double packageQuantity;
   final double balanceQuantity;
+  final double ratePerUnit;
+  final double feedingCost;
   final String unit;
   final String feedingTime;
   final String date;
@@ -1337,6 +1358,8 @@ class _FeedingHistoryItem {
       feedingQuantity: double.tryParse((json['feeding_quantity'] ?? '0').toString()) ?? 0,
       packageQuantity: double.tryParse((json['package_quantity'] ?? '0').toString()) ?? 0,
       balanceQuantity: double.tryParse((json['balance_quantity'] ?? '0').toString()) ?? 0,
+      ratePerUnit: double.tryParse((json['rate_per_unit'] ?? '0').toString()) ?? 0,
+      feedingCost: double.tryParse((json['feeding_cost'] ?? '0').toString()) ?? 0,
       unit: (json['unit'] ?? '').toString(),
       feedingTime: (json['feeding_time'] ?? '').toString(),
       date: (json['date'] ?? '').toString(),

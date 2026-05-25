@@ -123,11 +123,7 @@ class PaymentController extends GetxController {
       return 0;
     }
     final latest = summary.history.first;
-    if (latest.dateKey == _todayDateIso()) {
-      final remaining = latest.previousBalance - latest.paidAmount;
-      return remaining > 0 ? remaining : 0;
-    }
-    return latest.balanceAmount;
+    return latest.previousBalance;
   }
 
   double todayBalanceForDairy(int dairyId) {
@@ -135,13 +131,7 @@ class PaymentController extends GetxController {
     if (summary == null || summary.history.isEmpty) {
       return 0;
     }
-    final latest = summary.history.first;
-    if (latest.dateKey == _todayDateIso()) {
-      final paidAfterPrevious = latest.paidAmount - latest.previousBalance;
-      final remaining = latest.dayTotalAmount - (paidAfterPrevious > 0 ? paidAfterPrevious : 0);
-      return remaining > 0 ? remaining : 0;
-    }
-    return 0;
+    return summary.history.first.todayBalance;
   }
 
   double totalBalanceForDairy(int dairyId) {
@@ -150,10 +140,9 @@ class PaymentController extends GetxController {
       return 0;
     }
     final latest = summary.history.first;
-    if (latest.dateKey == _todayDateIso()) {
-      return latest.balanceAmount;
-    }
-    return latest.balanceAmount;
+    return latest.totalBalance > 0 || latest.paidAmount > 0
+        ? latest.totalBalance
+        : latest.balanceAmount;
   }
 
   String _todayDateIso() {
@@ -227,34 +216,103 @@ class PaymentDairySummary {
 class PaymentDayEntry {
   final String date;
   final String dateKey;
+  final double totalMilk;
+  final double rate;
   final double previousBalance;
+  final double todayBalance;
   final double dayTotalAmount;
   final double totalAmount;
   final double paidAmount;
+  final String paidDate;
+  final double totalBalance;
   final double balanceAmount;
   final String notes;
+  final List<PaymentLedgerAnimal> animals;
 
   const PaymentDayEntry({
     required this.date,
     required this.dateKey,
+    required this.totalMilk,
+    required this.rate,
     required this.previousBalance,
+    required this.todayBalance,
     required this.dayTotalAmount,
     required this.totalAmount,
     required this.paidAmount,
+    required this.paidDate,
+    required this.totalBalance,
     required this.balanceAmount,
     required this.notes,
+    required this.animals,
   });
 
   factory PaymentDayEntry.fromJson(Map<String, dynamic> json) {
+    final rawAnimals = (json['animals'] as List?) ?? const [];
+    final animals = rawAnimals
+        .whereType<Map>()
+        .map((item) => PaymentLedgerAnimal.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+
+    final previousBalance = _toDouble(json['previous_balance']);
+    final todayBalance = _toDouble(json['today_balance']);
+    final dayTotalAmountRaw = _toDouble(json['day_total_amount']);
+    final paidAmount = _toDouble(json['paid_amount']);
+    final totalBalance = _toDouble(json['total_balance']);
+    final totalAmount = _toDouble(json['total_amount']);
+    final balanceAmount = _toDouble(json['balance_amount']);
+
     return PaymentDayEntry(
       date: (json['date'] ?? '-').toString(),
       dateKey: (json['date_key'] ?? '').toString(),
-      previousBalance: _toDouble(json['previous_balance']),
-      dayTotalAmount: _toDouble(json['day_total_amount']),
-      totalAmount: _toDouble(json['total_amount']),
-      paidAmount: _toDouble(json['paid_amount']),
-      balanceAmount: _toDouble(json['balance_amount']),
+      totalMilk: _toDouble(json['total_milk']),
+      rate: _toDouble(json['rate']),
+      previousBalance: previousBalance,
+      todayBalance: todayBalance > 0 ? todayBalance : dayTotalAmountRaw,
+      dayTotalAmount: dayTotalAmountRaw > 0 ? dayTotalAmountRaw : todayBalance,
+      totalAmount: totalAmount > 0 ? totalAmount : (previousBalance + (todayBalance > 0 ? todayBalance : dayTotalAmountRaw)),
+      paidAmount: paidAmount,
+      paidDate: (json['paid_date'] ?? '').toString(),
+      totalBalance: totalBalance > 0 || paidAmount > 0
+          ? totalBalance
+          : _toDouble(json['balance_amount']),
+      balanceAmount: balanceAmount > 0 || paidAmount > 0
+          ? balanceAmount
+          : (totalBalance > 0 || paidAmount > 0 ? totalBalance : (previousBalance + (todayBalance > 0 ? todayBalance : dayTotalAmountRaw) - paidAmount)),
       notes: (json['notes'] ?? '').toString(),
+      animals: animals,
+    );
+  }
+
+  static double _toDouble(dynamic value) {
+    return double.tryParse(value?.toString() ?? '0') ?? 0;
+  }
+}
+
+class PaymentLedgerAnimal {
+  final String animalName;
+  final String tagNumber;
+  final double morningMilk;
+  final double afternoonMilk;
+  final double eveningMilk;
+  final double totalMilk;
+
+  const PaymentLedgerAnimal({
+    required this.animalName,
+    required this.tagNumber,
+    required this.morningMilk,
+    required this.afternoonMilk,
+    required this.eveningMilk,
+    required this.totalMilk,
+  });
+
+  factory PaymentLedgerAnimal.fromJson(Map<String, dynamic> json) {
+    return PaymentLedgerAnimal(
+      animalName: (json['animal_name'] ?? '-').toString(),
+      tagNumber: (json['tag_number'] ?? '').toString(),
+      morningMilk: _toDouble(json['morning_milk']),
+      afternoonMilk: _toDouble(json['afternoon_milk']),
+      eveningMilk: _toDouble(json['evening_milk']),
+      totalMilk: _toDouble(json['total_milk']),
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
 
 class MilkController extends GetxController {
@@ -307,7 +308,7 @@ class MilkController extends GetxController {
         final successMessage = 'Milk record saved successfully for ${panCowMilkEntries.length} animals in ${pan.name}';
         await refreshAutoSchedule();
         clearForm();
-        Get.back(result: {'success': true, 'message': successMessage});
+        _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
             'Success',
@@ -356,7 +357,7 @@ class MilkController extends GetxController {
         final successMessage = data['message']?.toString() ?? 'Milk record saved successfully';
         await refreshAutoSchedule();
         clearForm();
-        Get.back(result: {'success': true, 'message': successMessage});
+        _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
             'Success',
@@ -381,6 +382,18 @@ class MilkController extends GetxController {
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Future<bool> submitPanMilk() async {

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/animal_details_widget.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
 import '../controllers/home_controller.dart';
 
@@ -43,7 +44,30 @@ class HomeView extends GetView<HomeController> {
                     ],
                   )),
                   const SizedBox(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('latest_payments'.tr, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.black)), Text('view_all'.tr, style: TextStyle(fontSize: 13, color: AppColors.grey.shade700, fontWeight: FontWeight.w600))]),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'latest_payments'.tr,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _openPaymentScreen,
+                        child: Text(
+                          'view_all'.tr,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.grey.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 150,
@@ -60,62 +84,65 @@ class HomeView extends GetView<HomeController> {
                         itemCount: controller.payments.length,
                         itemBuilder: (context, index) {
                           final payment = controller.payments[index];
-                          return Container(
-                            width: 285,
-                            margin: const EdgeInsets.only(right: 12),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(color: const Color(0xFF3F8F52), borderRadius: BorderRadius.circular(24)),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  payment.dairyName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
+                          return GestureDetector(
+                            onTap: _openPaymentScreen,
+                            child: Container(
+                              width: 285,
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(color: const Color(0xFF3F8F52), borderRadius: BorderRadius.circular(24)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    payment.dairyName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: _paymentColumn(
-                                          topLabel: 'today_payment'.tr,
-                                          topValue: payment.todayPayment,
-                                          bottomLabel: 'today_milk'.tr,
-                                          bottomValue: payment.todayMilk,
+                                  const SizedBox(height: 8),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: _paymentColumn(
+                                            topLabel: 'today_payment'.tr,
+                                            topValue: payment.todayPayment,
+                                            bottomLabel: 'today_milk'.tr,
+                                            bottomValue: payment.todayMilk,
+                                          ),
                                         ),
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        margin: const EdgeInsets.symmetric(horizontal: 10),
-                                        color: Colors.white.withValues(alpha: 0.22),
-                                      ),
-                                      Expanded(
-                                        child: _paymentColumn(
-                                          topLabel: 'total_payment'.tr,
-                                          topValue: payment.totalPayment,
-                                          bottomLabel: 'total_milk'.tr,
-                                          bottomValue: payment.totalMilk,
+                                        Container(
+                                          width: 1,
+                                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                                          color: Colors.white.withValues(alpha: 0.22),
                                         ),
-                                      ),
-                                    ],
+                                        Expanded(
+                                          child: _paymentColumn(
+                                            topLabel: 'total_payment'.tr,
+                                            topValue: payment.totalPayment,
+                                            bottomLabel: 'total_milk'.tr,
+                                            bottomValue: payment.totalMilk,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${'payment_pending'.tr}: ${payment.pendingPayment}',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.92),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${'payment_pending'.tr}: ${payment.pendingPayment}',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.92),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -149,6 +176,14 @@ class HomeView extends GetView<HomeController> {
         ],
       ),
     );
+  }
+
+  void _openPaymentScreen() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().openDrawerRoute(Routes.PAYMENT);
+      return;
+    }
+    Get.toNamed(Routes.PAYMENT);
   }
 
   Widget _buildTopBar(BuildContext context) {

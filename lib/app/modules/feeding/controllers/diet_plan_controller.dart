@@ -17,6 +17,7 @@ class DietPlanController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isSaving = false.obs;
   final RxBool isMetricsLoading = false.obs;
+  final RxBool isEditModeReady = false.obs;
   final RxList<FeedingAnimalModel> animals = <FeedingAnimalModel>[].obs;
   final RxList<FeedingPanModel> pans = <FeedingPanModel>[].obs;
   final RxList<FeedTypeModel> feedTypes = <FeedTypeModel>[].obs;
@@ -35,6 +36,11 @@ class DietPlanController extends GetxController {
 
   int farmerId = 0;
   int _nextFeedBlockId = 1;
+  int editingPlanId = 0;
+  DateTime? _lastListRefreshAt;
+  bool _isAutoRefreshingList = false;
+  bool _isPreparingEditForm = false;
+  bool _isAddFormPrepared = false;
 
   List<FeedingAnimalModel> get animalsForSelection {
     final pan = selectedPan.value;
@@ -77,10 +83,12 @@ class DietPlanController extends GetxController {
     farmerId = prefs.getInt('farmer_id') ?? 0;
   }
 
-  Future<void> fetchAnimals() async {
+  Future<void> fetchAnimals({bool showLoader = true}) async {
     if (farmerId == 0) return;
     try {
-      isLoading.value = true;
+      if (showLoader) {
+        isLoading.value = true;
+      }
       final response = await http.get(
         Uri.parse('${Api.animalList}/$farmerId'),
         headers: {'Accept': 'application/json'},
@@ -98,7 +106,9 @@ class DietPlanController extends GetxController {
       animals.clear();
       pans.clear();
     } finally {
-      isLoading.value = false;
+      if (showLoader) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -141,6 +151,56 @@ class DietPlanController extends GetxController {
       }
     } catch (_) {
       plans.clear();
+    }
+  }
+
+  Future<void> autoRefreshListIfStale({
+    Duration staleAfter = const Duration(seconds: 2),
+  }) async {
+    if (_isAutoRefreshingList) return;
+    if (farmerId == 0) {
+      await _loadFarmerId();
+      if (farmerId == 0) return;
+    }
+
+    final now = DateTime.now();
+    final last = _lastListRefreshAt;
+    if (last != null && now.difference(last) < staleAfter) {
+      return;
+    }
+
+    _isAutoRefreshingList = true;
+    try {
+      await fetchAnimals(showLoader: false);
+      await fetchPlans();
+      _lastListRefreshAt = DateTime.now();
+    } finally {
+      _isAutoRefreshingList = false;
+    }
+  }
+
+  void prepareAddForm() {
+    if (_isAddFormPrepared) return;
+    _isAddFormPrepared = true;
+
+    // If this controller instance was previously used for edit/list,
+    // force clean add form so add/edit state never gets mixed.
+    final hasStaleState = editingPlanId > 0 ||
+        selectedAnimal.value != null ||
+        selectedPan.value != null ||
+        dietPlanNameController.text.trim().isNotEmpty ||
+        feedBlocks.any((block) {
+          if (block.selectedFeedType != null) return true;
+          if (block.subtypeSelected.values.any((selected) => selected)) return true;
+          if (block.totalQuantity > 0) return true;
+          return false;
+        });
+
+    if (hasStaleState) {
+      _clearForm();
+    } else {
+      _ensureAtLeastOneFeedBlock();
+      feedBlocks.refresh();
     }
   }
 
@@ -458,21 +518,7 @@ class DietPlanController extends GetxController {
 
     try {
       isSaving.value = true;
-      final combinedSubtypePayload = <Map<String, dynamic>>[];
-      for (final block in blocks) {
-        final selectedType = block.selectedFeedType;
-        if (selectedType == null) continue;
-        final subtypes = block.selectedSubtypePayload();
-        for (final subtype in subtypes) {
-          combinedSubtypePayload.add({
-            'feed_type_id': selectedType.id,
-            'feed_type_name': selectedType.name,
-            'feed_unit': block.unit,
-            ...subtype,
-          });
-        }
-      }
-
+      final combinedSubtypePayload = _collectSubtypePayload(blocks);
       if (combinedSubtypePayload.isEmpty) {
         Get.snackbar('error'.tr, 'please_add_subtype_for_feed'.trParams({'feed': '-'}));
         return;
@@ -520,6 +566,236 @@ class DietPlanController extends GetxController {
     } finally {
       isSaving.value = false;
     }
+  }
+
+  Future<void> prepareEditForm(FeedDietPlanModel? plan) async {
+    if (plan == null || plan.id <= 0) return;
+    if (_isPreparingEditForm || (editingPlanId == plan.id && isEditModeReady.value)) return;
+
+    _isPreparingEditForm = true;
+    _isAddFormPrepared = false;
+    isEditModeReady.value = false;
+    try {
+      if (farmerId == 0) {
+        await _loadFarmerId();
+      }
+      await Future.wait([
+        fetchAnimals(showLoader: false),
+        fetchFeedTypes(),
+        fetchPlans(),
+      ]);
+
+      editingPlanId = plan.id;
+      dietPlanNameController.text = plan.dietPlanName.trim();
+      if (plan.referenceDate.trim().isNotEmpty) {
+        try {
+          final parsed = DateFormat('yyyy-MM-dd').parseStrict(plan.referenceDate.trim());
+          referenceDateController.text = DateFormat('dd/MM/yyyy').format(parsed);
+        } catch (_) {
+          referenceDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+        }
+      } else {
+        referenceDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
+      }
+
+      selectedPan.value = null;
+      selectedAnimal.value = null;
+      if (plan.panId > 0) {
+        FeedingPanModel? matchedPan;
+        for (final pan in pans) {
+          if (pan.id == plan.panId) {
+            matchedPan = pan;
+            break;
+          }
+        }
+        selectedPan.value = matchedPan;
+      } else if (plan.animalId > 0) {
+        FeedingAnimalModel? matchedAnimal;
+        for (final animal in animals) {
+          if (animal.id == plan.animalId) {
+            matchedAnimal = animal;
+            break;
+          }
+        }
+        selectedAnimal.value = matchedAnimal;
+      }
+
+      final grouped = <int, List<FeedDietSubtypeDetail>>{};
+      final orderedTypeIds = <int>[];
+      for (final detail in plan.subtypeDetails) {
+        final resolvedType = _resolveFeedTypeForSubtypeDetail(detail, plan);
+        final typeId = resolvedType?.id ?? plan.feedTypeId;
+        if (typeId <= 0) continue;
+        if (!grouped.containsKey(typeId)) {
+          grouped[typeId] = <FeedDietSubtypeDetail>[];
+          orderedTypeIds.add(typeId);
+        }
+        grouped[typeId]!.add(detail);
+      }
+
+      _clearFeedBlocks();
+      if (orderedTypeIds.isEmpty) {
+        final block = DietFeedBlock(id: _nextFeedBlockId++);
+        final fallbackType = _findFeedTypeById(plan.feedTypeId);
+        block.configureForFeedType(fallbackType, _onFeedBlockChanged);
+        feedBlocks.add(block);
+      } else {
+        for (final typeId in orderedTypeIds) {
+          final block = DietFeedBlock(id: _nextFeedBlockId++);
+          final type = _findFeedTypeById(typeId);
+          block.configureForFeedType(type, _onFeedBlockChanged);
+          for (final detail in grouped[typeId] ?? const <FeedDietSubtypeDetail>[]) {
+            int resolvedSubtypeId = detail.subtypeId;
+            if (resolvedSubtypeId <= 0 && type != null) {
+              final targetName = detail.name.trim().toLowerCase();
+              for (final subtype in type.subtypes) {
+                if (subtype.name.trim().toLowerCase() == targetName) {
+                  resolvedSubtypeId = subtype.id;
+                  break;
+                }
+              }
+            }
+            if (resolvedSubtypeId <= 0) continue;
+            if (!block.subtypeSelected.containsKey(resolvedSubtypeId)) continue;
+            block.setSubtypeSelected(resolvedSubtypeId, true);
+            block.subtypeQtyControllers[resolvedSubtypeId]?.text =
+                detail.quantity.toStringAsFixed(2);
+            block.subtypeDmPercentControllers[resolvedSubtypeId]?.text =
+                detail.dmPercent.toStringAsFixed(2);
+          }
+          feedBlocks.add(block);
+        }
+      }
+
+      _ensureAtLeastOneFeedBlock();
+      feedBlocks.refresh();
+      await refreshDietMetrics();
+      isEditModeReady.value = true;
+    } finally {
+      _isPreparingEditForm = false;
+    }
+  }
+
+  FeedTypeModel? _findFeedTypeById(int id) {
+    if (id <= 0) return null;
+    for (final type in feedTypes) {
+      if (type.id == id) return type;
+    }
+    return null;
+  }
+
+  FeedTypeModel? _resolveFeedTypeForSubtypeDetail(
+    FeedDietSubtypeDetail detail,
+    FeedDietPlanModel plan,
+  ) {
+    if (detail.feedTypeId > 0) {
+      final byId = _findFeedTypeById(detail.feedTypeId);
+      if (byId != null) return byId;
+    }
+
+    final feedTypeNameFromSubtype = detail.feedTypeName.trim();
+    if (feedTypeNameFromSubtype.isNotEmpty) {
+      final wanted = feedTypeNameFromSubtype.toLowerCase();
+      for (final type in feedTypes) {
+        if (type.name.trim().toLowerCase() == wanted) return type;
+      }
+    }
+
+    if (detail.subtypeId > 0) {
+      for (final type in feedTypes) {
+        for (final subtype in type.subtypes) {
+          if (subtype.id == detail.subtypeId) {
+            return type;
+          }
+        }
+      }
+    }
+
+    if (plan.feedTypeId > 0) {
+      return _findFeedTypeById(plan.feedTypeId);
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _collectSubtypePayload(List<DietFeedBlock> blocks) {
+    final combinedSubtypePayload = <Map<String, dynamic>>[];
+    for (final block in blocks) {
+      final selectedType = block.selectedFeedType;
+      if (selectedType == null) continue;
+      final subtypes = block.selectedSubtypePayload();
+      for (final subtype in subtypes) {
+        combinedSubtypePayload.add({
+          'feed_type_id': selectedType.id,
+          'feed_type_name': selectedType.name,
+          'feed_unit': block.unit,
+          ...subtype,
+        });
+      }
+    }
+    return combinedSubtypePayload;
+  }
+
+  Future<void> saveEditedPlan() async {
+    if (editingPlanId <= 0) return;
+    if (!formKey.currentState!.validate()) return;
+
+    final resolvedAnimal = _resolvedAnimalForPlan();
+    if (resolvedAnimal == null) {
+      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr);
+      return;
+    }
+
+    final pan = selectedPan.value;
+    if (pan != null && !resolvedAnimal.belongsToPan(pan)) {
+      Get.snackbar('error'.tr, 'pan_not_match_animal'.tr);
+      return;
+    }
+
+    final blocks = feedBlocks.toList();
+    for (final block in blocks) {
+      if (block.selectedFeedType == null) {
+        Get.snackbar('error'.tr, 'please_select_feed_type_for_all'.tr);
+        return;
+      }
+      final subtypeValidationMessage = block.validateSelectedSubtypeInputs();
+      if (subtypeValidationMessage != null) {
+        final feedName = block.selectedFeedType?.name ?? '-';
+        Get.snackbar('error'.tr, '$feedName: $subtypeValidationMessage');
+        return;
+      }
+      if (block.selectedSubtypePayload().isEmpty) {
+        final feedName = block.selectedFeedType?.name ?? '-';
+        Get.snackbar('error'.tr, 'please_add_subtype_for_feed'.trParams({'feed': feedName}));
+        return;
+      }
+    }
+
+    final nextSubtypes = _collectSubtypePayload(blocks);
+    if (nextSubtypes.isEmpty) {
+      Get.snackbar('error'.tr, 'please_add_subtype_for_feed'.trParams({'feed': '-'}));
+      return;
+    }
+
+    final ok = await updatePlan(
+      planId: editingPlanId,
+      panId: selectedPan.value != null && selectedPan.value!.id > 0 ? selectedPan.value!.id : null,
+      referenceDate: selectedReferenceDateApi,
+      subtypeDetails: nextSubtypes,
+    );
+    if (ok) {
+      await fetchAnimals(showLoader: false);
+      _lastListRefreshAt = null;
+      Get.snackbar('success'.tr, 'diet_plan_updated_success'.tr);
+      clearEditContext();
+      _clearForm();
+      Get.back();
+    }
+  }
+
+  void clearEditContext() {
+    editingPlanId = 0;
+    isEditModeReady.value = false;
+    _isAddFormPrepared = false;
   }
 
   Future<bool> updatePlan({
@@ -623,6 +899,9 @@ class DietPlanController extends GetxController {
   }
 
   void _clearForm() {
+    editingPlanId = 0;
+    isEditModeReady.value = false;
+    _isAddFormPrepared = true;
     selectedAnimal.value = null;
     selectedPan.value = null;
     dietPlanNameController.clear();

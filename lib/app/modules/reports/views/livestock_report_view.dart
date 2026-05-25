@@ -54,9 +54,10 @@ class LivestockReportView extends StatelessWidget {
             Expanded(
               child: Obx(
                 () {
-                  final visibleSections = controller.sectionReports
-                      .where((section) => section.title != 'Profit Loss Report')
-                      .toList();
+                  final visibleSections = controller.visibleSections;
+                  final summaryCards = controller.summaryCards;
+                  final hasNoData = visibleSections.isEmpty ||
+                      visibleSections.every((section) => section.rows.isEmpty);
                   return RefreshIndicator(
                     onRefresh: controller.fetchReport,
                     child: ListView(
@@ -64,12 +65,16 @@ class LivestockReportView extends StatelessWidget {
                       children: [
                         _filterCard(context, controller),
                         const SizedBox(height: 10),
+                        if (summaryCards.isNotEmpty) ...[
+                          _summarySection(summaryCards),
+                          const SizedBox(height: 10),
+                        ],
                         if (controller.isLoading.value)
                           const Padding(
                             padding: EdgeInsets.only(top: 28),
                             child: Center(child: CircularProgressIndicator()),
                           )
-                        else if (visibleSections.every((section) => section.rows.isEmpty))
+                        else if (hasNoData)
                           _emptyCard()
                         else
                           ...visibleSections.map(_sectionCard),
@@ -87,6 +92,7 @@ class LivestockReportView extends StatelessWidget {
 
   Widget _filterCard(BuildContext context, LivestockReportController controller) {
     final selectedScope = controller.scope.value;
+    final selectedReportType = controller.reportType.value;
     final targetIds = controller.targets.map((item) => item.id).toSet();
     final selectedTargetId = controller.selectedTargetId.value;
     final dropdownValue = selectedTargetId != null && targetIds.contains(selectedTargetId)
@@ -126,6 +132,39 @@ class LivestockReportView extends StatelessWidget {
             onChanged: (value) {
               unawaited(controller.changeScope(value));
             },
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: selectedReportType,
+            decoration: _decoration('report_type'.tr),
+            dropdownColor: const Color(0xFFF2FAF2),
+            items: [
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeAll,
+                child: Text('all_reports'.tr),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeMilk,
+                child: Text('milk_report'.tr),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeFeeding,
+                child: Text('feeding_report'.tr),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeMedical,
+                child: Text('medical_history'.tr),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeLifecycle,
+                child: Text('life_cycle_history'.tr),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeProfitLoss,
+                child: Text('profit_loss_report'.tr),
+              ),
+            ],
+            onChanged: controller.changeReportType,
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<int?>(
@@ -252,32 +291,117 @@ class LivestockReportView extends StatelessWidget {
   }
 
   Widget _sectionTable(ReportSectionData section) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(const Color(0xFFE8F5E9)),
-        headingTextStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF1B5E20),
-        ),
-        dataTextStyle: const TextStyle(
-          fontSize: 11.5,
-          color: Color(0xFF304236),
-        ),
-        columns: section.headers
-            .map((header) => DataColumn(label: Text(header)))
-            .toList(),
-        rows: section.rows
-            .map(
-              (row) => DataRow(
-                cells: row
-                    .map((value) => DataCell(Text(value)))
-                    .toList(),
-              ),
-            )
-            .toList(),
+    return Column(
+      children: section.rows
+          .asMap()
+          .entries
+          .map((entry) => _rowCard(section, entry.value, entry.key))
+          .toList(),
+    );
+  }
+
+  Widget _rowCard(ReportSectionData section, List<String> row, int index) {
+    return Container(
+      margin: EdgeInsets.only(bottom: index == section.rows.length - 1 ? 0 : 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDCEADC)),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < section.headers.length; i++)
+            if (i < row.length)
+              _kvRow(
+                section.headers[i],
+                row[i],
+                isLast: i == section.headers.length - 1 || i == row.length - 1,
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kvRow(String label, String value, {required bool isLast}) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF2C4A31),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF35523A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summarySection(List<ReportSummaryCardData> summaryCards) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: summaryCards
+          .map(
+            (item) => Container(
+              width: (Get.width - 36) / 2,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDDEBDE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B5D4F),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    item.value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.2,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 

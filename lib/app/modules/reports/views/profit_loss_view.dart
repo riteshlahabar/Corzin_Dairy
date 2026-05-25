@@ -73,6 +73,12 @@ class ProfitLossView extends StatelessWidget {
                             icon: Icons.currency_rupee_rounded,
                           ),
                           _metricCard(
+                            title: 'feeding_cost'.tr,
+                            value: 'Rs ${data.feedingCost.toStringAsFixed(2)}',
+                            color: const Color(0xFF2E7D32),
+                            icon: Icons.grass_rounded,
+                          ),
+                          _metricCard(
                             title: 'doctor_cost'.tr,
                             value: 'Rs ${data.doctorCost.toStringAsFixed(2)}',
                             color: const Color(0xFFEF6C00),
@@ -91,8 +97,6 @@ class ProfitLossView extends StatelessWidget {
                             icon: Icons.summarize_outlined,
                           ),
                           _netCard(data),
-                          const SizedBox(height: 10),
-                          _detailSection(controller.detailRows),
                         ],
                       ],
                     ),

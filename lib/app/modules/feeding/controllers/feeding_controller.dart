@@ -9,14 +9,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 
 class FeedingController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
   final TextEditingController dateController = TextEditingController();
   final TextEditingController quantityController = TextEditingController();
+  final TextEditingController ratePerUnitController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
   final FocusNode quantityFocus = FocusNode();
+  final FocusNode ratePerUnitFocus = FocusNode();
 
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
@@ -37,6 +41,7 @@ class FeedingController extends GetxController {
   final RxDouble packageQuantity = 0.0.obs;
   final RxDouble totalSubtypeQuantity = 0.0.obs;
   final RxDouble balanceQuantity = 0.0.obs;
+  final RxDouble feedingCost = 0.0.obs;
   final RxInt dietPlanDays = 0.obs;
   final RxInt dietPlanDaysRemaining = 0.obs;
 
@@ -52,6 +57,8 @@ class FeedingController extends GetxController {
     super.onInit();
     dateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
     quantityController.addListener(_recalculateBalance);
+    quantityController.addListener(_recalculateFeedingCost);
+    ratePerUnitController.addListener(_recalculateFeedingCost);
     initData();
   }
 
@@ -370,6 +377,17 @@ class FeedingController extends GetxController {
       Get.snackbar('Error', 'Please enter feeding quantity');
       return;
     }
+    final rateText = ratePerUnitController.text.trim();
+    if (rateText.isEmpty) {
+      Get.snackbar('Error', 'Please enter rate per unit');
+      return;
+    }
+    final ratePerUnit = double.tryParse(rateText) ?? -1;
+    if (ratePerUnit < 0) {
+      Get.snackbar('Error', 'Please enter a valid rate per unit');
+      return;
+    }
+    final calculatedFeedingCost = feedingQty * ratePerUnit;
 
     final plan = selectedDietPlan.value;
     if (plan != null) {
@@ -429,6 +447,7 @@ class FeedingController extends GetxController {
         packageQuantityPerAnimal: perAnimalPackageQty,
         balanceQuantityPerAnimal: perAnimalBalanceQty,
         subtypePayloadPerAnimal: perAnimalSubtypePayload,
+        ratePerUnitForAll: ratePerUnit,
         includeDietPlanId: true,
       );
       final successCount = result['success'] ?? 0;
@@ -438,12 +457,7 @@ class FeedingController extends GetxController {
         final successMessage = 'Feeding entry saved successfully for $successCount animals in ${pan.name}';
         await refreshAutoSchedule();
         clearForm();
-        Get.back(
-          result: {
-            'success': true,
-            'message': successMessage,
-          },
-        );
+        _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
             'Success',
@@ -481,6 +495,8 @@ class FeedingController extends GetxController {
         'package_quantity': packageQuantity.value.toStringAsFixed(2),
         'feeding_quantity': quantityController.text.trim(),
         'balance_quantity': balanceQuantity.value.toStringAsFixed(2),
+        'rate_per_unit': ratePerUnit.toStringAsFixed(2),
+        'feeding_cost': calculatedFeedingCost.toStringAsFixed(2),
         'feed_subtype_details': subtypePayload,
         'unit': selectedUnit.value,
         'feeding_time': selectedFeedingTime.value,
@@ -502,12 +518,7 @@ class FeedingController extends GetxController {
         final successMessage = data['message']?.toString() ?? 'Feeding entry saved successfully';
         await refreshAutoSchedule();
         clearForm();
-        Get.back(
-          result: {
-            'success': true,
-            'message': successMessage,
-          },
-        );
+        _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
             'Success',
@@ -533,6 +544,7 @@ class FeedingController extends GetxController {
     {
     double? packageQuantityPerAnimal,
     double? balanceQuantityPerAnimal,
+    double? ratePerUnitForAll,
     List<Map<String, dynamic>>? subtypePayloadPerAnimal,
     bool includeDietPlanId = true,
   }
@@ -585,9 +597,12 @@ class FeedingController extends GetxController {
     int successCount = 0;
     int failedCount = 0;
     isSubmitting.value = true;
+    final parsedRate = double.tryParse(ratePerUnitController.text.trim());
+    final effectiveRatePerUnit = ratePerUnitForAll ?? (parsedRate ?? 0);
 
     for (final entry in entries) {
       try {
+        final feedingQty = double.tryParse(entry.value) ?? 0;
         final payload = {
           'farmer_id': farmerId.toString(),
           'animal_id': entry.key.toString(),
@@ -601,6 +616,8 @@ class FeedingController extends GetxController {
           'feeding_quantity': entry.value,
           'balance_quantity':
               (balanceQuantityPerAnimal ?? balanceQuantity.value).toStringAsFixed(2),
+          'rate_per_unit': effectiveRatePerUnit.toStringAsFixed(2),
+          'feeding_cost': (feedingQty * effectiveRatePerUnit).toStringAsFixed(2),
           'feed_subtype_details': subtypePayload,
           'unit': selectedUnit.value,
           'feeding_time': selectedFeedingTime.value,
@@ -628,6 +645,18 @@ class FeedingController extends GetxController {
 
     isSubmitting.value = false;
     return {'success': successCount, 'failed': failedCount};
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Future<void> refreshAutoSchedule() async {
@@ -858,6 +887,16 @@ class FeedingController extends GetxController {
     balanceQuantity.value = balance < 0 ? 0 : balance;
   }
 
+  void _recalculateFeedingCost() {
+    final qty = double.tryParse(quantityController.text.trim()) ?? 0;
+    final rate = double.tryParse(ratePerUnitController.text.trim()) ?? 0;
+    if (qty <= 0 || rate < 0) {
+      feedingCost.value = 0;
+      return;
+    }
+    feedingCost.value = qty * rate;
+  }
+
   void clearForm() {
     selectedAnimal.value = null;
     selectedPan.value = null;
@@ -870,7 +909,9 @@ class FeedingController extends GetxController {
     dietPlanDaysRemaining.value = 0;
     _clearSubtypeInputs();
     quantityController.clear();
+    ratePerUnitController.clear();
     notesController.clear();
+    feedingCost.value = 0;
     balanceQuantity.value = packageQuantity.value;
     updateAvailableFeedingTimes();
   }
@@ -898,10 +939,14 @@ class FeedingController extends GetxController {
   @override
   void onClose() {
     quantityController.removeListener(_recalculateBalance);
+    quantityController.removeListener(_recalculateFeedingCost);
+    ratePerUnitController.removeListener(_recalculateFeedingCost);
     dateController.dispose();
     quantityController.dispose();
+    ratePerUnitController.dispose();
     notesController.dispose();
     quantityFocus.dispose();
+    ratePerUnitFocus.dispose();
     _clearSubtypeInputs();
     super.onClose();
   }
@@ -1107,6 +1152,8 @@ class FeedDietPlanModel {
 
 class FeedDietSubtypeDetail {
   final int subtypeId;
+  final int feedTypeId;
+  final String feedTypeName;
   final String name;
   final double quantity;
   final double dmPercent;
@@ -1114,6 +1161,8 @@ class FeedDietSubtypeDetail {
 
   FeedDietSubtypeDetail({
     required this.subtypeId,
+    required this.feedTypeId,
+    required this.feedTypeName,
     required this.name,
     required this.quantity,
     required this.dmPercent,
@@ -1125,6 +1174,8 @@ class FeedDietSubtypeDetail {
     final dm = double.tryParse((json['dm_percent'] ?? '0').toString()) ?? 0;
     return FeedDietSubtypeDetail(
       subtypeId: int.tryParse((json['subtype_id'] ?? '').toString()) ?? 0,
+      feedTypeId: int.tryParse((json['feed_type_id'] ?? '').toString()) ?? 0,
+      feedTypeName: (json['feed_type_name'] ?? json['feed_type'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       quantity: qty,
       dmPercent: dm,
