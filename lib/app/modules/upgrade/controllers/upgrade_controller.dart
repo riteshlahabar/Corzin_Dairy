@@ -1,11 +1,15 @@
 import 'package:get/get.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/utils/api.dart';
+import '../../home/controllers/home_controller.dart';
 
 class UpgradeController extends GetxController {
   final RxBool isLoading = false.obs;
+  final RxString adminContactName = ''.obs;
+  final RxString adminContactNumber = ''.obs;
 
   final RxList<PlanModel> plans = <PlanModel>[
     const PlanModel(
@@ -25,7 +29,11 @@ class UpgradeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadPlans();
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    await Future.wait([loadPlans(), loadAdminContact()]);
   }
 
   Future<void> loadPlans() async {
@@ -48,6 +56,53 @@ class UpgradeController extends GetxController {
       // Keep fallback plans when API is not available.
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> loadAdminContact() async {
+    if (Get.isRegistered<HomeController>()) {
+      final home = Get.find<HomeController>();
+      if (home.adminContactNumber.value.trim().isNotEmpty) {
+        adminContactName.value = home.adminContactName.value;
+        adminContactNumber.value = home.adminContactNumber.value;
+        return;
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse(Api.farmerSettings),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final settings = data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : <String, dynamic>{};
+      final contact = settings['admin_contact'] is Map
+          ? Map<String, dynamic>.from(settings['admin_contact'] as Map)
+          : <String, dynamic>{};
+      adminContactName.value = contact['name']?.toString().trim() ?? '';
+      adminContactNumber.value = contact['number']?.toString().trim() ?? '';
+    } catch (_) {}
+  }
+
+  Future<void> contactAdmin() async {
+    if (Get.isRegistered<HomeController>()) {
+      await Get.find<HomeController>().callAdminSupport();
+      return;
+    }
+
+    if (adminContactNumber.value.trim().isEmpty) {
+      await loadAdminContact();
+    }
+    final number = adminContactNumber.value.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (number.isEmpty) {
+      Get.snackbar('Error', 'Admin contact number is not available.');
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: number);
+    if (!await launchUrl(uri)) {
+      Get.snackbar('Error', 'Unable to open dialer.');
     }
   }
 }

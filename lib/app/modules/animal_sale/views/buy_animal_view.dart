@@ -209,8 +209,27 @@ class BuyAnimalView extends GetView<HomeController> {
             children: [
               _chip('unique_id'.tr, _textOrDash(item.uniqueId)),
               _chip('age'.tr, _textOrDash(item.age)),
+              _chip('lactation_number'.tr, _textOrDash(item.lactationNumber)),
               _chip('milk_production'.tr, _milkText(item.dailyMilkProduction)),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton.icon(
+              onPressed: controller.callAdminSupport,
+              icon: const Icon(Icons.call_rounded, size: 18),
+              label: Text('call_admin'.tr),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -27,13 +27,7 @@ class LivestockReportView extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () {
-                      if (Get.isRegistered<BottomNavController>() &&
-                          Get.find<BottomNavController>().closeDrawerPage()) {
-                        return;
-                      }
-                      Get.back();
-                    },
+                    onPressed: _handleBackPress,
                     icon: const Icon(Icons.arrow_back_ios_new_rounded),
                     color: Colors.white,
                   ),
@@ -160,6 +154,10 @@ class LivestockReportView extends StatelessWidget {
                 child: Text('life_cycle_history'.tr),
               ),
               DropdownMenuItem(
+                value: LivestockReportController.reportTypeMastitis,
+                child: Text('${'mastitis'.tr} Report'),
+              ),
+              DropdownMenuItem(
                 value: LivestockReportController.reportTypeProfitLoss,
                 child: Text('profit_loss_report'.tr),
               ),
@@ -257,6 +255,20 @@ class LivestockReportView extends StatelessWidget {
     );
   }
 
+  void _handleBackPress() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      if (nav.closeDrawerPage()) return;
+      if (nav.currentIndex.value != 0) {
+        nav.changeTab(0);
+        return;
+      }
+    }
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+    }
+  }
+
   Widget _sectionCard(ReportSectionData section) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -301,6 +313,28 @@ class LivestockReportView extends StatelessWidget {
   }
 
   Widget _rowCard(ReportSectionData section, List<String> row, int index) {
+    final keyedValues = <String, String>{};
+    for (var i = 0; i < section.headers.length; i++) {
+      if (i >= row.length) continue;
+      keyedValues[section.headers[i]] = row[i];
+    }
+
+    final idHeader = section.headers.firstWhereOrNull(
+      (header) => header.trim().toLowerCase() == 'id',
+    );
+    final orderedPairs = <MapEntry<String, String>>[];
+    if (idHeader != null && keyedValues.containsKey(idHeader)) {
+      orderedPairs.add(
+        MapEntry(idHeader, keyedValues[idHeader] ?? '-'),
+      );
+      keyedValues.remove(idHeader);
+    }
+    orderedPairs.addAll(
+      section.headers
+          .where((header) => keyedValues.containsKey(header))
+          .map((header) => MapEntry(header, keyedValues[header] ?? '-')),
+    );
+
     return Container(
       margin: EdgeInsets.only(bottom: index == section.rows.length - 1 ? 0 : 8),
       padding: const EdgeInsets.all(10),
@@ -312,12 +346,11 @@ class LivestockReportView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < section.headers.length; i++)
-            if (i < row.length)
+          for (var i = 0; i < orderedPairs.length; i++)
               _kvRow(
-                section.headers[i],
-                row[i],
-                isLast: i == section.headers.length - 1 || i == row.length - 1,
+                orderedPairs[i].key,
+                orderedPairs[i].value,
+                isLast: i == orderedPairs.length - 1,
               ),
         ],
       ),

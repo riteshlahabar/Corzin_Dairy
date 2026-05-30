@@ -91,7 +91,7 @@ class UpgradeView extends GetView<UpgradeController> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: controller.contactAdmin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: plan.highlighted
                                   ? AppColors.white
@@ -101,7 +101,7 @@ class UpgradeView extends GetView<UpgradeController> {
                                   : AppColors.white,
                             ),
                             child: Text(
-                              plan.highlighted ? 'choose_plan'.tr : 'current_plan'.tr,
+                              'contact_admin_to_upgrade'.tr,
                             ),
                           ),
                         ),

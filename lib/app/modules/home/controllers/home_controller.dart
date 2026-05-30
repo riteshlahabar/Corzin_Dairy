@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/local_notification_service.dart';
@@ -45,6 +46,10 @@ class HomeController extends GetxController {
   final RxString farmerName = ''.obs;
   final RxString farmerMobile = ''.obs;
   final RxString farmerPhoto = ''.obs;
+  final RxString adminContactName = ''.obs;
+  final RxString adminContactNumber = ''.obs;
+  final RxBool isPlanLocked = false.obs;
+  final RxString planLockMessage = ''.obs;
   final RxList<FarmerNotificationItem> notificationHistory =
       <FarmerNotificationItem>[].obs;
   final FirebaseMessagingService _firebaseMessagingService =
@@ -81,7 +86,7 @@ class HomeController extends GetxController {
       fetchAnimalTypes(),
       fetchAnimals(),
       fetchSaleAnimals(),
-      fetchFarmerBanners(),
+      fetchFarmerSettings(),
       loadDashboard(),
     ]);
   }
@@ -187,16 +192,22 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> fetchFarmerBanners() async {
+  Future<void> fetchFarmerSettings() async {
     try {
       final response = await http.get(
         Uri.parse(Api.farmerSettings),
         headers: {'Accept': 'application/json'},
       );
       final data = _decodeBody(response.body);
-      final banners = data['data'] is Map
-          ? (data['data']['banners'] ?? [])
-          : [];
+      final settings = data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : <String, dynamic>{};
+      final contact = settings['admin_contact'] is Map
+          ? Map<String, dynamic>.from(settings['admin_contact'] as Map)
+          : <String, dynamic>{};
+      adminContactName.value = contact['name']?.toString().trim() ?? '';
+      adminContactNumber.value = contact['number']?.toString().trim() ?? '';
+      final banners = settings['banners'] ?? [];
       if (response.statusCode == 200 &&
           data['status'] == true &&
           banners is List) {
@@ -219,6 +230,23 @@ class HomeController extends GetxController {
     } catch (_) {
       farmerBanners.clear();
       _syncHeroBannerTimer();
+    }
+  }
+
+  Future<void> fetchFarmerBanners() => fetchFarmerSettings();
+
+  Future<void> callAdminSupport() async {
+    if (adminContactNumber.value.trim().isEmpty) {
+      await fetchFarmerSettings();
+    }
+    final number = adminContactNumber.value.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (number.isEmpty) {
+      Get.snackbar('Error', 'Admin contact number is not available.');
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: number);
+    if (!await launchUrl(uri)) {
+      Get.snackbar('Error', 'Unable to open dialer.');
     }
   }
 
@@ -286,7 +314,7 @@ class HomeController extends GetxController {
     await Future.wait([
       fetchAnimals(silent: silent),
       fetchSaleAnimals(),
-      fetchFarmerBanners(),
+      fetchFarmerSettings(),
       loadDashboard(silent: silent),
     ]);
   }
@@ -436,7 +464,7 @@ class HomeController extends GetxController {
   Future<void> _loadCurrentPlan() async {
     try {
       final response = await http.get(
-        Uri.parse(Api.subscriptionPlans),
+        Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
         headers: {'Accept': 'application/json'},
       );
       final data = _decodeBody(response.body);
@@ -452,28 +480,54 @@ class HomeController extends GetxController {
           .toList();
       if (list.isEmpty) return;
 
-      final plan = list.firstWhere(
-        (item) => item['is_popular'] == true,
-        orElse: () => list.first,
-      );
+      final currentSubscription = data['current_subscription'] is Map
+          ? Map<String, dynamic>.from(data['current_subscription'] as Map)
+          : <String, dynamic>{};
+      final currentPlanId = int.tryParse(
+            currentSubscription['farmer_plan_id']?.toString() ?? '',
+          ) ??
+          0;
+      final plan = currentPlanId > 0
+          ? list.firstWhere(
+              (item) =>
+                  int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
+              orElse: () => list.firstWhere(
+                (item) => item['is_current'] == true,
+                orElse: () => list.first,
+              ),
+            )
+          : list.firstWhere(
+              (item) => item['is_current'] == true,
+              orElse: () => list.firstWhere(
+                (item) => item['is_popular'] == true,
+                orElse: () => list.first,
+              ),
+            );
 
       int durationDays =
-          int.tryParse(plan['duration_days']?.toString() ?? '') ?? 0;
-      final planName = plan['name']?.toString().trim().isNotEmpty == true
+          int.tryParse((currentSubscription['duration_days'] ?? plan['duration_days'])?.toString() ?? '') ?? 0;
+      final planName = currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
+          ? currentSubscription['plan_name'].toString()
+          : plan['name']?.toString().trim().isNotEmpty == true
           ? plan['name'].toString()
           : 'free_plan';
       final isFreePlan =
           planName.toLowerCase().contains('free') ||
-          _asDouble(plan['price']) <= 0;
+          _asDouble(currentSubscription['price'] ?? plan['price']) <= 0;
       if (isFreePlan && durationDays <= 0) {
         durationDays = 30;
       }
-      final amount = plan['price_label']?.toString().trim().isNotEmpty == true
+      final amount = currentSubscription['price_label']?.toString().trim().isNotEmpty == true
+          ? currentSubscription['price_label'].toString()
+          : plan['price_label']?.toString().trim().isNotEmpty == true
           ? plan['price_label'].toString()
-          : _formatCurrency(_asDouble(plan['price']));
+          : _formatCurrency(_asDouble(currentSubscription['price'] ?? plan['price']));
       final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
       final now = DateTime.now();
       final startAt =
+          _readDate(currentSubscription, const [
+            'start_date',
+          ]) ??
           _readDate(plan, const [
             'start_date',
             'package_start_date',
@@ -483,6 +537,9 @@ class HomeController extends GetxController {
           backendStartAt ??
           now;
       final renewAt =
+          _readDate(currentSubscription, const [
+            'due_date',
+          ]) ??
           _readDate(plan, const [
             'renew_date',
             'renewal_date',
@@ -493,6 +550,10 @@ class HomeController extends GetxController {
           startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
       _planRenewAt = renewAt;
       final daysLeft = _daysLeftFromNow(renewAt);
+      final lockedFromApi = data['access_locked'] == true ||
+          currentSubscription['is_active'] == false ||
+          currentSubscription['status']?.toString().toLowerCase() == 'expired' ||
+          daysLeft <= 0;
 
       currentPlan.value = FarmerPlanModel(
         name: planName,
@@ -502,6 +563,10 @@ class HomeController extends GetxController {
         renewDate: DateFormat('dd-MM-yyyy').format(renewAt),
       );
       _setPlanDaysLeft(daysLeft > 0 ? daysLeft : 0);
+      isPlanLocked.value = lockedFromApi;
+      planLockMessage.value = lockedFromApi
+          ? 'Your plan has expired. Please contact admin to upgrade your plan.'
+          : '';
     } catch (_) {
       final now = DateTime.now();
       final renewAt = now.add(const Duration(days: 30));
@@ -514,6 +579,8 @@ class HomeController extends GetxController {
         startDate: '-',
         renewDate: '-',
       );
+      isPlanLocked.value = false;
+      planLockMessage.value = '';
     }
     _startPlanDaysTicker();
   }

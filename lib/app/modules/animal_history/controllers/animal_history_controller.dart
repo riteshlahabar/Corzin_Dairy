@@ -72,7 +72,7 @@ class AnimalHistoryController extends GetxController {
     try {
       isLoading.value = true;
       final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId?include_inactive=1'),
+        Uri.parse('${Api.animalList}/$farmerId'),
         headers: {'Accept': 'application/json'},
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};

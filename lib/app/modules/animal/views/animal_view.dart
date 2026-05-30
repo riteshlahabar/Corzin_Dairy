@@ -269,7 +269,7 @@ class AnimalView extends GetView<AnimalController> {
             ],
           ),
           const SizedBox(height: 18),
-          _fieldLabel('default_milk_per_milking'.tr),
+          _fieldLabel('default_milk_per_milking'.tr, requiredField: true),
           const SizedBox(height: 8),
           TextFormField(
             controller: controller.defaultMilkPerSessionController,
@@ -279,7 +279,7 @@ class AnimalView extends GetView<AnimalController> {
             decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
             validator: (value) {
               final text = (value ?? '').trim();
-              if (text.isEmpty) return null;
+              if (text.isEmpty) return 'Please enter default milk per milking';
               final parsed = double.tryParse(text);
               if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
               return null;
@@ -343,6 +343,12 @@ class AnimalView extends GetView<AnimalController> {
     final weight = double.tryParse(weightText);
     if (weightText.isEmpty || weight == null || weight <= 0) {
       controller.weightFocus.requestFocus();
+      return;
+    }
+    final defaultMilkText = controller.defaultMilkPerSessionController.text.trim();
+    final defaultMilk = double.tryParse(defaultMilkText);
+    if (defaultMilkText.isEmpty || defaultMilk == null || defaultMilk < 0) {
+      controller.defaultMilkPerSessionFocus.requestFocus();
     }
   }
 

@@ -99,7 +99,7 @@ class AnimalController extends GetxController {
     }
     try {
       final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId?include_inactive=1'),
+        Uri.parse('${Api.animalList}/$farmerId'),
         headers: {'Accept': 'application/json'},
       );
       final data = jsonDecode(response.body);
@@ -339,6 +339,12 @@ class AnimalController extends GetxController {
       Get.snackbar('Error', 'Please enter valid weight', snackPosition: SnackPosition.BOTTOM);
       return;
     }
+    final defaultMilkText = defaultMilkPerSessionController.text.trim();
+    final defaultMilkValue = double.tryParse(defaultMilkText);
+    if (defaultMilkText.isEmpty || defaultMilkValue == null || defaultMilkValue < 0) {
+      Get.snackbar('Error', 'Please enter valid default milk per milking', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     if (selectedImage.value == null) {
       Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
       return;
@@ -371,9 +377,7 @@ class AnimalController extends GetxController {
       request.fields['age'] = ageInfo.years.toString();
       request.fields['gender'] = selectedGender.value;
       request.fields['weight'] = weightController.text.trim();
-      if (defaultMilkPerSessionController.text.trim().isNotEmpty) {
-        request.fields['default_milk_per_session'] = defaultMilkPerSessionController.text.trim();
-      }
+      request.fields['default_milk_per_session'] = defaultMilkText;
       if (selectedImage.value != null) {
         final imagePath = selectedImage.value!.path;
         final fileName = imagePath.split(Platform.pathSeparator).last;

@@ -7,13 +7,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
 
+enum HealthSection { dmi, mastitis }
+
 class HealthController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isSubmitting = false.obs;
+  final Rx<HealthSection> selectedSection = HealthSection.dmi.obs;
   final RxList<HealthAnimalItem> animals = <HealthAnimalItem>[].obs;
   final RxList<MedicalRecordItem> medicalRecords = <MedicalRecordItem>[].obs;
   final RxList<MastitisRecordItem> mastitisRecords = <MastitisRecordItem>[].obs;
   final RxList<DmiRecordItem> dmiRecords = <DmiRecordItem>[].obs;
+  final RxString mastitisSearchQuery = ''.obs;
+  final RxString mastitisResultFilter = 'all'.obs;
+  String lastSubmitMessage = '';
 
   int farmerId = 0;
 
@@ -32,6 +38,22 @@ class HealthController extends GetxController {
       fetchMastitisRecords(),
       fetchDmiRecords(),
     ]);
+  }
+
+  void setSection(HealthSection section) {
+    if (selectedSection.value == section) return;
+    selectedSection.value = section;
+  }
+
+  Future<void> refreshSelectedSection() async {
+    switch (selectedSection.value) {
+      case HealthSection.mastitis:
+        await fetchMastitisRecords();
+        break;
+      case HealthSection.dmi:
+        await fetchDmiRecords();
+        break;
+    }
   }
 
   Future<void> fetchAnimals() async {
@@ -79,6 +101,7 @@ class HealthController extends GetxController {
   Future<void> fetchMastitisRecords() async {
     if (farmerId == 0) return;
     try {
+      isLoading.value = true;
       final response = await http.get(Uri.parse('${Api.healthMastitis}/$farmerId'), headers: {'Accept': 'application/json'});
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
@@ -89,12 +112,15 @@ class HealthController extends GetxController {
       }
     } catch (_) {
       mastitisRecords.clear();
+    } finally {
+      isLoading.value = false;
     }
   }
 
   Future<void> fetchDmiRecords() async {
     if (farmerId == 0) return;
     try {
+      isLoading.value = true;
       final response = await http.get(Uri.parse('${Api.healthDmi}/$farmerId'), headers: {'Accept': 'application/json'});
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
@@ -105,6 +131,8 @@ class HealthController extends GetxController {
       }
     } catch (_) {
       dmiRecords.clear();
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -153,7 +181,61 @@ class HealthController extends GetxController {
       },
       successMessage: 'Mastitis record saved successfully',
       onSuccess: fetchMastitisRecords,
+      showSuccessSnackbar: false,
     );
+  }
+
+  Future<bool> updateMastitis({
+    required int recordId,
+    required int animalId,
+    required String testResult,
+    required String treatment,
+    required String recoveryStatus,
+    required DateTime date,
+    String notes = '',
+  }) async {
+    return _submit(
+      endpoint: '${Api.healthMastitisUpdate}/$recordId',
+      payload: {
+        'farmer_id': farmerId.toString(),
+        'animal_id': animalId.toString(),
+        'test_result': testResult,
+        'treatment': treatment,
+        'recovery_status': recoveryStatus,
+        'date': DateFormat('yyyy-MM-dd').format(date),
+        'notes': notes,
+      },
+      successMessage: 'Mastitis record updated successfully',
+      onSuccess: fetchMastitisRecords,
+      showSuccessSnackbar: false,
+    );
+  }
+
+  List<MastitisRecordItem> get filteredMastitisRecords {
+    final query = mastitisSearchQuery.value.trim().toLowerCase();
+    final filter = mastitisResultFilter.value.trim().toLowerCase();
+
+    return mastitisRecords.where((item) {
+      final result = item.testResult.trim().toLowerCase();
+      if (filter != 'all' && result != filter) {
+        return false;
+      }
+      if (query.isEmpty) {
+        return true;
+      }
+
+      final haystack = [
+        item.animalName,
+        item.tagNumber,
+        item.testResult,
+        item.treatment,
+        item.recoveryStatus,
+        item.date,
+        item.notes,
+      ].join(' ').toLowerCase();
+
+      return haystack.contains(query);
+    }).toList();
   }
 
   Future<bool> saveDmi({
@@ -185,28 +267,74 @@ class HealthController extends GetxController {
     required Map<String, String> payload,
     required String successMessage,
     required Future<void> Function() onSuccess,
+    bool showSuccessSnackbar = true,
   }) async {
     try {
       isSubmitting.value = true;
+      lastSubmitMessage = '';
       final response = await http.post(
         Uri.parse(endpoint),
         headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if (_isSuccessResponse(response, data)) {
         await onSuccess();
-        Get.snackbar('Success', data['message']?.toString() ?? successMessage);
+        lastSubmitMessage = _extractMessage(data, fallback: successMessage);
+        if (showSuccessSnackbar) {
+          Get.snackbar(
+            'Success',
+            lastSubmitMessage,
+            duration: const Duration(seconds: 4),
+          );
+        }
         return true;
       }
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to save record');
+      lastSubmitMessage = _extractMessage(data, fallback: 'Failed to save record');
+      Get.snackbar(
+        'Error',
+        lastSubmitMessage,
+      );
       return false;
     } catch (e) {
+      lastSubmitMessage = e.toString();
       Get.snackbar('Error', e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
     }
+  }
+
+  bool _isSuccessResponse(http.Response response, dynamic data) {
+    final codeOk = response.statusCode >= 200 && response.statusCode < 300;
+    if (!codeOk) return false;
+    if (data is! Map) return true;
+    final status = data['status'];
+    final success = data['success'];
+    final statusOk = status == true ||
+        status == 1 ||
+        status?.toString().toLowerCase() == 'true';
+    final successOk = success == true ||
+        success == 1 ||
+        success?.toString().toLowerCase() == 'true';
+    return statusOk || successOk || data.isEmpty;
+  }
+
+  String _extractMessage(dynamic data, {required String fallback}) {
+    if (data is! Map) return fallback;
+    final message = data['message'];
+    if (message == null) return fallback;
+    if (message is String && message.trim().isNotEmpty) return message.trim();
+    if (message is Map) {
+      final first = message.values.firstWhere(
+        (value) => value != null && value.toString().trim().isNotEmpty,
+        orElse: () => '',
+      );
+      final text = first.toString().trim();
+      return text.isEmpty ? fallback : text;
+    }
+    final text = message.toString().trim();
+    return text.isEmpty ? fallback : text;
   }
 
   double calculateRequiredDmi(double bodyWeight, double totalMilk) {
@@ -269,6 +397,8 @@ class MedicalRecordItem {
 }
 
 class MastitisRecordItem {
+  final int id;
+  final int animalId;
   final String animalName;
   final String tagNumber;
   final String testResult;
@@ -277,10 +407,22 @@ class MastitisRecordItem {
   final String date;
   final String notes;
 
-  MastitisRecordItem({required this.animalName, required this.tagNumber, required this.testResult, required this.treatment, required this.recoveryStatus, required this.date, required this.notes});
+  MastitisRecordItem({
+    required this.id,
+    required this.animalId,
+    required this.animalName,
+    required this.tagNumber,
+    required this.testResult,
+    required this.treatment,
+    required this.recoveryStatus,
+    required this.date,
+    required this.notes,
+  });
 
   factory MastitisRecordItem.fromJson(Map<String, dynamic> json) {
     return MastitisRecordItem(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      animalId: int.tryParse(json['animal_id']?.toString() ?? '0') ?? 0,
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
       testResult: json['test_result']?.toString() ?? '',

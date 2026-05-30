@@ -8,6 +8,8 @@ import '../../modules/doctor/controllers/doctor_controller.dart';
 import '../../modules/doctor/views/doctor_appointments_nearby_view.dart';
 import '../../modules/fetch_location/views/fetch_location_view.dart';
 import '../../modules/feeding/views/feeding_history_view.dart';
+import '../../modules/health/controllers/health_controller.dart';
+import '../../modules/health/views/health_view.dart';
 import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
 import '../../modules/milk/views/milk_history_view.dart';
@@ -18,6 +20,8 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/reports/views/livestock_report_view.dart';
 import '../../modules/shop/controllers/shop_controller.dart';
 // import '../../modules/shop/views/my_orders_view.dart';
+import '../../modules/upgrade/controllers/upgrade_controller.dart';
+import '../../modules/upgrade/views/upgrade_view.dart';
 import '../../routes/app_pages.dart';
 import '../services/session_service.dart';
 import '../theme/colors.dart';
@@ -56,6 +60,11 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
 
   void changeTab(int index) {
     if (index == 2) return;
+    if (_isPlanLocked) {
+      _showPlanLockedMessage();
+      openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
     activeDrawerPage.value = null;
     _drawerPageStack.clear();
     if (currentIndex.value == index) return;
@@ -176,6 +185,11 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   }
 
   void openAddAction() {
+    if (_isPlanLocked) {
+      _showPlanLockedMessage();
+      openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -238,6 +252,11 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   }
 
   void openDrawerRoute(String routeName) {
+    if (_isPlanLocked && routeName != Routes.UPGRADE) {
+      _showPlanLockedMessage();
+      openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
     final route = AppPages.routes.firstWhereOrNull(
       (item) => item.name == routeName,
     );
@@ -269,12 +288,22 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   }
 
   void openDrawerPage(Widget page) {
+    if (_isPlanLocked) {
+      _showPlanLockedMessage();
+      openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
     activeDrawerPage.value = page;
     _drawerPageStack.clear();
     unawaited(_runSilentSync(force: true));
   }
 
   void openNestedDrawerPage(Widget page) {
+    if (_isPlanLocked) {
+      _showPlanLockedMessage();
+      openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
     final current = activeDrawerPage.value;
     if (current != null) {
       _drawerPageStack.add(current);
@@ -324,6 +353,22 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
       ),
     );
   }
+
+  bool get _isPlanLocked =>
+      Get.isRegistered<HomeController>() &&
+      Get.find<HomeController>().isPlanLocked.value;
+
+  void _showPlanLockedMessage() {
+    final message = Get.isRegistered<HomeController>()
+        ? Get.find<HomeController>().planLockMessage.value
+        : '';
+    Get.snackbar(
+      'upgrade_plan'.tr,
+      message.trim().isEmpty
+          ? 'plan_expired_contact_admin'.tr
+          : message,
+    );
+  }
 }
 
 class MainBottomNavView extends StatefulWidget {
@@ -361,6 +406,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     _resetAndPut<DoctorController>(() => DoctorController(), permanent: true);
     _resetAndPut<ShopController>(() => ShopController(), permanent: true);
     _resetAndPut<ProfileController>(() => ProfileController(), permanent: true);
+    _resetAndPut<UpgradeController>(() => UpgradeController(), permanent: true);
   }
 
   @override
@@ -397,14 +443,17 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         drawer: _buildDrawer(context, controller),
         body: Obx(() {
           final drawerPage = controller.activeDrawerPage.value;
+          final planLocked = Get.find<HomeController>().isPlanLocked.value;
           return Stack(
             children: [
-              drawerPage ??
+              planLocked
+                  ? const UpgradeView()
+                  : drawerPage ??
                   IndexedStack(
                     index: controller.currentIndex.value,
                     children: pages,
                   ),
-              if (drawerPage != null)
+              if (drawerPage != null || planLocked)
                 Positioned(
                   top: MediaQuery.of(context).viewPadding.top + 8,
                   right: 12,
@@ -725,13 +774,31 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                         ),
                       ],
                     ),
-                    _drawerTile(
+                    _drawerGroup(
                       icon: Icons.health_and_safety_outlined,
                       title: 'health'.tr,
-                      onTap: () {
-                        Get.back();
-                        controller.openDrawerRoute(Routes.HEALTH);
-                      },
+                      children: [
+                        _drawerSubTile(
+                          title: 'dmi'.tr,
+                          icon: Icons.monitor_weight_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const HealthView(initialSection: HealthSection.dmi),
+                            );
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'mastitis'.tr,
+                          icon: Icons.healing_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const HealthView(initialSection: HealthSection.mastitis),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     // _drawerTile(
                     //   icon: Icons.receipt_long_outlined,

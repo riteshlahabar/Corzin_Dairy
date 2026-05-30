@@ -40,12 +40,15 @@ class LivestockReportController extends GetxController {
   static const String reportTypeFeeding = 'feeding';
   static const String reportTypeMedical = 'medical';
   static const String reportTypeLifecycle = 'lifecycle';
+  static const String reportTypeMastitis = 'mastitis';
   static const String reportTypeProfitLoss = 'profit_loss';
 
   static const String sectionMilk = 'Milk Report';
   static const String sectionFeeding = 'Feeding Report';
   static const String sectionMedical = 'Medical History';
   static const String sectionLifecycle = 'Life Cycle History';
+  static const String sectionPregnancy = 'Pregnancy Report';
+  static const String sectionMastitis = 'Mastitis Report';
   static const String sectionProfitLoss = 'Profit Loss Report';
 
   @override
@@ -88,6 +91,7 @@ class LivestockReportController extends GetxController {
       reportTypeFeeding,
       reportTypeMedical,
       reportTypeLifecycle,
+      reportTypeMastitis,
       reportTypeProfitLoss,
     };
     if (!allowed.contains(next) || reportType.value == next) return;
@@ -100,7 +104,10 @@ class LivestockReportController extends GetxController {
       return;
     }
     final endpoint = scope.value == 'pan' ? Api.animalPanList : Api.animalList;
-    final uri = Uri.parse('$endpoint/$farmerId');
+    final uri = scope.value == 'pan'
+        ? Uri.parse('$endpoint/$farmerId')
+        : Uri.parse('$endpoint/$farmerId')
+            .replace(queryParameters: const {'include_inactive': '1'});
     try {
       final response = await http.get(uri, headers: {'Accept': 'application/json'});
       final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -273,6 +280,13 @@ class LivestockReportController extends GetxController {
           ReportSummaryCardData(label: 'sold_events'.tr, value: '${totals.value.lifecycleSold}'),
           ReportSummaryCardData(label: 'death_events'.tr, value: '${totals.value.lifecycleDeath}'),
         ];
+      case reportTypeMastitis:
+        final mastitisCount = currentSections
+            .where((section) => section.title == sectionMastitis)
+            .fold<int>(0, (count, section) => count + section.rows.length);
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'mastitis'.tr, value: '$mastitisCount'),
+        ];
       case reportTypeProfitLoss:
         return <ReportSummaryCardData>[
           ReportSummaryCardData(label: 'debit'.tr, value: 'Rs ${profitDebit.toStringAsFixed(2)}'),
@@ -308,6 +322,8 @@ class LivestockReportController extends GetxController {
         return sections.where((section) => section.title == sectionMedical).toList();
       case reportTypeLifecycle:
         return sections.where((section) => section.title == sectionLifecycle).toList();
+      case reportTypeMastitis:
+        return sections.where((section) => section.title == sectionMastitis).toList();
       case reportTypeProfitLoss:
         return sections.where((section) => section.title == sectionProfitLoss).toList();
       default:
@@ -450,11 +466,16 @@ class LivestockReportController extends GetxController {
         DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day, 23, 59, 59);
 
     final result = await Future.wait<List<Map<String, dynamic>>>([
-      _fetchListFromApi('${Api.animalList}/$farmerId'),
+      _fetchListFromApi(
+        '${Api.animalList}/$farmerId',
+        query: const {'include_inactive': '1'},
+      ),
       _fetchListFromApi('${Api.milkList}/$farmerId'),
       _fetchListFromApi('${Api.feedingList}/$farmerId'),
       _fetchListFromApi('${Api.animalHistory}/$farmerId'),
       _fetchListFromApi('${Api.doctorAppointmentsByFarmer}/$farmerId'),
+      _fetchListFromApi('${Api.pregnancyList}/$farmerId'),
+      _fetchListFromApi('${Api.healthMastitis}/$farmerId'),
     ]);
 
     final animals = result[0];
@@ -462,6 +483,8 @@ class LivestockReportController extends GetxController {
     final feedingRowsRaw = result[2];
     final lifecycleRowsRaw = result[3];
     final appointmentsRaw = result[4];
+    final pregnancyRowsRaw = result[5];
+    final mastitisRowsRaw = result[6];
 
     final animalLookup = <int, _AnimalExportInfo>{};
     for (final item in animals) {
@@ -473,6 +496,10 @@ class LivestockReportController extends GetxController {
         panName: _asText(item['pan_name']),
         animalName: _asText(item['animal_name']),
         tagNumber: _asText(item['tag_number']),
+        uniqueId: _asText(
+          item['unique_id'],
+          fallback: _asText(item['animal_unique_id'], fallback: '-'),
+        ),
         birthDate: _asText(item['birth_date']),
         purchaseDate: _asText(item['purchase_date']),
         animalType: _asText(item['animal_type_name']),
@@ -512,7 +539,7 @@ class LivestockReportController extends GetxController {
           animal?.panName ?? '-',
           animal?.animalName ?? _asText(item['animal_name']),
           animal?.tagNumber ?? _asText(item['tag_number']),
-          animalId > 0 ? '$animalId' : '-',
+          _resolveAnimalUniqueId(animal, item, animalId),
           '-',
           _format2(qty),
           fat,
@@ -530,7 +557,7 @@ class LivestockReportController extends GetxController {
           animal?.panName ?? '-',
           animal?.animalName ?? _asText(item['animal_name']),
           animal?.tagNumber ?? _asText(item['tag_number']),
-          animalId > 0 ? '$animalId' : '-',
+          _resolveAnimalUniqueId(animal, item, animalId),
           shiftRow.key,
           _format2(shiftRow.value),
           fat,
@@ -567,7 +594,7 @@ class LivestockReportController extends GetxController {
         animal?.panName ?? '-',
         animal?.animalName ?? _asText(item['animal_name']),
         animal?.tagNumber ?? _asText(item['tag_number']),
-        animalId > 0 ? '$animalId' : '-',
+        _resolveAnimalUniqueId(animal, item, animalId),
         _asText(item['feeding_time']),
         _asText(item['diet_plan_name'], fallback: _asText(item['feed_type'])),
         _format2(_asDouble(item['feeding_quantity']) > 0 ? _asDouble(item['feeding_quantity']) : _asDouble(item['quantity'])),
@@ -608,7 +635,7 @@ class LivestockReportController extends GetxController {
         animal?.panName ?? '-',
         animal?.animalName ?? _asText(item['animal_name']),
         animal?.tagNumber ?? '-',
-        animalId > 0 ? '$animalId' : '-',
+        _resolveAnimalUniqueId(animal, item, animalId),
         _asText(item['disease_details'], fallback: _asText(item['concern'])),
         _asText(item['treatment_details']),
         _asText(item['onsite_treatment']),
@@ -640,7 +667,7 @@ class LivestockReportController extends GetxController {
         ),
         animal?.animalName ?? _asText(item['animal_name']),
         animal?.tagNumber ?? _asText(item['tag_number']),
-        animalId > 0 ? '$animalId' : '-',
+        _resolveAnimalUniqueId(animal, item, animalId),
         type,
         animal?.birthDate ?? '-',
         animal?.purchaseDate ?? '-',
@@ -651,6 +678,62 @@ class LivestockReportController extends GetxController {
         animal?.gender ?? '-',
         animal?.ageDisplay ?? '-',
         animal?.weight ?? '-',
+      ]);
+    }
+
+    final pregnancyRows = <List<String>>[];
+    for (final item in pregnancyRowsRaw) {
+      final status = _asText(item['status'], fallback: '').toLowerCase();
+      if (status != 'pregnant' && status != 'not_pregnant') {
+        continue;
+      }
+
+      final reportDate = _parseAnyDate(item['pregnancy_check_date']) ??
+          _parseAnyDate(item['ai_date']);
+      if (!_isWithinRange(reportDate, start, end)) continue;
+
+      final animalId = _asInt(item['animal_id']);
+      final animal = animalLookup[animalId];
+      final panId = animal?.panId ?? 0;
+      if (!_matchesScope(animalId: animalId, panId: panId)) continue;
+
+      final remainingDaysRaw = (item['remaining_days'] ?? '').toString().trim();
+      final remainingDays = remainingDaysRaw.isEmpty ? '-' : '$remainingDaysRaw days';
+
+      pregnancyRows.add([
+        _displayDate(reportDate),
+        animal?.panName ?? '-',
+        animal?.animalName ?? _asText(item['animal_name']),
+        animal?.tagNumber ?? _asText(item['tag_number']),
+        _resolveAnimalUniqueId(animal, item, animalId),
+        _asText(item['ai_date']),
+        _asText(item['pregnancy_check_date']),
+        _asText(item['expected_calving_date']),
+        remainingDays,
+        _asText(item['doctor_name']),
+        _asText(item['status']),
+      ]);
+    }
+
+    final mastitisRows = <List<String>>[];
+    for (final item in mastitisRowsRaw) {
+      final date = _parseAnyDate(item['date']);
+      if (!_isWithinRange(date, start, end)) continue;
+
+      final animalId = _asInt(item['animal_id']);
+      final animal = animalLookup[animalId];
+      final panId = animal?.panId ?? 0;
+      if (!_matchesScope(animalId: animalId, panId: panId)) continue;
+
+      mastitisRows.add([
+        _displayDate(date),
+        animal?.panName ?? '-',
+        animal?.animalName ?? _asText(item['animal_name']),
+        animal?.tagNumber ?? _asText(item['tag_number']),
+        _resolveAnimalUniqueId(animal, item, animalId),
+        _asText(item['test_result']),
+        _asText(item['treatment']),
+        _asText(item['recovery_status']),
       ]);
     }
 
@@ -687,7 +770,7 @@ class LivestockReportController extends GetxController {
         animal?.panName ?? '-',
         animal?.animalName ?? '-',
         animal?.tagNumber ?? '-',
-        animalId > 0 ? '$animalId' : '-',
+        _resolveAnimalUniqueId(animal, const <String, dynamic>{}, animalId),
         _format2(debit),
         _format2(credit),
         _format2(credit - debit),
@@ -767,6 +850,37 @@ class LivestockReportController extends GetxController {
           'Weight',
         ],
         rows: lifecycleRows,
+      ),
+      ReportSectionData(
+        title: sectionPregnancy,
+        headers: const [
+          'Date',
+          'Pen Name',
+          'Cow Name',
+          'Cow Tag No',
+          'Id',
+          'AI Date',
+          'Pregnancy Check Date',
+          'Expected Calving Date',
+          'Remaining Days',
+          'Doctor Name',
+          'Status',
+        ],
+        rows: pregnancyRows,
+      ),
+      ReportSectionData(
+        title: sectionMastitis,
+        headers: const [
+          'Date',
+          'Pen Name',
+          'Cow Name',
+          'Cow Tag No',
+          'Id',
+          'Test Result',
+          'Treatment',
+          'Recovery Status',
+        ],
+        rows: mastitisRows,
       ),
       ReportSectionData(
         title: sectionProfitLoss,
@@ -855,6 +969,21 @@ class LivestockReportController extends GetxController {
   String _displayDate(DateTime? date) {
     if (date == null) return '-';
     return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  String _resolveAnimalUniqueId(
+    _AnimalExportInfo? animal,
+    Map<String, dynamic> row,
+    int animalId,
+  ) {
+    final fromAnimal = (animal?.uniqueId ?? '').trim();
+    if (fromAnimal.isNotEmpty && fromAnimal != '-') return fromAnimal;
+    final fromRowUnique = _asText(
+      row['unique_id'],
+      fallback: _asText(row['animal_unique_id'], fallback: ''),
+    );
+    if (fromRowUnique.isNotEmpty && fromRowUnique != '-') return fromRowUnique;
+    return animalId > 0 ? '$animalId' : '-';
   }
 
   String _asText(dynamic value, {String fallback = '-'}) {
@@ -1095,6 +1224,7 @@ class _AnimalExportInfo {
   final String panName;
   final String animalName;
   final String tagNumber;
+  final String uniqueId;
   final String birthDate;
   final String purchaseDate;
   final String animalType;
@@ -1111,6 +1241,7 @@ class _AnimalExportInfo {
     required this.panName,
     required this.animalName,
     required this.tagNumber,
+    required this.uniqueId,
     required this.birthDate,
     required this.purchaseDate,
     required this.animalType,

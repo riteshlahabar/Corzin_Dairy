@@ -55,6 +55,7 @@ class Api {
 
   static const String healthMedical = "$baseUrl/health/medical";
   static const String healthMastitis = "$baseUrl/health/mastitis";
+  static const String healthMastitisUpdate = "$baseUrl/health/mastitis/update";
   static const String healthDmi = "$baseUrl/health/dmi";
 
 

@@ -3,7 +3,9 @@ class PregnancyRecordModel {
   final int farmerId;
   final int animalId;
   final String animalName;
+  final String uniqueId;
   final String tagNumber;
+  final String image;
   final String animalTypeName;
   final int pregnancyNo;
   final int serviceNo;
@@ -31,7 +33,9 @@ class PregnancyRecordModel {
     required this.farmerId,
     required this.animalId,
     required this.animalName,
+    required this.uniqueId,
     required this.tagNumber,
+    required this.image,
     required this.animalTypeName,
     required this.pregnancyNo,
     required this.serviceNo,
@@ -61,7 +65,9 @@ class PregnancyRecordModel {
       farmerId: _asInt(json['farmer_id']),
       animalId: _asInt(json['animal_id']),
       animalName: json['animal_name']?.toString() ?? '',
+      uniqueId: json['unique_id']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
+      image: json['image']?.toString() ?? '',
       animalTypeName: json['animal_type_name']?.toString() ?? '',
       pregnancyNo: _asInt(json['pregnancy_no'], fallback: 1),
       serviceNo: _asInt(json['service_no'], fallback: 1),
@@ -99,6 +105,7 @@ class PregnancyRecordModel {
 
   String get searchText => [
         animalName,
+        uniqueId,
         tagNumber,
         animalTypeName,
         pregnancyNo,
@@ -124,12 +131,16 @@ class PregnancyAnimalOption {
   final String name;
   final String tagNumber;
   final String animalTypeName;
+  final String gender;
+  final int lactationNumber;
 
   const PregnancyAnimalOption({
     required this.id,
     required this.name,
     required this.tagNumber,
     required this.animalTypeName,
+    required this.gender,
+    required this.lactationNumber,
   });
 
   factory PregnancyAnimalOption.fromJson(Map<String, dynamic> json) {
@@ -138,6 +149,9 @@ class PregnancyAnimalOption {
       name: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
       animalTypeName: json['animal_type_name']?.toString() ?? '',
+      gender: json['gender']?.toString() ?? '',
+      lactationNumber:
+          int.tryParse(json['lactation_number']?.toString() ?? '') ?? 0,
     );
   }
 
