@@ -59,6 +59,9 @@ class _EditAnimalViewState extends State<EditAnimalView> {
     _defaultMilkPerSessionController = TextEditingController(text: item.defaultMilkPerSession);
     _selectedTypeId = item.animalTypeId;
     _selectedGender = item.gender.trim().isEmpty ? 'Female' : item.gender.trim();
+    if (_isMilkingAnimalTypeName(item.animalTypeName)) {
+      _selectedGender = 'Female';
+    }
     _selectedMotherAnimal = _findExistingMother();
     _syncAgeFromBirthDateText();
   }
@@ -236,6 +239,11 @@ class _EditAnimalViewState extends State<EditAnimalView> {
                   _selectedTypeId = value ?? 0;
                   if (!_showMotherAnimalDropdown) {
                     _selectedMotherAnimal = null;
+                  }
+                  if (_showExpectedMilkYieldField) {
+                    _selectedGender = 'Female';
+                  } else {
+                    _defaultMilkPerSessionController.clear();
                   }
                 });
               },
@@ -432,6 +440,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
                     _fieldLabel('gender'.tr, requiredField: true),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
+                      key: ValueKey('edit-gender-$_selectedGender-$_selectedTypeId-$_showExpectedMilkYieldField'),
                       initialValue: _selectedGender.isEmpty ? null : _selectedGender,
                       isExpanded: true,
                       dropdownColor: const Color(0xFFF4FAF4),
@@ -441,7 +450,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
                         DropdownMenuItem(value: 'Male', child: Text('male'.tr)),
                         DropdownMenuItem(value: 'Female', child: Text('female'.tr)),
                       ],
-                      onChanged: (value) => setState(() => _selectedGender = value ?? ''),
+                      onChanged: _showExpectedMilkYieldField ? null : (value) => setState(() => _selectedGender = value ?? ''),
                       validator: (value) => value == null || value.isEmpty ? 'please_select_gender'.tr : null,
                     ),
                   ],
@@ -472,23 +481,25 @@ class _EditAnimalViewState extends State<EditAnimalView> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          _fieldLabel('default_milk_per_milking'.tr),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _defaultMilkPerSessionController,
-            focusNode: _defaultMilkPerSessionFocus,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.next,
-            decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
-            validator: (value) {
-              final text = (value ?? '').trim();
-              if (text.isEmpty) return null;
-              final parsed = double.tryParse(text);
-              if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
-              return null;
-            },
-          ),
+          if (_showExpectedMilkYieldField) ...[
+            const SizedBox(height: 18),
+            _fieldLabel('default_milk_per_milking'.tr, requiredField: true),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _defaultMilkPerSessionController,
+              focusNode: _defaultMilkPerSessionFocus,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.next,
+              decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
+              validator: (value) {
+                final text = (value ?? '').trim();
+                if (text.isEmpty) return 'Please enter expected milk yield per shift';
+                final parsed = double.tryParse(text);
+                if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: 18),
           _fieldLabel('animal_image'.tr, requiredField: true),
           const SizedBox(height: 12),
@@ -709,9 +720,9 @@ class _EditAnimalViewState extends State<EditAnimalView> {
       birthDate: _birthDateController.text,
       purchaseDate: _purchaseDateController.text,
       age: ageInfo.years.toString(),
-      gender: _selectedGender,
+      gender: _showExpectedMilkYieldField ? 'Female' : _selectedGender,
       weight: _weightController.text,
-      defaultMilkPerSession: _defaultMilkPerSessionController.text,
+      defaultMilkPerSession: _showExpectedMilkYieldField ? _defaultMilkPerSessionController.text : '',
       imageFile: _selectedImage,
     );
 
@@ -733,6 +744,14 @@ class _EditAnimalViewState extends State<EditAnimalView> {
     final weight = double.tryParse(weightText);
     if (weightText.isEmpty || weight == null || weight <= 0) {
       _weightFocus.requestFocus();
+      return;
+    }
+    if (_showExpectedMilkYieldField) {
+      final defaultMilkText = _defaultMilkPerSessionController.text.trim();
+      final defaultMilk = double.tryParse(defaultMilkText);
+      if (defaultMilkText.isEmpty || defaultMilk == null || defaultMilk < 0) {
+        _defaultMilkPerSessionFocus.requestFocus();
+      }
     }
   }
 
@@ -774,6 +793,17 @@ class _EditAnimalViewState extends State<EditAnimalView> {
         name.contains('new born') ||
         name.contains('बछ') ||
         name.contains('वासर');
+  }
+
+  bool get _showExpectedMilkYieldField {
+    final selectedType = controller.animalTypes.firstWhereOrNull((type) => type.id == _selectedTypeId);
+    return _isMilkingAnimalTypeName(selectedType?.name ?? widget.item.animalTypeName);
+  }
+
+  bool _isMilkingAnimalTypeName(String name) {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return normalized.contains('milking') && !normalized.contains('non');
   }
 
   _AgeInfo? _calculateAgeInfoFromBirthDate(DateTime birthDate) {

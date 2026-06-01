@@ -359,6 +359,52 @@ class PanManagementController extends GetxController {
     }
   }
 
+  Future<bool> deletePan(int panId) async {
+    if (farmerId == 0) {
+      Get.snackbar('Error', 'Farmer session not found.');
+      return false;
+    }
+
+    try {
+      isSubmitting.value = true;
+      final response = await http.post(
+        Uri.parse('${Api.animalPanDelete}/$panId/delete'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'farmer_id': farmerId,
+        }),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        await refreshAll();
+        Get.snackbar(
+          'Success',
+          data['message']?.toString() ?? 'PAN deleted successfully.',
+        );
+        return true;
+      }
+
+      final message = data['message'];
+      if (message is Map) {
+        final first = message.values.isNotEmpty ? message.values.first : null;
+        if (first is List && first.isNotEmpty) {
+          Get.snackbar('Error', first.first.toString());
+          return false;
+        }
+      }
+      Get.snackbar('Error', message?.toString() ?? 'Failed to delete PAN.');
+      return false;
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
   @override
   void onClose() {
     panNameController.dispose();

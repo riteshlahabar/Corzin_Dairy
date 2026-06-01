@@ -133,6 +133,18 @@ class LoginOtpController extends GetxController {
 
       final data = jsonDecode(response.body);
 
+      if (response.statusCode == 403 && data["account_inactive"] == true) {
+        await SessionService.setLoggedIn(false);
+        final dynamic adminContact = data["admin_contact"];
+        String adminNumber = "";
+        if (adminContact is Map) {
+          adminNumber = (adminContact["number"] ?? "").toString().trim();
+        }
+        _showInactiveAccountMessage(adminNumber);
+        Get.offAllNamed(Routes.LOGIN);
+        return;
+      }
+
       if (response.statusCode == 401 && data["force_logout"] == true) {
         await SessionService.forceLogoutFromAnotherDevice();
         Get.offAllNamed(Routes.LOGIN);
@@ -207,6 +219,21 @@ class LoginOtpController extends GetxController {
 
   Future<void> resendOtp() async {
     Get.snackbar("Info", "OTP Resent to $mobile");
+  }
+
+  void _showInactiveAccountMessage(String adminNumber) {
+    final message = adminNumber.isEmpty
+        ? "Your account is inactive. Please contact admin."
+        : "Your account is inactive. Please contact admin: $adminNumber";
+
+    Get.closeAllSnackbars();
+    Get.snackbar(
+      "Account Inactive",
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 10),
+      margin: const EdgeInsets.all(12),
+    );
   }
 
   Future<String> _loadFcmToken() async {

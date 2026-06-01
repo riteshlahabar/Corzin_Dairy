@@ -475,6 +475,19 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
       _subtypeController.clear();
     });
     Get.snackbar('success'.tr, 'feed_subtype_saved'.tr, snackPosition: SnackPosition.BOTTOM);
+    _goToHomeAfterSave();
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   @override

@@ -225,6 +225,7 @@ class AnimalView extends GetView<AnimalController> {
                     const SizedBox(height: 8),
                     Obx(
                       () => DropdownButtonFormField<String>(
+                        key: ValueKey('gender-${controller.selectedGender.value}-${controller.showExpectedMilkYieldField}'),
                         initialValue: controller.selectedGender.value.isEmpty ? null : controller.selectedGender.value,
                         isExpanded: true,
                         dropdownColor: const Color(0xFFF4FAF4),
@@ -236,7 +237,9 @@ class AnimalView extends GetView<AnimalController> {
                                   child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 ))
                             .toList(),
-                        onChanged: (value) => controller.selectedGender.value = value ?? '',
+                        onChanged: controller.showExpectedMilkYieldField
+                            ? null
+                            : (value) => controller.selectedGender.value = value ?? '',
                         validator: (value) => value == null || value.isEmpty ? 'please_select_gender'.tr : null,
                       ),
                     ),
@@ -268,22 +271,30 @@ class AnimalView extends GetView<AnimalController> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          _fieldLabel('default_milk_per_milking'.tr, requiredField: true),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: controller.defaultMilkPerSessionController,
-            focusNode: controller.defaultMilkPerSessionFocus,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.next,
-            decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
-            validator: (value) {
-              final text = (value ?? '').trim();
-              if (text.isEmpty) return 'Please enter default milk per milking';
-              final parsed = double.tryParse(text);
-              if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
-              return null;
-            },
+          Obx(
+            () => controller.showExpectedMilkYieldField
+                ? Column(
+                    children: [
+                      const SizedBox(height: 18),
+                      _fieldLabel('default_milk_per_milking'.tr, requiredField: true),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: controller.defaultMilkPerSessionController,
+                        focusNode: controller.defaultMilkPerSessionFocus,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textInputAction: TextInputAction.next,
+                        decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
+                        validator: (value) {
+                          final text = (value ?? '').trim();
+                          if (text.isEmpty) return 'Please enter expected milk yield per shift';
+                          final parsed = double.tryParse(text);
+                          if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
+                          return null;
+                        },
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
           ),
           const SizedBox(height: 18),
           _fieldLabel('animal_image'.tr, requiredField: true), const SizedBox(height: 12),
@@ -345,10 +356,12 @@ class AnimalView extends GetView<AnimalController> {
       controller.weightFocus.requestFocus();
       return;
     }
-    final defaultMilkText = controller.defaultMilkPerSessionController.text.trim();
-    final defaultMilk = double.tryParse(defaultMilkText);
-    if (defaultMilkText.isEmpty || defaultMilk == null || defaultMilk < 0) {
-      controller.defaultMilkPerSessionFocus.requestFocus();
+    if (controller.showExpectedMilkYieldField) {
+      final defaultMilkText = controller.defaultMilkPerSessionController.text.trim();
+      final defaultMilk = double.tryParse(defaultMilkText);
+      if (defaultMilkText.isEmpty || defaultMilk == null || defaultMilk < 0) {
+        controller.defaultMilkPerSessionFocus.requestFocus();
+      }
     }
   }
 

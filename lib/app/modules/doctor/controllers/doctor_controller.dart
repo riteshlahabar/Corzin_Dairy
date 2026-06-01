@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 
 class DoctorController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -319,9 +321,15 @@ class DoctorController extends GetxController {
         diseaseDetailsController.clear();
         notesController.clear();
         selectedDiseaseIds.clear();
-        Get.back();
+        if (Get.isDialogOpen == true || Get.isBottomSheetOpen == true) {
+          Get.back();
+        }
         await fetchFarmerRequests();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Appointment created successfully.');
+        final successMessage = data['message']?.toString() ?? 'Appointment created successfully.';
+        _goToHomeAfterSave();
+        Future.delayed(const Duration(milliseconds: 120), () {
+          Get.snackbar('Success', successMessage);
+        });
       } else {
         Get.snackbar('Error', _extractApiMessage(data) ?? 'Failed to submit request.');
       }
@@ -330,6 +338,18 @@ class DoctorController extends GetxController {
     } finally {
       isSubmittingRequest.value = false;
     }
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Future<void> updateFarmerApproval({

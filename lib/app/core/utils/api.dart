@@ -23,6 +23,7 @@ class Api {
   static const String animalHistory = "$baseUrl/animal/history";
   static const String animalPanList = "$baseUrl/animal/pans";
   static const String animalPanCreate = "$baseUrl/animal/pans";
+  static const String animalPanDelete = "$baseUrl/animal/pans";
   static const String animalPanTransfer = "$baseUrl/animal/pans/transfer";
 
   static const String addMilk = "$baseUrl/milk";
@@ -56,6 +57,8 @@ class Api {
   static const String healthMedical = "$baseUrl/health/medical";
   static const String healthMastitis = "$baseUrl/health/mastitis";
   static const String healthMastitisUpdate = "$baseUrl/health/mastitis/update";
+  static const String healthMastitisTreatment = "$baseUrl/health/mastitis/treatment";
+  static const String healthMastitisRecover = "$baseUrl/health/mastitis/recover";
   static const String healthDmi = "$baseUrl/health/dmi";
 
 

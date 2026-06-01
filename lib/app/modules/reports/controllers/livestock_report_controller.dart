@@ -40,7 +40,9 @@ class LivestockReportController extends GetxController {
   static const String reportTypeFeeding = 'feeding';
   static const String reportTypeMedical = 'medical';
   static const String reportTypeLifecycle = 'lifecycle';
+  static const String reportTypePregnancy = 'pregnancy';
   static const String reportTypeMastitis = 'mastitis';
+  static const String reportTypeDmi = 'dmi';
   static const String reportTypeProfitLoss = 'profit_loss';
 
   static const String sectionMilk = 'Milk Report';
@@ -49,6 +51,7 @@ class LivestockReportController extends GetxController {
   static const String sectionLifecycle = 'Life Cycle History';
   static const String sectionPregnancy = 'Pregnancy Report';
   static const String sectionMastitis = 'Mastitis Report';
+  static const String sectionDmi = 'DMI Report';
   static const String sectionProfitLoss = 'Profit Loss Report';
 
   @override
@@ -91,7 +94,9 @@ class LivestockReportController extends GetxController {
       reportTypeFeeding,
       reportTypeMedical,
       reportTypeLifecycle,
+      reportTypePregnancy,
       reportTypeMastitis,
+      reportTypeDmi,
       reportTypeProfitLoss,
     };
     if (!allowed.contains(next) || reportType.value == next) return;
@@ -280,12 +285,26 @@ class LivestockReportController extends GetxController {
           ReportSummaryCardData(label: 'sold_events'.tr, value: '${totals.value.lifecycleSold}'),
           ReportSummaryCardData(label: 'death_events'.tr, value: '${totals.value.lifecycleDeath}'),
         ];
+      case reportTypePregnancy:
+        final pregnancyCount = currentSections
+            .where((section) => section.title == sectionPregnancy)
+            .fold<int>(0, (count, section) => count + section.rows.length);
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'pregnancy_report'.tr, value: '$pregnancyCount'),
+        ];
       case reportTypeMastitis:
         final mastitisCount = currentSections
             .where((section) => section.title == sectionMastitis)
             .fold<int>(0, (count, section) => count + section.rows.length);
         return <ReportSummaryCardData>[
           ReportSummaryCardData(label: 'mastitis'.tr, value: '$mastitisCount'),
+        ];
+      case reportTypeDmi:
+        final dmiCount = currentSections
+            .where((section) => section.title == sectionDmi)
+            .fold<int>(0, (count, section) => count + section.rows.length);
+        return <ReportSummaryCardData>[
+          ReportSummaryCardData(label: 'dmi'.tr, value: '$dmiCount'),
         ];
       case reportTypeProfitLoss:
         return <ReportSummaryCardData>[
@@ -322,8 +341,12 @@ class LivestockReportController extends GetxController {
         return sections.where((section) => section.title == sectionMedical).toList();
       case reportTypeLifecycle:
         return sections.where((section) => section.title == sectionLifecycle).toList();
+      case reportTypePregnancy:
+        return sections.where((section) => section.title == sectionPregnancy).toList();
       case reportTypeMastitis:
         return sections.where((section) => section.title == sectionMastitis).toList();
+      case reportTypeDmi:
+        return sections.where((section) => section.title == sectionDmi).toList();
       case reportTypeProfitLoss:
         return sections.where((section) => section.title == sectionProfitLoss).toList();
       default:
@@ -476,6 +499,7 @@ class LivestockReportController extends GetxController {
       _fetchListFromApi('${Api.doctorAppointmentsByFarmer}/$farmerId'),
       _fetchListFromApi('${Api.pregnancyList}/$farmerId'),
       _fetchListFromApi('${Api.healthMastitis}/$farmerId'),
+      _fetchListFromApi('${Api.healthDmi}/$farmerId'),
     ]);
 
     final animals = result[0];
@@ -485,6 +509,7 @@ class LivestockReportController extends GetxController {
     final appointmentsRaw = result[4];
     final pregnancyRowsRaw = result[5];
     final mastitisRowsRaw = result[6];
+    final dmiRowsRaw = result[7];
 
     final animalLookup = <int, _AnimalExportInfo>{};
     for (final item in animals) {
@@ -737,6 +762,31 @@ class LivestockReportController extends GetxController {
       ]);
     }
 
+    final dmiRows = <List<String>>[];
+    for (final item in dmiRowsRaw) {
+      final date = _parseAnyDate(item['date']);
+      if (!_isWithinRange(date, start, end)) continue;
+
+      final animalId = _asInt(item['animal_id']);
+      final animal = animalLookup[animalId];
+      final panId = animal?.panId ?? 0;
+      if (!_matchesScope(animalId: animalId, panId: panId)) continue;
+
+      dmiRows.add([
+        _displayDate(date),
+        animal?.panName ?? '-',
+        animal?.animalName ?? _asText(item['animal_name']),
+        animal?.tagNumber ?? _asText(item['tag_number']),
+        _resolveAnimalUniqueId(animal, item, animalId),
+        _asText(item['dmi_type']),
+        _format2(_asDouble(item['body_weight'])),
+        _format2(_asDouble(item['total_milk'])),
+        _format2(_asDouble(item['required_dmi'])),
+        _format2(_asDouble(item['actual_dmi'])),
+        _asText(item['alert_status']),
+      ]);
+    }
+
     final creditByDateAnimal = <String, _ProfitAccumulator>{};
     for (final item in milkRowsRaw) {
       final date = _parseAnyDate(item['date']);
@@ -881,6 +931,23 @@ class LivestockReportController extends GetxController {
           'Recovery Status',
         ],
         rows: mastitisRows,
+      ),
+      ReportSectionData(
+        title: sectionDmi,
+        headers: const [
+          'Date',
+          'Pen Name',
+          'Cow Name',
+          'Cow Tag No',
+          'Id',
+          'DMI Type',
+          'Body Weight',
+          'Total Milk',
+          'Required DMI',
+          'Actual DMI',
+          'Alert Status',
+        ],
+        rows: dmiRows,
       ),
       ReportSectionData(
         title: sectionProfitLoss,

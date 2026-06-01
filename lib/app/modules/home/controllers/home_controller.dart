@@ -800,7 +800,9 @@ class HomeController extends GetxController {
 
   void _handleRemoteMessage(RemoteMessage message) {
     if (_isForceLogoutMessage(message)) {
-      _forceLogoutFromAnotherDevice();
+      _forceLogoutFromAnotherDevice(
+        customMessage: _resolveForceLogoutMessage(message),
+      );
       return;
     }
 
@@ -885,15 +887,32 @@ class HomeController extends GetxController {
     return type == 'force_logout' || event == 'force_logout';
   }
 
-  Future<void> _forceLogoutFromAnotherDevice() async {
+  Future<void> _forceLogoutFromAnotherDevice({String? customMessage}) async {
     await SessionService.forceLogoutFromAnotherDevice();
+    final logoutMessage =
+        customMessage?.trim().isNotEmpty == true
+            ? customMessage!.trim()
+            : 'Your account was logged in on another mobile.';
     Get.snackbar(
       'Logged out',
-      'Your account was logged in on another mobile.',
+      logoutMessage,
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 4),
     );
     Get.offAllNamed(Routes.LOGIN);
+  }
+
+  String? _resolveForceLogoutMessage(RemoteMessage message) {
+    final fromData = message.data['message']?.toString().trim();
+    if (fromData != null && fromData.isNotEmpty) {
+      return fromData;
+    }
+
+    final fromBody = message.notification?.body?.trim();
+    if (fromBody != null && fromBody.isNotEmpty) {
+      return fromBody;
+    }
+    return null;
   }
 
   String? _resolveNotificationTitle(RemoteMessage message) {

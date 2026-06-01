@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/manage_pregnancy_controller.dart';
 import '../models/pregnancy_record_model.dart';
 
@@ -522,13 +523,14 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                                   );
                                   return;
                                 }
+                                final navigator = Navigator.of(context);
                                 final ok = await controller.updateStatus(
                                   record,
                                   status: nextStatus,
                                   pregnancyCheckDate: checkDate,
                                 );
-                                if (ok && Navigator.of(context).canPop()) {
-                                  Navigator.of(context).pop();
+                                if (ok && navigator.canPop()) {
+                                  navigator.pop();
                                 }
                               },
                         style: ElevatedButton.styleFrom(
@@ -1174,15 +1176,22 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
     );
     if (!ok) return;
 
-    if (Get.isBottomSheetOpen ?? false) {
+    _goToHomeAfterSave();
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isBottomSheetOpen == true) {
       Navigator.of(context, rootNavigator: true).pop();
+    }
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
       return;
     }
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-      return;
-    }
-    Get.back();
+    Get.offAllNamed(Routes.HOME);
   }
 
   String _formatDate(DateTime date) {

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/payment_controller.dart';
 
 class PaymentView extends GetView<PaymentController> {
@@ -65,6 +66,18 @@ class PaymentView extends GetView<PaymentController> {
       return;
     }
     Get.back();
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Widget _overviewCard({
@@ -586,11 +599,14 @@ class PaymentView extends GetView<PaymentController> {
                                   notes: notesController.text,
                                 );
                                 Get.back();
-                                Get.snackbar(
-                                  'success'.tr,
-                                  'dairy_payment_entry_added'.tr,
-                                  snackPosition: SnackPosition.BOTTOM,
-                                );
+                                _goToHomeAfterSave();
+                                Future.delayed(const Duration(milliseconds: 120), () {
+                                  Get.snackbar(
+                                    'success'.tr,
+                                    'dairy_payment_entry_added'.tr,
+                                    snackPosition: SnackPosition.BOTTOM,
+                                  );
+                                });
                               } catch (e) {
                                 Get.snackbar(
                                   'error'.tr,

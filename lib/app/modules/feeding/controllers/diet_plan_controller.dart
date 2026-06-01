@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 import 'feeding_controller.dart';
 
 class DietPlanController extends GetxController {
@@ -556,7 +558,13 @@ class DietPlanController extends GetxController {
         await fetchPlans();
         _clearForm();
         final message = data is Map ? data['message']?.toString() : null;
-        Get.snackbar('success'.tr, (message != null && message.trim().isNotEmpty) ? message.trim() : 'diet_plan_saved'.tr);
+        final successMessage = (message != null && message.trim().isNotEmpty)
+            ? message.trim()
+            : 'diet_plan_saved'.tr;
+        _goToHomeAfterSave();
+        Future.delayed(const Duration(milliseconds: 120), () {
+          Get.snackbar('success'.tr, successMessage);
+        });
         return;
       }
 
@@ -796,6 +804,18 @@ class DietPlanController extends GetxController {
     editingPlanId = 0;
     isEditModeReady.value = false;
     _isAddFormPrepared = false;
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Future<bool> updatePlan({

@@ -154,8 +154,16 @@ class LivestockReportView extends StatelessWidget {
                 child: Text('life_cycle_history'.tr),
               ),
               DropdownMenuItem(
+                value: LivestockReportController.reportTypePregnancy,
+                child: Text('pregnancy_report'.tr),
+              ),
+              DropdownMenuItem(
                 value: LivestockReportController.reportTypeMastitis,
                 child: Text('${'mastitis'.tr} Report'),
+              ),
+              DropdownMenuItem(
+                value: LivestockReportController.reportTypeDmi,
+                child: Text('${'dmi'.tr} Report'),
               ),
               DropdownMenuItem(
                 value: LivestockReportController.reportTypeProfitLoss,

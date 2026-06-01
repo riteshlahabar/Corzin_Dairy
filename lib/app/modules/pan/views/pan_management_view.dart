@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/pan_management_controller.dart';
 
 enum PanManagementMode { create, manage }
@@ -120,6 +121,18 @@ class _PanManagementViewState extends State<PanManagementView>
       return;
     }
     Get.back();
+  }
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
   }
 
   Widget _createPanTab() {
@@ -308,7 +321,12 @@ class _PanManagementViewState extends State<PanManagementView>
                 child: ElevatedButton.icon(
                   onPressed: controller.isSubmitting.value
                       ? null
-                      : controller.createPan,
+                      : () async {
+                          final ok = await controller.createPan();
+                          if (ok) {
+                            _goToHomeAfterSave();
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
@@ -482,6 +500,34 @@ class _PanManagementViewState extends State<PanManagementView>
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: controller.isSubmitting.value
+                        ? null
+                        : () => _confirmDeletePan(pan),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(color: Colors.red.shade300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: Colors.red.shade700,
+                    ),
+                    label: Text(
+                      'Delete PAN',
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -673,6 +719,36 @@ class _PanManagementViewState extends State<PanManagementView>
         );
       },
     );
+  }
+
+  Future<void> _confirmDeletePan(PanGroupItem pan) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete PAN'),
+          content: Text(
+            'Are you sure you want to delete "${pan.name}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text('cancel'.tr),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+    await controller.deletePan(pan.id);
   }
 
   Future<void> _openTransferSheet(PanGroupItem sourcePan) async {

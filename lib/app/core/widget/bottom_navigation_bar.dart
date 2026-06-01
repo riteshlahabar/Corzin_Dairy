@@ -569,7 +569,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         children: [
           _buildDrawerHeader(context, homeController),
           Expanded(
-            child: Container(
+            child: Material(
               color: const Color(0xFFF4FAF4),
               child: SafeArea(
                 top: false,
@@ -784,7 +784,10 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           onTap: () {
                             Get.back();
                             controller.openDrawerPage(
-                              const HealthView(initialSection: HealthSection.dmi),
+                              const HealthView(
+                                key: ValueKey('health-dmi'),
+                                initialSection: HealthSection.dmi,
+                              ),
                             );
                           },
                         ),
@@ -794,7 +797,10 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           onTap: () {
                             Get.back();
                             controller.openDrawerPage(
-                              const HealthView(initialSection: HealthSection.mastitis),
+                              const HealthView(
+                                key: ValueKey('health-mastitis'),
+                                initialSection: HealthSection.mastitis,
+                              ),
                             );
                           },
                         ),

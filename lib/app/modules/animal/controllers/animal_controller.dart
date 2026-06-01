@@ -69,7 +69,18 @@ class AnimalController extends GetxController {
       if (!showMotherAnimalDropdown) {
         selectedMotherAnimal.value = null;
       }
+      if (showExpectedMilkYieldField) {
+        selectedGender.value = 'Female';
+      } else {
+        defaultMilkPerSessionController.clear();
+      }
     });
+  }
+
+  bool get showExpectedMilkYieldField {
+    final name = selectedAnimalType.value?.name.trim().toLowerCase() ?? '';
+    if (name.isEmpty) return false;
+    return name.contains('milking') && !name.contains('non');
   }
 
   bool get showMotherAnimalDropdown {
@@ -340,10 +351,12 @@ class AnimalController extends GetxController {
       return;
     }
     final defaultMilkText = defaultMilkPerSessionController.text.trim();
-    final defaultMilkValue = double.tryParse(defaultMilkText);
-    if (defaultMilkText.isEmpty || defaultMilkValue == null || defaultMilkValue < 0) {
-      Get.snackbar('Error', 'Please enter valid default milk per milking', snackPosition: SnackPosition.BOTTOM);
-      return;
+    if (showExpectedMilkYieldField) {
+      final defaultMilkValue = double.tryParse(defaultMilkText);
+      if (defaultMilkText.isEmpty || defaultMilkValue == null || defaultMilkValue < 0) {
+        Get.snackbar('Error', 'Please enter valid expected milk yield per shift', snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
     }
     if (selectedImage.value == null) {
       Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
@@ -375,9 +388,11 @@ class AnimalController extends GetxController {
         request.fields['purchase_date'] = purchaseDateController.text.trim();
       }
       request.fields['age'] = ageInfo.years.toString();
-      request.fields['gender'] = selectedGender.value;
+      request.fields['gender'] = showExpectedMilkYieldField ? 'Female' : selectedGender.value;
       request.fields['weight'] = weightController.text.trim();
-      request.fields['default_milk_per_session'] = defaultMilkText;
+      if (showExpectedMilkYieldField) {
+        request.fields['default_milk_per_session'] = defaultMilkText;
+      }
       if (selectedImage.value != null) {
         final imagePath = selectedImage.value!.path;
         final fileName = imagePath.split(Platform.pathSeparator).last;

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 import '../controllers/shop_controller.dart';
-import 'shop_order_success_view.dart';
 
 class ShopCheckoutView extends StatefulWidget {
   const ShopCheckoutView({
@@ -22,6 +23,18 @@ class ShopCheckoutView extends StatefulWidget {
 class _ShopCheckoutViewState extends State<ShopCheckoutView> {
   late final ShopController controller;
   bool useDifferentAddress = false;
+
+  void _goToHomeAfterSave() {
+    if (Get.isRegistered<BottomNavController>()) {
+      final nav = Get.find<BottomNavController>();
+      nav.activeDrawerPage.value = null;
+      nav.changeTab(0);
+      nav.resetTabHistory();
+      nav.runSilentSyncNow();
+      return;
+    }
+    Get.offAllNamed(Routes.HOME);
+  }
 
   @override
   void initState() {
@@ -172,7 +185,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                         if (widget.clearCartOnSuccess) {
                           controller.cartItems.clear();
                         }
-                        Get.off(() => const ShopOrderSuccessView());
+                        _goToHomeAfterSave();
                       },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                 child: controller.isPlacingOrder.value
