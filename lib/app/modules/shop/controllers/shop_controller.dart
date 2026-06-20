@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/services/razorpay_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 
@@ -18,9 +19,11 @@ class ShopController extends GetxController {
   final TextEditingController searchController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
   final RxString searchQuery = ''.obs;
-  final RxString selectedPaymentMethod = 'cod'.obs;
+  final RxString selectedPaymentMethod = ShopPaymentMethod.cod.obs;
 
   int farmerId = 0;
+  String farmerName = '';
+  String mobileNumber = '';
 
   List<ShopProductModel> get filteredProducts {
     final query = searchQuery.value.trim().toLowerCase();
@@ -88,6 +91,8 @@ class ShopController extends GetxController {
 
   Future<void> _loadFarmerContext() async {
     farmerId = await SessionService.getFarmerId();
+    farmerName = await SessionService.getFarmerName();
+    mobileNumber = await SessionService.getMobile();
     final profile = await SessionService.getFarmerProfile();
     final parts = <String>[
       profile['village'] ?? '',
@@ -315,13 +320,13 @@ class ShopController extends GetxController {
         .toList();
 
     Get.snackbar(
-      'Added',
-      '${grouped.length} prescription item(s) added to cart',
+      'added'.tr,
+      'prescription_items_added_to_cart'.trParams({'count': '${grouped.length}'}),
     );
 
     if (unmatched.isNotEmpty) {
       Get.snackbar(
-        'Some medicines not found',
+        'unavailable'.tr,
         unmatched.join(', '),
         duration: const Duration(seconds: 4),
       );
@@ -469,26 +474,84 @@ class ShopController extends GetxController {
   }
 
   Future<bool> placeOrder({List<CartItemModel>? directItems}) async {
+    return placeOrderWithPayment(directItems: directItems);
+  }
+
+  Future<bool> checkoutOrder({List<CartItemModel>? directItems}) async {
     final items = (directItems ?? cartItems).where((e) => e.quantity > 0).toList();
-    if (items.isEmpty) {
-      Get.snackbar('Empty Cart', 'Please add product to cart.');
+    final validationError = _validateCheckout(items);
+    if (validationError != null) {
+      Get.snackbar(validationError.title, validationError.message);
       return false;
     }
-    if (farmerId <= 0) {
-      Get.snackbar('Error', 'Farmer session not found.');
+
+    if (selectedPaymentMethod.value != ShopPaymentMethod.razorpay) {
+      return placeOrderWithPayment(
+        directItems: directItems,
+        paymentMethod: ShopPaymentMethod.cod,
+      );
+    }
+
+    final total = items.fold<double>(0, (sum, item) => sum + lineTotalForItem(item));
+    final paymentResult = await RazorpayService.instance.openCheckout(
+      amount: total,
+      customerName: farmerName,
+      contact: mobileNumber,
+      description: 'Shop order payment',
+      notes: {
+        'flow': 'shop',
+        'farmer_id': '$farmerId',
+        'item_count': '${items.length}',
+      },
+    );
+
+    if (!paymentResult.success) {
+      if (paymentResult.message.trim().isNotEmpty &&
+          paymentResult.message.trim() != 'payment_cancelled'.tr) {
+        Get.snackbar('payment'.tr, paymentResult.message.trim());
+      }
       return false;
     }
-    if (addressController.text.trim().isEmpty) {
-      Get.snackbar('Address Required', 'Please provide delivery address.');
+
+    final saved = await placeOrderWithPayment(
+      directItems: directItems,
+      paymentMethod: ShopPaymentMethod.razorpay,
+      paymentStatus: 'paid',
+      paidAmount: total,
+      paymentMeta: paymentResult.toApiPayload(),
+    );
+    if (!saved) {
+      Get.snackbar(
+        'payment'.tr,
+        'shop_payment_captured_order_pending'.trParams({
+          'id': paymentResult.paymentId,
+        }),
+        duration: const Duration(seconds: 5),
+      );
+    }
+    return saved;
+  }
+
+  Future<bool> placeOrderWithPayment({
+    List<CartItemModel>? directItems,
+    String? paymentMethod,
+    String? paymentStatus,
+    double? paidAmount,
+    Map<String, dynamic>? paymentMeta,
+  }) async {
+    final items = (directItems ?? cartItems).where((e) => e.quantity > 0).toList();
+    final validationError = _validateCheckout(items);
+    if (validationError != null) {
+      Get.snackbar(validationError.title, validationError.message);
       return false;
     }
 
     try {
       isPlacingOrder.value = true;
-      final payload = {
+      final payload = <String, dynamic>{
         'farmer_id': farmerId,
         'shipping_address': addressController.text.trim(),
-        'payment_method': selectedPaymentMethod.value,
+        'payment_method': paymentMethod ?? selectedPaymentMethod.value,
         'items': items
             .map((item) => {
                   'product_id': item.product.id,
@@ -497,6 +560,16 @@ class ShopController extends GetxController {
                 })
             .toList(),
       };
+      if (paymentStatus != null && paymentStatus.trim().isNotEmpty) {
+        payload['payment_status'] = paymentStatus.trim();
+      }
+      if (paidAmount != null && paidAmount > 0) {
+        payload['paid_amount'] = double.parse(paidAmount.toStringAsFixed(2));
+      }
+      if (paymentMeta != null && paymentMeta.isNotEmpty) {
+        payload['payment_meta'] = paymentMeta;
+        payload.addAll(paymentMeta);
+      }
 
       final response = await http.post(
         Uri.parse(Api.shopOrders),
@@ -507,7 +580,7 @@ class ShopController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       final success = (response.statusCode == 200 || response.statusCode == 201) && data['status'] == true;
       if (!success) {
-        Get.snackbar('Order Failed', data['message']?.toString() ?? 'Unable to place order.');
+        Get.snackbar('order_failed'.tr, data['message']?.toString() ?? 'unable_to_place_order'.tr);
         return false;
       }
 
@@ -515,11 +588,33 @@ class ShopController extends GetxController {
       await fetchMyOrders();
       return true;
     } catch (e) {
-      Get.snackbar('Order Failed', e.toString());
+      Get.snackbar('order_failed'.tr, e.toString());
       return false;
     } finally {
       isPlacingOrder.value = false;
     }
+  }
+
+  _CheckoutValidationError? _validateCheckout(List<CartItemModel> items) {
+    if (items.isEmpty) {
+      return _CheckoutValidationError(
+        title: 'empty_cart'.tr,
+        message: 'please_add_product_to_cart'.tr,
+      );
+    }
+    if (farmerId <= 0) {
+      return _CheckoutValidationError(
+        title: 'error'.tr,
+        message: 'please_login_again'.tr,
+      );
+    }
+    if (addressController.text.trim().isEmpty) {
+      return _CheckoutValidationError(
+        title: 'address_required'.tr,
+        message: 'please_provide_delivery_address'.tr,
+      );
+    }
+    return null;
   }
 
   Future<void> fetchMyOrders() async {
@@ -770,4 +865,19 @@ class PrescriptionAddToCartResult {
 class CartQuantityMode {
   static const String pack = 'pack';
   static const String unit = 'unit';
+}
+
+class ShopPaymentMethod {
+  static const String cod = 'cod';
+  static const String razorpay = 'razorpay';
+}
+
+class _CheckoutValidationError {
+  const _CheckoutValidationError({
+    required this.title,
+    required this.message,
+  });
+
+  final String title;
+  final String message;
 }

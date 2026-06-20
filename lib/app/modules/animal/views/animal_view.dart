@@ -55,7 +55,7 @@ class AnimalView extends GetView<AnimalController> {
         children: [
           IconButton(onPressed: _goBack, icon: const Icon(Icons.arrow_back_ios_new_rounded), color: Colors.white),
           const SizedBox(width: 8),
-          Expanded(child: Text(controller.pageTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white))),
+          Expanded(child: Text(controller.pageTitle.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white))),
         ],
       ),
     );
@@ -101,7 +101,7 @@ class AnimalView extends GetView<AnimalController> {
           _sectionTitle('basic_details'.tr),
           const SizedBox(height: 14),
           _fieldLabel('animal_type_label'.tr, requiredField: true), const SizedBox(height: 8), Obx(() => DropdownButtonFormField<AnimalTypeModel>(initialValue: controller.selectedAnimalType.value, hint: Text('select_animal_type'.tr), isExpanded: true, dropdownColor: const Color(0xFFF4FAF4), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7FAF7F)), decoration: _animalTypeDecoration('select_animal_type'.tr), items: controller.animalTypes.map((type) => DropdownMenuItem<AnimalTypeModel>(value: type, child: Text(type.name, style: const TextStyle(fontWeight: FontWeight.w600)))).toList(), onChanged: (value) => controller.selectedAnimalType.value = value, validator: (value) => value == null ? 'please_select_animal_type'.tr : null)), const SizedBox(height: 16),
-          _fieldLabel('animal_name_label'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, focusNode: controller.animalNameFocus, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_animal_name'.tr), validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_animal_name'.tr : null),
+          _fieldLabel('animal_name_label'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.animalNameController, focusNode: controller.animalNameFocus, textInputAction: TextInputAction.next, textCapitalization: TextCapitalization.words, decoration: _inputDecoration('enter_animal_name'.tr), validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_animal_name'.tr : null),
           Obx(() => controller.showMotherAnimalDropdown ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -143,7 +143,7 @@ class AnimalView extends GetView<AnimalController> {
           const SizedBox(height: 16),
           Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('lactation_number'.tr), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_lactation_no'.tr))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('ai_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.aiDateController, builder: (_, value, _) => TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearAiDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear'))))]))]),
           const SizedBox(height: 16),
-          _fieldLabel('breed_name'.tr), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_breed_name'.tr)),
+          _fieldLabel('breed_name'.tr), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, textCapitalization: TextCapitalization.words, decoration: _inputDecoration('enter_breed_name'.tr)),
           const SizedBox(height: 18),
           _sectionTitle('animal_info'.tr), const SizedBox(height: 14),
           _fieldLabel('birth_date'.tr, requiredField: true),
@@ -163,7 +163,7 @@ class AnimalView extends GetView<AnimalController> {
                         tooltip: 'Clear',
                       ),
               ),
-              validator: (fieldValue) => (fieldValue ?? '').trim().isEmpty ? 'Please select birth date' : null,
+              validator: (fieldValue) => (fieldValue ?? '').trim().isEmpty ? 'please_select_birth_date'.tr : null,
             ),
           ),
           ValueListenableBuilder<TextEditingValue>(
@@ -234,7 +234,7 @@ class AnimalView extends GetView<AnimalController> {
                         items: controller.genderList
                             .map((gender) => DropdownMenuItem<String>(
                                   value: gender,
-                                  child: Text(gender, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  child: Text(gender.toLowerCase().tr, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 ))
                             .toList(),
                         onChanged: controller.showExpectedMilkYieldField
@@ -260,9 +260,9 @@ class AnimalView extends GetView<AnimalController> {
                       decoration: _inputDecoration('enter_weight'.tr),
                       validator: (value) {
                         final text = (value ?? '').trim();
-                        if (text.isEmpty) return 'Please enter weight';
+                        if (text.isEmpty) return 'please_enter_weight'.tr;
                         final parsed = double.tryParse(text);
-                        if (parsed == null || parsed <= 0) return 'Please enter valid weight';
+                        if (parsed == null || parsed <= 0) return 'please_enter_valid_weight'.tr;
                         return null;
                       },
                     ),
@@ -286,7 +286,7 @@ class AnimalView extends GetView<AnimalController> {
                         decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
                         validator: (value) {
                           final text = (value ?? '').trim();
-                          if (text.isEmpty) return 'Please enter expected milk yield per shift';
+                          if (text.isEmpty) return 'please_enter_expected_milk_yield_per_shift'.tr;
                           final parsed = double.tryParse(text);
                           if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
                           return null;
@@ -319,19 +319,19 @@ class AnimalView extends GetView<AnimalController> {
     }
 
     if (controller.selectedAnimalType.value == null) {
-      Get.snackbar('Error', 'Please select animal type', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_animal_type'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (controller.showMotherAnimalDropdown && controller.selectedMotherAnimal.value == null) {
-      Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_mother_animal'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (controller.selectedGender.value.trim().isEmpty) {
-      Get.snackbar('Error', 'Please select gender', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_gender'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (controller.selectedImage.value == null) {
-      Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'upload_animal_image'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 

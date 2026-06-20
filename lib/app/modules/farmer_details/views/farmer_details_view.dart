@@ -169,6 +169,9 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        textCapitalization: isNumber
+            ? TextCapitalization.none
+            : TextCapitalization.words,
         inputFormatters: inputFormatters,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
@@ -289,21 +292,21 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     ),
                     const SizedBox(height: 12),
                     RichText(
-                      text: const TextSpan(
+                      text: TextSpan(
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: AppColors.black,
                         ),
                         children: [
-                          TextSpan(text: 'Upload farmer photo'),
+                          TextSpan(text: 'upload_farmer_photo'.tr),
                           TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
                         ],
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to select from gallery',
+                      'tap_select_gallery'.tr,
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.grey,

@@ -37,35 +37,73 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   int _farmerId = 0;
   final List<_FeedingHistoryItem> _history = <_FeedingHistoryItem>[];
   final List<_FeedTypeEditorItem> _feedTypes = <_FeedTypeEditorItem>[];
+  final List<_DietPlanQuantityLookup> _dietPlanLookups = <_DietPlanQuantityLookup>[];
+  final TextEditingController _searchController = TextEditingController();
+  DateTime? _fromDate;
+  DateTime? _toDate;
 
   List<_FeedingHistoryItem> get _visibleHistory {
+    final query = _searchController.text.trim().toLowerCase();
     final selectedAnimalId = widget.initialAnimalId ?? 0;
     final selectedName = widget.initialAnimalName.trim();
     final selectedTag = widget.initialTagNumber.trim();
-    if (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) {
-      return _history;
-    }
     return _history
         .where(
-          (item) => item.matchesAnimal(
-            animalId: selectedAnimalId,
-            animalName: selectedName,
-            tagNumber: selectedTag,
-          ),
+          (item) {
+            final matchesAnimalFilter =
+                (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) ||
+                item.matchesAnimal(
+                  animalId: selectedAnimalId,
+                  animalName: selectedName,
+                  tagNumber: selectedTag,
+                );
+            if (!matchesAnimalFilter) {
+              return false;
+            }
+
+            final itemDate = _parseItemDate(item);
+            if (_fromDate != null && itemDate != null && itemDate.isBefore(_dateOnly(_fromDate!))) {
+              return false;
+            }
+            if (_toDate != null && itemDate != null && itemDate.isAfter(_dateOnly(_toDate!))) {
+              return false;
+            }
+            if ((_fromDate != null || _toDate != null) && itemDate == null) {
+              return false;
+            }
+
+            if (query.isEmpty) {
+              return true;
+            }
+            return item.matchesSearch(query);
+          },
         )
         .toList();
   }
+
+  bool get _hasActiveHistoryFilters =>
+      _searchController.text.trim().isNotEmpty ||
+      _fromDate != null ||
+      _toDate != null;
 
   @override
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab.clamp(0, 1).toInt();
+    _searchController.addListener(_onHistoryFilterChanged);
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onHistoryFilterChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
     await _loadFarmerId();
-    await Future.wait([_loadHistory(), _loadFeedTypes()]);
+    await Future.wait([_loadHistory(), _loadFeedTypes(), _loadDietPlans()]);
   }
 
   Future<void> _loadFarmerId() async {
@@ -137,12 +175,70 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     }
   }
 
+  Future<void> _loadDietPlans() async {
+    try {
+      await _loadFarmerId();
+      if (_farmerId == 0) {
+        _dietPlanLookups.clear();
+        return;
+      }
+      final response = await http.get(
+        Uri.parse('${Api.feedingDietPlans}/$_farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final List items = (data['data'] as List?) ?? [];
+
+      _dietPlanLookups
+        ..clear()
+        ..addAll(
+          items
+              .map((e) => _DietPlanQuantityLookup.fromJson((e as Map).cast<String, dynamic>()))
+              .where((item) => item.planQuantity > 0)
+              .toList(),
+        );
+    } catch (_) {
+      _dietPlanLookups.clear();
+    }
+  }
+
   Future<void> _refreshCurrentTab() async {
     if (_selectedTab == 0) {
-      await _loadHistory();
+      await Future.wait([_loadHistory(), _loadDietPlans()]);
     } else {
       await Future.wait([_loadFeedTypes(), _loadHistory()]);
     }
+  }
+
+  double _packageQuantityForItem(_FeedingHistoryItem item) {
+    final matchedPlan = _matchedDietPlanForItem(item);
+    if (matchedPlan != null) {
+      return matchedPlan.planQuantity;
+    }
+
+    final totalPlanQuantity = item.planQuantity ?? 0;
+    if (totalPlanQuantity > 0) return totalPlanQuantity;
+    if (item.packageQuantity > 0) return item.packageQuantity;
+    final subtypeTotal = item.feedSubtypeDetails.fold<double>(
+      0,
+      (sum, detail) => sum + detail.quantity,
+    );
+    return subtypeTotal > 0 ? subtypeTotal : 0;
+  }
+
+  String _packageQuantityTextForItem(_FeedingHistoryItem item) {
+    return _formatDoubleToText(_packageQuantityForItem(item));
+  }
+
+  _DietPlanQuantityLookup? _matchedDietPlanForItem(_FeedingHistoryItem item) {
+    final normalizedPlanName = item.dietPlanName.trim().toLowerCase();
+    if (normalizedPlanName.isEmpty) return null;
+    for (final plan in _dietPlanLookups) {
+      if (plan.matches(item)) {
+        return plan;
+      }
+    }
+    return null;
   }
 
   Future<void> _onEditTap(_FeedingHistoryItem item) async {
@@ -279,7 +375,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                             'feeding_entry_updated_success'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
-                                      await _loadHistory();
+                                      await Future.wait([_loadHistory(), _loadDietPlans()]);
                                     } else {
                                       Get.snackbar(
                                         'error'.tr,
@@ -427,7 +523,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${item.feedType} • ${item.date} • ${item.feedingTime}',
+                        '${item.feedType} • ${_displayHistoryDate(item.date)} • ${item.feedingTime}',
                         style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                       ),
                       const SizedBox(height: 12),
@@ -558,7 +654,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                       'quantity': feedQuantityController.text.trim(),
                                       'feeding_quantity': feedQuantityController.text.trim(),
                                       'package_quantity':
-                                          totalSubtypeQuantity.value.toStringAsFixed(2),
+                                          _packageQuantityForItem(item).toStringAsFixed(2),
                                       'balance_quantity':
                                           balanceQuantity.value.toStringAsFixed(2),
                                       'rate_per_unit':
@@ -594,7 +690,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                             'feed_content_updated_success'.tr,
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
-                                      await _loadHistory();
+                                      await Future.wait([_loadHistory(), _loadDietPlans()]);
                                     } else {
                                       Get.snackbar(
                                         'error'.tr,
@@ -665,13 +761,533 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     return _formatDoubleToText(value);
   }
 
+  void _onHistoryFilterChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+
+  DateTime? _parseItemDate(_FeedingHistoryItem item) {
+    final parsed = _parseHistoryDateTime(item.date, item.feedingTime);
+    if (parsed == null) return null;
+    return _dateOnly(parsed);
+  }
+
+  Future<void> _pickHistoryDate({required bool isFrom}) async {
+    final currentValue = isFrom ? _fromDate : _toDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: currentValue ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (isFrom) {
+        _fromDate = picked;
+        if (_toDate != null && _dateOnly(_toDate!).isBefore(_dateOnly(picked))) {
+          _toDate = picked;
+        }
+      } else {
+        _toDate = picked;
+        if (_fromDate != null && _dateOnly(_fromDate!).isAfter(_dateOnly(picked))) {
+          _fromDate = picked;
+        }
+      }
+    });
+  }
+
+  void _clearHistoryFilters() {
+    setState(() {
+      _searchController.clear();
+      _fromDate = null;
+      _toDate = null;
+    });
+  }
+
+  String _formatFilterDate(DateTime? value, String fallback) {
+    if (value == null) return fallback;
+    return DateFormat('dd MMM yyyy').format(value);
+  }
+
+  String _displayHistoryDate(String rawDate) {
+    final normalized = rawDate.trim();
+    if (normalized.isEmpty) return rawDate;
+
+    DateTime? parsed;
+    try {
+      parsed = DateFormat('yyyy-MM-dd').parseStrict(normalized);
+    } catch (_) {
+      try {
+        parsed = DateFormat('dd/MM/yyyy').parseStrict(normalized);
+      } catch (_) {
+        try {
+          parsed = DateFormat('dd/MM/yy').parseStrict(normalized);
+        } catch (_) {
+          parsed = null;
+        }
+      }
+    }
+
+    if (parsed == null) return rawDate;
+    return DateFormat('dd/MM/yy').format(parsed);
+  }
+
+  Widget _historySummaryTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _historyFilterDateButton({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FBF8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatFilterDate(value, label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _historyMetricCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 17, color: textColor),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.6,
+                fontWeight: FontWeight.w800,
+                color: textColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: textColor.withValues(alpha: 0.82),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _feedingCompositionCard(_FeedingHistoryItem item) {
+    final groups = _compositionGroupsForItem(item);
+    return _contentGridSection(
+      groups,
+      sectionSpacing: 8,
+    );
+  }
+
+  Map<String, List<String>> _compositionGroupsForItem(_FeedingHistoryItem item) {
+    final matchedPlan = _matchedDietPlanForItem(item);
+    final groups = <String, List<String>>{};
+
+    if (matchedPlan != null && matchedPlan.subtypeDetails.isNotEmpty) {
+      for (final detail in matchedPlan.subtypeDetails) {
+        final feedTypeName = detail.feedTypeName.trim().isEmpty
+            ? (matchedPlan.feedType.trim().isEmpty
+                ? item.feedType.trim()
+                : matchedPlan.feedType.trim())
+            : detail.feedTypeName.trim();
+        final subtypeName = detail.name.trim();
+        if (feedTypeName.isEmpty) continue;
+        groups.putIfAbsent(feedTypeName, () => <String>[]);
+        if (subtypeName.isNotEmpty) {
+          groups[feedTypeName]!.add(subtypeName);
+        }
+      }
+    }
+
+    if (groups.isEmpty) {
+      final visibleSubtypes = item.feedSubtypeDetails
+          .where((detail) => detail.quantity > 0)
+          .toList();
+      final feedTypeLabel =
+          item.feedType.trim().isEmpty ? '-' : item.feedType.trim();
+      if (feedTypeLabel.isNotEmpty) {
+        groups.putIfAbsent(feedTypeLabel, () => <String>[]);
+        for (final detail in visibleSubtypes) {
+          final subtypeName = detail.name.trim();
+          if (subtypeName.isNotEmpty) {
+            groups[feedTypeLabel]!.add(subtypeName);
+          }
+        }
+      }
+    }
+
+    return groups;
+  }
+
+  Widget _compactHistoryValueTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 26,
+            width: 26,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.2,
+                    fontWeight: FontWeight.w700,
+                    color: color.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _viewAllContentsSection(_FeedingHistoryItem item) {
+    final groups = _compositionGroupsForItem(item);
+    return _contentGridSection(groups);
+  }
+
+  Widget _contentGridSection(
+    Map<String, List<String>> groups, {
+    double sectionSpacing = 8,
+  }) {
+    if (groups.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final itemWidth = (maxWidth - sectionSpacing) / 2;
+
+        return Wrap(
+          spacing: sectionSpacing,
+          runSpacing: sectionSpacing,
+          children: groups.entries.map((entry) {
+            final subtypeNames = entry.value.toSet().toList();
+            return SizedBox(
+              width: itemWidth,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FBF8),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFDDEEDC)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.key,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.black,
+                      ),
+                    ),
+                    if (subtypeNames.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: subtypeNames
+                            .map(
+                              (name) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(11),
+                                  border: Border.all(
+                                    color: const Color(0xFFD8EAD9),
+                                  ),
+                                ),
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10.8,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _viewAllMetricRow(_FeedingHistoryItem row) {
+    return Row(
+      children: [
+        Expanded(
+          child: _compactHistoryValueTile(
+            label: 'feeding_quantity'.tr,
+            value: '${row.feedingQuantityText} ${row.unit}',
+            icon: Icons.inventory_2_rounded,
+            color: const Color(0xFF0D47A1),
+            backgroundColor: const Color(0xFFE3F2FD),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _compactHistoryValueTile(
+            label: 'rate_per_unit'.tr,
+            value: _formatQuantity(row.ratePerUnit),
+            icon: Icons.sell_rounded,
+            color: const Color(0xFF6A1B9A),
+            backgroundColor: const Color(0xFFF3E5F5),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _compactHistoryValueTile(
+            label: 'feeding_cost'.tr,
+            value: _formatQuantity(row.feedingCost),
+            icon: Icons.account_balance_wallet_rounded,
+            color: const Color(0xFFEF6C00),
+            backgroundColor: const Color(0xFFFFF3E0),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _viewAllEntryCard(
+    _FeedingHistoryItem row, {
+    required Future<void> Function() onEdit,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2EEE3)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08101828),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${_displayHistoryDate(row.date)}  |  ${row.feedingTime}',
+                  style: const TextStyle(
+                    fontSize: 13.2,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onEdit,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  height: 30,
+                  width: 30,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    size: 17,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _viewAllMetricRow(row),
+          const SizedBox(height: 10),
+          _viewAllContentsSection(row),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, Color(0xFF4EA857)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         leading: IconButton(
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
@@ -724,6 +1340,10 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   }
 
   void _goBack() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+      return;
+    }
     if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
       return;
     }
@@ -784,6 +1404,17 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
   Widget _buildHistoryTab() {
     final groups = _buildHistoryGroups();
     final visibleHistory = _visibleHistory;
+    final totalCost = visibleHistory.fold<double>(
+      0,
+      (sum, item) => sum + item.feedingCost,
+    );
+    final historyDates = visibleHistory
+        .map(_parseItemDate)
+        .whereType<DateTime>()
+        .toList()
+      ..sort();
+    final rangeStart = historyDates.isEmpty ? null : historyDates.first;
+    final rangeEnd = historyDates.isEmpty ? null : historyDates.last;
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
       child: _isLoading
@@ -794,183 +1425,406 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                 Center(child: CircularProgressIndicator()),
               ],
             )
-          : visibleHistory.isEmpty
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    SizedBox(height: 220),
-                    Center(
-                      child: Text(
-                        'no_feeding_history_found'.tr,
-                        style: TextStyle(fontSize: 15, color: Colors.black54),
-                      ),
+          : ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, Color(0xFF6BB56E)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: groups.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (_, index) {
-                    final group = groups[index];
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.18),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 46,
+                            width: 46,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.restaurant_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'feeding_record'.tr,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  rangeStart != null && rangeEnd != null
+                                      ? 'range_from_to'.trParams({
+                                          'from': DateFormat('dd MMM').format(rangeStart),
+                                          'to': DateFormat('dd MMM').format(rangeEnd),
+                                        })
+                                      : 'no_feeding_history_found'.tr,
+                                  style: TextStyle(
+                                    fontSize: 12.8,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          _historySummaryTile(
+                            icon: Icons.receipt_long_rounded,
+                            label: 'feeding_record'.tr,
+                            value: visibleHistory.length.toString(),
+                          ),
+                          const SizedBox(width: 10),
+                          _historySummaryTile(
+                            icon: Icons.currency_rupee_rounded,
+                            label: 'feeding_cost'.tr,
+                            value: _formatQuantity(totalCost),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'search_by_animal_name_or_tag'.tr,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          suffixIcon: _searchController.text.trim().isEmpty
+                              ? null
+                              : IconButton(
+                                  onPressed: () => _searchController.clear(),
+                                  icon: const Icon(Icons.close_rounded, size: 20),
+                                ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FBF8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: const BorderSide(color: AppColors.primary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _historyFilterDateButton(
+                            label: 'from_date'.tr,
+                            value: _fromDate,
+                            onTap: () => _pickHistoryDate(isFrom: true),
+                          ),
+                          const SizedBox(width: 10),
+                          _historyFilterDateButton(
+                            label: 'to_date'.tr,
+                            value: _toDate,
+                            onTap: () => _pickHistoryDate(isFrom: false),
+                          ),
+                        ],
+                      ),
+                      if (_hasActiveHistoryFilters) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: _clearHistoryFilters,
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: Text('clear'.tr),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (visibleHistory.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 64,
+                          width: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.search_off_rounded,
+                            size: 30,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'no_feeding_history_found'.tr,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ...groups.map((group) {
                     final item = group.latest;
                     final planTitle = item.dietPlanName.trim().isNotEmpty
                         ? item.dietPlanName.trim()
                         : item.feedType;
                     return Container(
-                      padding: const EdgeInsets.all(0),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                            color: Colors.black.withValues(alpha: 0.045),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            height: 4,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    group.isPanGroup
-                                        ? '${item.panName} (${group.entries.length} ${'animals'.tr})'
-                                        : item.animalDisplay,
-                                    style: const TextStyle(
-                                      fontSize: 15.5,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                height: 48,
+                                width: 48,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: IconButton(
-                                    onPressed: () => _onEditTap(item),
-                                    icon: const Icon(Icons.edit_rounded, size: 18),
-                                    color: AppColors.primary,
-                                    tooltip: 'edit'.tr,
-                                  ),
+                                child: const Icon(
+                                  Icons.food_bank_rounded,
+                                  color: AppColors.primary,
                                 ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${item.feedType} - ${item.quantity} ${item.unit}',
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF4FAF4),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${'diet_plan'.tr}: $planTitle',
-                                    style: const TextStyle(
-                                      fontSize: 12.4,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _infoChip(
-                                      icon: Icons.scale_rounded,
-                                      label:
-                                          '${'package_quantity'.tr}: ${_formatQuantity(item.packageQuantity)} ${item.unit}',
-                                      color: const Color(0xFFE3F2FD),
-                                      textColor: const Color(0xFF0D47A1),
+                                    Text(
+                                      group.isPanGroup
+                                          ? '${item.panName} (${group.entries.length} ${'animals'.tr})'
+                                          : item.animalDisplay,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 16.2,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.black,
+                                      ),
                                     ),
-                                    _infoChip(
-                                      icon: Icons.inventory_2_rounded,
-                                      label:
-                                          '${'balance'.tr}: ${_formatQuantity(item.balanceQuantity)} ${item.unit}',
-                                      color: const Color(0xFFE8F5E9),
-                                      textColor: const Color(0xFF256029),
-                                    ),
-                                    _infoChip(
-                                      icon: Icons.currency_rupee_rounded,
-                                      label:
-                                          '${'feeding_cost'.tr}: ${_formatQuantity(item.feedingCost)}',
-                                      color: const Color(0xFFFFF3E0),
-                                      textColor: const Color(0xFFEF6C00),
+                                    const SizedBox(height: 5),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _infoChip(
+                                          icon: Icons.event_note_rounded,
+                                          label: planTitle,
+                                          color: const Color(0xFFE3F2FD),
+                                          textColor: const Color(0xFF0D47A1),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${'time'.tr}: ${item.feedingTime}',
-                                  style: const TextStyle(fontSize: 12.8),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${'date'.tr}: ${item.date}',
-                                  style: const TextStyle(fontSize: 12.8),
-                                ),
-                                if (item.notes.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${'notes'.tr}: ${item.notes}',
-                                    style: const TextStyle(fontSize: 12.8),
-                                  ),
-                                ],
-                                if (group.entries.length > 1) ...[
-                                  const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton.icon(
-                                      onPressed: () => _openViewAllEntries(group),
-                                      icon: const Icon(Icons.visibility_rounded, size: 16),
-                                      label: const Text('View All'),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: AppColors.primary,
-                                        textStyle: const TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF3E0),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Text(
+                                      '${'feeding_cost'.tr}: ${_formatQuantity(item.feedingCost)}',
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFFEF6C00),
                                       ),
                                     ),
                                   ),
+                                  IconButton(
+                                    onPressed: () => _onEditTap(item),
+                                    icon: const Icon(Icons.edit_rounded),
+                                    color: AppColors.primary,
+                                    tooltip: 'edit'.tr,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
                                 ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7FAF7),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${_displayHistoryDate(item.date)}  •  ${item.feedingTime}',
+                                    style: const TextStyle(
+                                      fontSize: 13.2,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.black,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              _historyMetricCard(
+                                label: 'package_quantity'.tr,
+                                value: '${_packageQuantityTextForItem(item)} ${item.unit}',
+                                icon: Icons.scale_rounded,
+                                backgroundColor: const Color(0xFFE8F5E9),
+                                textColor: const Color(0xFF256029),
+                              ),
+                              const SizedBox(width: 10),
+                              _historyMetricCard(
+                                label: 'feeding_quantity'.tr,
+                                value: '${item.feedingQuantityText} ${item.unit}',
+                                icon: Icons.inventory_2_rounded,
+                                backgroundColor: const Color(0xFFE3F2FD),
+                                textColor: const Color(0xFF0D47A1),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _feedingCompositionCard(item),
+                          if (item.notes.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FBF9),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                '${'notes'.tr}: ${item.notes}',
+                                style: TextStyle(
+                                  fontSize: 12.8,
+                                  color: Colors.black.withValues(alpha: 0.72),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (group.entries.length > 1) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: () => _openViewAllEntries(group),
+                                icon: const Icon(Icons.visibility_rounded, size: 16),
+                                label: Text('view_all'.tr),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  textStyle: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );
-                  },
-                ),
+                  }),
+              ],
+            ),
     );
   }
 
@@ -1004,103 +1858,194 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     );
   }
 
-  Future<void> _openViewAllEntries(_FeedingHistoryGroup group) async {
-    await Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _viewAllSummaryCard(_FeedingHistoryGroup group) {
+    final totalQuantity = group.entries.fold<double>(
+      0,
+      (sum, item) => sum + item.feedingQuantity,
+    );
+    final totalCost = group.entries.fold<double>(
+      0,
+      (sum, item) => sum + item.feedingCost,
+    );
+    final planNames = group.entries
+        .map((item) => item.dietPlanName.trim().isNotEmpty
+            ? item.dietPlanName.trim()
+            : item.feedType.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, Color(0xFF4EA857)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            group.isPanGroup ? group.latest.panName : group.latest.animalDisplay,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            planNames.isEmpty ? 'feeding_record'.tr : planNames.join(', '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Text(
-                group.isPanGroup
-                    ? group.latest.panName
-                    : group.latest.animalDisplay,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${group.entries.length} records',
-                style: TextStyle(
-                  fontSize: 12.2,
-                  color: Colors.black.withValues(alpha: 0.6),
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: _viewAllHeaderMetric(
+                  label: 'entries'.tr,
+                  value: '${group.entries.length}',
                 ),
               ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: group.entries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, index) {
-                    final row = group.entries[index];
-                    return Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7FBF7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2EEE3)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${row.feedType} - ${row.quantity} ${row.unit}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${'date'.tr}: ${row.date}  |  ${'time'.tr}: ${row.feedingTime}',
-                                  style: const TextStyle(fontSize: 12.2, color: Colors.black54),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${'package_quantity'.tr}: ${_formatQuantity(row.packageQuantity)} ${row.unit}  |  ${'balance'.tr}: ${_formatQuantity(row.balanceQuantity)} ${row.unit}',
-                                  style: const TextStyle(fontSize: 12.2, color: AppColors.primary, fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${'rate_per_unit'.tr}: ${_formatQuantity(row.ratePerUnit)}  |  ${'feeding_cost'.tr}: ${_formatQuantity(row.feedingCost)}',
-                                  style: const TextStyle(fontSize: 12.2, color: Color(0xFFEF6C00), fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () async {
-                              Get.back();
-                              await _onEditTap(row);
-                            },
-                            icon: const Icon(Icons.edit_rounded, size: 18),
-                            tooltip: 'edit'.tr,
-                            color: AppColors.primary,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+              const SizedBox(width: 8),
+              Expanded(
+                child: _viewAllHeaderMetric(
+                  label: 'feeding_quantity'.tr,
+                  value:
+                      '${_formatQuantity(totalQuantity)} ${group.latest.unit}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _viewAllHeaderMetric(
+                  label: 'feeding_cost'.tr,
+                  value: _formatQuantity(totalCost),
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _viewAllHeaderMetric({
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10.8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _closeViewAllPage() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+      return;
+    }
+    if (Get.isRegistered<BottomNavController>() &&
+        Get.find<BottomNavController>().closeDrawerPage()) {
+      return;
+    }
+    Get.back();
+  }
+
+  Future<void> _openViewAllEntries(_FeedingHistoryGroup group) async {
+    final page = Scaffold(
+      backgroundColor: const Color(0xFFF7FAF7),
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: _closeViewAllPage,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        ),
+        title: Text(
+          'feeding_record'.tr,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
-      isScrollControlled: true,
+      body: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _viewAllSummaryCard(group),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: group.entries.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (_, index) {
+                  final row = group.entries[index];
+                  return _viewAllEntryCard(
+                    row,
+                    onEdit: () async {
+                      _closeViewAllPage();
+                      await _onEditTap(row);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().openNestedDrawerPage(page);
+      return;
+    }
+    await Get.to<void>(() => page);
   }
 
   Widget _buildFeedTypeTab() {
@@ -1184,7 +2129,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${'time'.tr}: ${item.feedingTime} | ${'date'.tr}: ${item.date}',
+                          '${'time'.tr}: ${item.feedingTime} | ${'date'.tr}: ${_displayHistoryDate(item.date)}',
                           style: const TextStyle(fontSize: 12.5, color: Colors.black54),
                         ),
                         if (item.feedSubtypeDetails.isNotEmpty) ...[
@@ -1266,6 +2211,7 @@ class _FeedingHistoryItem {
     required this.feedTypeId,
     required this.quantity,
     required this.feedingQuantity,
+    required this.planQuantity,
     required this.packageQuantity,
     required this.balanceQuantity,
     required this.ratePerUnit,
@@ -1288,6 +2234,7 @@ class _FeedingHistoryItem {
   final int feedTypeId;
   final String quantity;
   final double feedingQuantity;
+  final double? planQuantity;
   final double packageQuantity;
   final double balanceQuantity;
   final double ratePerUnit;
@@ -1323,6 +2270,23 @@ class _FeedingHistoryItem {
     return normalizedName.isNotEmpty && currentName == normalizedName;
   }
 
+  bool matchesSearch(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+
+    final haystack = <String>[
+      animalName,
+      tagNumber,
+      panName,
+      feedType,
+      dietPlanName,
+      date,
+      feedingTime,
+      notes,
+    ].join(' ').toLowerCase();
+    return haystack.contains(normalized);
+  }
+
   String get groupKey {
     if (panId > 0) return 'pan_id_$panId';
     final normalizedPan = panName.trim().toLowerCase();
@@ -1337,6 +2301,20 @@ class _FeedingHistoryItem {
     if (parsed == null || parsed <= 0) return quantity;
     return _formatDoubleToText(parsed);
   }
+
+  double get resolvedPackageQuantity {
+    final totalPlanQuantity = planQuantity ?? 0;
+    if (totalPlanQuantity > 0) return totalPlanQuantity;
+    if (packageQuantity > 0) return packageQuantity;
+    final subtypeTotal = feedSubtypeDetails.fold<double>(
+      0,
+      (sum, detail) => sum + detail.quantity,
+    );
+    if (subtypeTotal > 0) return subtypeTotal;
+    return 0;
+  }
+
+  String get packageQuantityText => _formatDoubleToText(resolvedPackageQuantity);
 
   factory _FeedingHistoryItem.fromJson(Map<String, dynamic> json) {
     return _FeedingHistoryItem(
@@ -1356,6 +2334,7 @@ class _FeedingHistoryItem {
       feedTypeId: int.tryParse((json['feed_type_id'] ?? '0').toString()) ?? 0,
       quantity: (json['quantity'] ?? '').toString(),
       feedingQuantity: double.tryParse((json['feeding_quantity'] ?? '0').toString()) ?? 0,
+      planQuantity: double.tryParse((json['plan_quantity'] ?? '0').toString()) ?? 0,
       packageQuantity: double.tryParse((json['package_quantity'] ?? '0').toString()) ?? 0,
       balanceQuantity: double.tryParse((json['balance_quantity'] ?? '0').toString()) ?? 0,
       ratePerUnit: double.tryParse((json['rate_per_unit'] ?? '0').toString()) ?? 0,
@@ -1381,6 +2360,100 @@ class _FeedingHistoryGroup {
   final _FeedingHistoryItem latest;
   final List<_FeedingHistoryItem> entries;
   final bool isPanGroup;
+}
+
+class _DietPlanQuantityLookup {
+  _DietPlanQuantityLookup({
+    required this.id,
+    required this.animalId,
+    required this.panId,
+    required this.dietPlanName,
+    required this.feedType,
+    required this.planQuantity,
+    required this.subtypeDetails,
+  });
+
+  final int id;
+  final int animalId;
+  final int panId;
+  final String dietPlanName;
+  final String feedType;
+  final double planQuantity;
+  final List<_DietPlanSubtypeLookup> subtypeDetails;
+
+  bool matches(_FeedingHistoryItem item) {
+    final targetPlanName = item.dietPlanName.trim().toLowerCase();
+    if (targetPlanName.isNotEmpty && dietPlanName.trim().toLowerCase() != targetPlanName) {
+      return false;
+    }
+
+    if (item.animalId > 0 && animalId > 0 && item.animalId != animalId) {
+      return false;
+    }
+
+    if (item.panId > 0 && panId > 0 && item.panId != panId) {
+      return false;
+    }
+
+    final targetFeedType = item.feedType.trim().toLowerCase();
+    if (targetFeedType.isNotEmpty &&
+        feedType.trim().isNotEmpty &&
+        targetFeedType != feedType.trim().toLowerCase()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  factory _DietPlanQuantityLookup.fromJson(Map<String, dynamic> json) {
+    return _DietPlanQuantityLookup(
+      id: int.tryParse((json['id'] ?? '0').toString()) ?? 0,
+      animalId: int.tryParse((json['animal_id'] ?? '0').toString()) ?? 0,
+      panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
+      dietPlanName: (json['diet_plan_name'] ?? json['plan_name'] ?? '').toString(),
+      feedType: (json['feed_type'] ?? '').toString(),
+      planQuantity: double.tryParse((json['plan_quantity'] ?? '0').toString()) ?? 0,
+      subtypeDetails: _DietPlanSubtypeLookup.parse(json['subtype_details']),
+    );
+  }
+}
+
+class _DietPlanSubtypeLookup {
+  _DietPlanSubtypeLookup({
+    required this.feedTypeName,
+    required this.name,
+  });
+
+  final String feedTypeName;
+  final String name;
+
+  factory _DietPlanSubtypeLookup.fromJson(Map<String, dynamic> json) {
+    return _DietPlanSubtypeLookup(
+      feedTypeName: (json['feed_type_name'] ?? json['feed_type'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+    );
+  }
+
+  static List<_DietPlanSubtypeLookup> parse(dynamic raw) {
+    List<dynamic> list = <dynamic>[];
+
+    if (raw is List) {
+      list = raw;
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          list = decoded;
+        }
+      } catch (_) {}
+    }
+
+    return list
+        .whereType<Map>()
+        .map((item) => _DietPlanSubtypeLookup.fromJson(item.cast<String, dynamic>()))
+        .where((item) => item.feedTypeName.trim().isNotEmpty || item.name.trim().isNotEmpty)
+        .toList();
+  }
 }
 
 class _FeedSubtypeDetail {
@@ -1480,3 +2553,4 @@ InputDecoration _inputDecoration(String hint) {
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
   );
 }
+

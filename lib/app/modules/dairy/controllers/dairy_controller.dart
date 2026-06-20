@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
 
 class DairyController extends GetxController {
@@ -29,6 +30,7 @@ class DairyController extends GetxController {
   final RxBool isPageLoading = false.obs;
   final RxBool isSubmitting = false.obs;
   final RxBool isLocationLoading = false.obs;
+  final RxBool isEditMode = false.obs;
   final RxList<DairyModel> dairies = <DairyModel>[].obs;
   final RxList<String> states = <String>[].obs;
   final RxList<String> districts = <String>[].obs;
@@ -39,6 +41,7 @@ class DairyController extends GetxController {
 
   int farmerId = 0;
   bool openedFromMilkFlow = false;
+  int editingDairyId = 0;
 
   List<DairyModel> get filteredDairies {
     final query = searchQuery.value.trim().toLowerCase();
@@ -60,6 +63,10 @@ class DairyController extends GetxController {
     final args = Get.arguments;
     if (args is Map) {
       openedFromMilkFlow = args['opened_from_milk'] == true || args['from']?.toString() == 'milk';
+      final editPayload = args['edit_dairy'];
+      if (editPayload is Map<String, dynamic>) {
+        startEditMode(DairyModel.fromJson(editPayload));
+      }
     }
   }
 
@@ -135,6 +142,8 @@ class DairyController extends GetxController {
 
     try {
       isSubmitting.value = true;
+      final wasEditing = isEditMode.value;
+      final updatedDairyId = editingDairyId;
       final payload = {
         'farmer_id': farmerId.toString(),
         'dairy_name': dairyNameController.text.trim(),
@@ -148,8 +157,12 @@ class DairyController extends GetxController {
         'pincode': pin,
       };
 
+      if (isEditMode.value && editingDairyId > 0) {
+        payload['id'] = editingDairyId.toString();
+      }
+
       final response = await http.post(
-        Uri.parse(Api.addDairy),
+        Uri.parse(isEditMode.value ? Api.dairyUpdate : Api.addDairy),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -159,10 +172,24 @@ class DairyController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final successMessage = data['message']?.toString() ?? 'dairy_added_successfully'.tr;
+        final successMessage = data['message']?.toString() ??
+            (wasEditing
+                ? 'dairy_updated_successfully'.tr
+                : 'dairy_added_successfully'.tr);
         final createdDairyId = _extractCreatedDairyId(data);
         clearForm();
         await fetchDairies();
+        if (wasEditing) {
+          if (Get.isRegistered<BottomNavController>()) {
+            Get.find<BottomNavController>().closeDrawerPage();
+          } else if (Get.currentRoute == Routes.DAIRY) {
+            Get.back(result: {'dairy_updated': true, 'dairy_id': updatedDairyId});
+          }
+          Future.delayed(const Duration(milliseconds: 120), () {
+            Get.snackbar('success'.tr, successMessage);
+          });
+          return;
+        }
         if (Get.isBottomSheetOpen ?? false) {
           Get.back();
         }
@@ -186,7 +213,10 @@ class DairyController extends GetxController {
       } else {
         Get.snackbar(
           'error'.tr,
-          data['message']?.toString() ?? 'failed_add_dairy'.tr,
+          data['message']?.toString() ??
+              (wasEditing
+                  ? 'failed_update_dairy'.tr
+                  : 'failed_add_dairy'.tr),
         );
       }
     } catch (e) {
@@ -216,6 +246,8 @@ class DairyController extends GetxController {
   }
 
   void clearForm() {
+    isEditMode.value = false;
+    editingDairyId = 0;
     dairyNameController.clear();
     gstNoController.clear();
     contactController.clear();
@@ -225,6 +257,44 @@ class DairyController extends GetxController {
     districtController.clear();
     stateController.clear();
     pincodeController.clear();
+  }
+
+  Future<void> startEditMode(DairyModel dairy) async {
+    isEditMode.value = true;
+    editingDairyId = dairy.id;
+    dairyNameController.text = dairy.dairyName;
+    gstNoController.text = dairy.gstNo;
+    contactController.text = dairy.contactNumber;
+    addressController.text = dairy.address;
+    cityController.text = dairy.city;
+    pincodeController.text = dairy.pincode;
+    stateController.text = dairy.state;
+    districtController.text = dairy.district;
+    talukaController.text = dairy.taluka;
+
+    if (states.isEmpty) {
+      await _loadLocationCascade();
+      return;
+    }
+
+    final stateValue = dairy.state.trim();
+    final districtValue = dairy.district.trim();
+    final talukaValue = dairy.taluka.trim();
+
+    if (stateValue.isNotEmpty) {
+      await onStateChanged(stateValue);
+    }
+    if (districtValue.isNotEmpty) {
+      districtController.text = districtValue;
+      await onDistrictChanged(districtValue);
+    }
+    if (talukaValue.isNotEmpty) {
+      talukaController.text = talukaValue;
+    }
+  }
+
+  void startCreateMode() {
+    clearForm();
   }
 
   Future<void> _loadLocationCascade() async {
@@ -407,6 +477,23 @@ class DairyModel {
     state,
     pincode,
   ].join(' ').toLowerCase();
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'dairy_name': dairyName,
+      'farmer_name': farmerName,
+      'gst_no': gstNo,
+      'contact_number': contactNumber,
+      'address': address,
+      'city': city,
+      'taluka': taluka,
+      'district': district,
+      'state': state,
+      'pincode': pincode,
+      'is_active': isActive,
+    };
+  }
 
   factory DairyModel.fromJson(Map<String, dynamic> json) {
     return DairyModel(

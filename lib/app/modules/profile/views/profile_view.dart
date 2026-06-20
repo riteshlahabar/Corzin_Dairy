@@ -353,6 +353,9 @@ class ProfileView extends GetView<ProfileController> {
           TextField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: keyboardType == TextInputType.number
+                ? TextCapitalization.none
+                : TextCapitalization.words,
             decoration: InputDecoration(
               isDense: true,
               filled: true,

@@ -21,9 +21,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
         elevation: 0,
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
-        title: const Text(
-          'Book vet visit',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+        title: Text(
+          'book_vet_visit'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
         ),
       ),
       body: SafeArea(
@@ -61,12 +61,14 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          animal.animalName.isEmpty ? 'Animal' : animal.animalName,
+                          animal.animalName.isEmpty ? 'animal'.tr : animal.animalName,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          animal.tagNumber.isEmpty ? 'Tag not set' : 'Tag ${animal.tagNumber}',
+                          animal.tagNumber.isEmpty
+                              ? 'tag_not_set'.tr
+                              : 'tag_value'.trParams({'value': animal.tagNumber}),
                           style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
                         ),
                       ],
@@ -81,9 +83,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Select symptoms / disease',
-                      style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    Text(
+                      'select_symptoms_disease'.tr,
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
                     Obx(() {
@@ -96,9 +98,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: const Color(0xFFE3ECE3)),
                           ),
-                          child: const Text(
-                            'No diseases listed yet. Admin can add them under Settings → Add Disease.',
-                            style: TextStyle(fontSize: 12.5, height: 1.35),
+                          child: Text(
+                            'no_diseases_listed_yet'.tr,
+                            style: const TextStyle(fontSize: 12.5, height: 1.35),
                           ),
                         );
                       }
@@ -144,9 +146,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       );
                     }),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Description',
-                      style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    Text(
+                      'shop_description'.tr,
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -154,7 +156,7 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       minLines: 3,
                       maxLines: 5,
                       decoration: InputDecoration(
-                        hintText: 'Describe the problem, behaviour, duration…',
+                        hintText: 'describe_problem_behaviour_duration'.tr,
                         filled: true,
                         fillColor: AppColors.white,
                         contentPadding: const EdgeInsets.all(14),
@@ -169,9 +171,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Disease details (short)',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                    Text(
+                      'disease_details_short'.tr,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -179,7 +181,7 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       minLines: 2,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Small note on visible symptoms',
+                        hintText: 'small_note_visible_symptoms'.tr,
                         filled: true,
                         fillColor: AppColors.white,
                         contentPadding: const EdgeInsets.all(12),
@@ -194,9 +196,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Extra notes (optional)',
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                    Text(
+                      'extra_notes_optional'.tr,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -204,7 +206,7 @@ class CreateAppointmentView extends GetView<DoctorController> {
                       minLines: 1,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Anything else the vet should know',
+                        hintText: 'anything_else_vet_should_know'.tr,
                         filled: true,
                         fillColor: AppColors.white,
                         contentPadding: const EdgeInsets.all(12),
@@ -220,7 +222,7 @@ class CreateAppointmentView extends GetView<DoctorController> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Location is shared when you allow GPS — similar to cab or food delivery tracking.',
+                      'location_shared_gps_hint'.tr,
                       style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35),
                     ),
                   ],
@@ -250,9 +252,9 @@ class CreateAppointmentView extends GetView<DoctorController> {
                             width: 22,
                             child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                           )
-                        : const Text(
-                            'Submit request',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        : Text(
+                            'submit_request'.tr,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                           ),
                   ),
                 ),

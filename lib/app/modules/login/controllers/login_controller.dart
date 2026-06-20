@@ -15,12 +15,12 @@ class LoginController extends GetxController {
     debugPrint("📱 Mobile: $phone");
 
     if (phone.isEmpty) {
-      Get.snackbar("Error", "Enter mobile number");
+      Get.snackbar('error'.tr, 'enter_mobile_number'.tr);
       return;
     }
 
     if (phone.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
-      Get.snackbar("Error", "Enter valid mobile number");
+      Get.snackbar('error'.tr, 'enter_valid_mobile_number'.tr);
       return;
     }
 
@@ -62,13 +62,13 @@ class LoginController extends GetxController {
             );
           } catch (e) {
             debugPrint("❌ Auto verification sign-in error: $e");
-            Get.snackbar("Error", "Auto verification failed");
+            Get.snackbar('error'.tr, 'auto_verification_failed'.tr);
           }
         },
 
         verificationFailed: (FirebaseAuthException e) {
           debugPrint("❌ verificationFailed: ${e.message}");
-          Get.snackbar("Error", e.message ?? "OTP failed");
+          Get.snackbar('error'.tr, e.message ?? 'otp_failed'.tr);
         },
 
         codeSent: (String verificationId, int? resendToken) {
@@ -91,7 +91,7 @@ class LoginController extends GetxController {
       );
     } catch (e) {
       debugPrint("❌ sendOtp error: $e");
-      Get.snackbar("Error", "Something went wrong while sending OTP");
+      Get.snackbar('error'.tr, 'something_went_wrong_sending_otp'.tr);
     } finally {
       isLoading.value = false;
     }

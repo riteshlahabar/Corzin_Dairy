@@ -61,6 +61,10 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
   }
 
   void _goBack() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+      return;
+    }
     if (Get.isRegistered<BottomNavController>() &&
         Get.find<BottomNavController>().closeDrawerPage()) {
       return;
@@ -70,7 +74,9 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
 
   void _openAddSubtypeScreen() {
     if (Get.isRegistered<BottomNavController>()) {
-      Get.find<BottomNavController>().openDrawerRoute(Routes.FEED_SETTINGS);
+      Get.find<BottomNavController>().openNestedDrawerPage(
+        const FeedSettingsView(mode: FeedSettingsViewMode.add),
+      );
       return;
     }
     Get.toNamed(Routes.FEED_SETTINGS);
@@ -236,6 +242,7 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
         content: TextField(
           controller: nameController,
           autofocus: true,
+          textCapitalization: TextCapitalization.words,
           decoration: _input('subtype_name'.tr),
         ),
         actions: [
@@ -475,19 +482,16 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
       _subtypeController.clear();
     });
     Get.snackbar('success'.tr, 'feed_subtype_saved'.tr, snackPosition: SnackPosition.BOTTOM);
-    _goToHomeAfterSave();
+    _goToFeedSubtypeListAfterSave();
   }
 
-  void _goToHomeAfterSave() {
+  void _goToFeedSubtypeListAfterSave() {
     if (Get.isRegistered<BottomNavController>()) {
       final nav = Get.find<BottomNavController>();
-      nav.activeDrawerPage.value = null;
-      nav.changeTab(0);
-      nav.resetTabHistory();
-      nav.runSilentSyncNow();
+      nav.openDrawerPage(const FeedSettingsView(mode: FeedSettingsViewMode.list));
       return;
     }
-    Get.offAllNamed(Routes.HOME);
+    Get.offNamed(Routes.FEED_SETTINGS_LIST);
   }
 
   @override

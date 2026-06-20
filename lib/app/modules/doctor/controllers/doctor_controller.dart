@@ -266,20 +266,20 @@ class DoctorController extends GetxController {
     }
 
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer session not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
       return;
     }
     if (animal.id <= 0) {
-      Get.snackbar('Error', 'Animal details not found. Please refresh and try again.');
+      Get.snackbar('error'.tr, 'animal_details_not_found_refresh_try_again'.tr);
       return;
     }
     if (selectedDiseaseIds.isEmpty) {
-      Get.snackbar('Error', 'Please select at least one disease.');
+      Get.snackbar('error'.tr, 'please_select_at_least_one_disease'.tr);
       return;
     }
     final locationReady = await _ensureFarmerLocationReadyForAppointment();
     if (!locationReady) {
-      Get.snackbar('Error', 'First fetch the current location to create appointment.');
+      Get.snackbar('error'.tr, 'fetch_current_location_first_for_appointment'.tr);
       return;
     }
 
@@ -325,16 +325,16 @@ class DoctorController extends GetxController {
           Get.back();
         }
         await fetchFarmerRequests();
-        final successMessage = data['message']?.toString() ?? 'Appointment created successfully.';
+        final successMessage = data['message']?.toString() ?? 'appointment_created_successfully'.tr;
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
-          Get.snackbar('Success', successMessage);
+          Get.snackbar('success'.tr, successMessage);
         });
       } else {
-        Get.snackbar('Error', _extractApiMessage(data) ?? 'Failed to submit request.');
+        Get.snackbar('error'.tr, _extractApiMessage(data) ?? 'failed_to_submit_request'.tr);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isSubmittingRequest.value = false;
     }
@@ -366,12 +366,12 @@ class DoctorController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Appointment updated.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'appointment_updated'.tr);
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to update appointment.');
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_update_appointment'.tr);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isUpdatingRequestStatus.value = false;
     }
@@ -390,12 +390,12 @@ class DoctorController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Appointment cancelled.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'appointment_cancelled'.tr);
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to cancel appointment.');
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_cancel_appointment'.tr);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isUpdatingRequestStatus.value = false;
     }
@@ -413,12 +413,12 @@ class DoctorController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Follow-up cancelled.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'follow_up_cancelled'.tr);
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to cancel follow-up.');
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_cancel_follow_up'.tr);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isUpdatingRequestStatus.value = false;
     }
@@ -429,7 +429,7 @@ class DoctorController extends GetxController {
     required int rating,
   }) async {
     if (rating < 1 || rating > 5) {
-      Get.snackbar('Error', 'Please select a rating.');
+      Get.snackbar('error'.tr, 'please_select_rating'.tr);
       return;
     }
 
@@ -446,12 +446,12 @@ class DoctorController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Thank you for rating the doctor.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'thank_you_for_rating_doctor'.tr);
       } else {
-        Get.snackbar('Error', _extractApiMessage(data) ?? 'Failed to submit rating.');
+        Get.snackbar('error'.tr, _extractApiMessage(data) ?? 'failed_to_submit_rating'.tr);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isUpdatingRequestStatus.value = false;
     }

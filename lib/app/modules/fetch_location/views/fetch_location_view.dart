@@ -10,7 +10,9 @@ class FetchLocationView extends GetView<FetchLocationController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.put(FetchLocationController());
+    final fetchLocationController = Get.isRegistered<FetchLocationController>()
+        ? Get.find<FetchLocationController>()
+        : Get.put(FetchLocationController());
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.primary,
@@ -20,8 +22,8 @@ class FetchLocationView extends GetView<FetchLocationController> {
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
-        title: const Text(
-          'Fetch Location',
+        title: Text(
+          'fetch_location'.tr,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
@@ -29,8 +31,9 @@ class FetchLocationView extends GetView<FetchLocationController> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Obx(() {
-            final hasCoords = controller.latitude.value.trim().isNotEmpty && controller.longitude.value.trim().isNotEmpty;
-            final address = controller.currentAddress.value.trim();
+            final hasCoords = fetchLocationController.latitude.value.trim().isNotEmpty &&
+                fetchLocationController.longitude.value.trim().isNotEmpty;
+            final address = fetchLocationController.currentAddress.value.trim();
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,21 +41,27 @@ class FetchLocationView extends GetView<FetchLocationController> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: controller.isFetching.value ? null : controller.fetchCurrentLocation,
+                    onPressed: fetchLocationController.isFetching.value
+                        ? null
+                        : fetchLocationController.fetchCurrentLocation,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: controller.isFetching.value
+                    icon: fetchLocationController.isFetching.value
                         ? const SizedBox(
                             height: 16,
                             width: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.my_location_rounded),
-                    label: Text(controller.isFetching.value ? 'Fetching...' : 'Fetch Current Location'),
+                    label: Text(
+                      fetchLocationController.isFetching.value
+                          ? 'fetching'.tr
+                          : 'fetch_current_location'.tr,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -67,15 +76,15 @@ class FetchLocationView extends GetView<FetchLocationController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Current Coordinates',
+                      Text(
+                        'current_coordinates'.tr,
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         hasCoords
-                            ? 'Latitude: ${controller.latitude.value}\nLongitude: ${controller.longitude.value}'
-                            : 'Coordinates not fetched yet.',
+                            ? 'Latitude: ${fetchLocationController.latitude.value}\nLongitude: ${fetchLocationController.longitude.value}'
+                            : 'coordinates_not_fetched_yet'.tr,
                         style: const TextStyle(fontSize: 13.5),
                       ),
                     ],
@@ -93,13 +102,13 @@ class FetchLocationView extends GetView<FetchLocationController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Address',
+                      Text(
+                        'address'.tr,
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        address.isEmpty ? 'Address not available yet.' : address,
+                        address.isEmpty ? 'address_not_available_yet'.tr : address,
                         style: const TextStyle(fontSize: 13.5, height: 1.35),
                       ),
                     ],

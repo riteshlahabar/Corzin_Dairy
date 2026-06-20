@@ -190,13 +190,24 @@ class BuyAnimalView extends GetView<HomeController> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${'type'.tr}: ${_textOrDash(item.animalTypeName)}',
+                      '${'animal_type_label'.tr}: ${_translatedAnimalTypeName(item.animalTypeName)}',
                       style: TextStyle(
                         fontSize: 12.2,
                         color: AppColors.grey.shade700,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (item.isPregnant) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${'pregnant'.tr}: ${'yes'.tr}',
+                        style: const TextStyle(
+                          fontSize: 12.2,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -211,6 +222,15 @@ class BuyAnimalView extends GetView<HomeController> {
               _chip('age'.tr, _textOrDash(item.age)),
               _chip('lactation_number'.tr, _textOrDash(item.lactationNumber)),
               _chip('milk_production'.tr, _milkText(item.dailyMilkProduction)),
+              _chip(
+                'pregnant'.tr,
+                item.isPregnant ? 'yes'.tr : 'no'.tr,
+              ),
+              if (item.isPregnant)
+                _chip(
+                  'calving_date'.tr,
+                  _textOrDash(item.expectedCalvingDate),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -220,7 +240,7 @@ class BuyAnimalView extends GetView<HomeController> {
             child: ElevatedButton.icon(
               onPressed: controller.callAdminSupport,
               icon: const Icon(Icons.call_rounded, size: 18),
-              label: Text('call_admin'.tr),
+              label: Text('call_admin_to_buy'.tr),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -270,5 +290,52 @@ class BuyAnimalView extends GetView<HomeController> {
     final v = value.trim();
     if (v.isEmpty || v == 'null') return '-';
     return 'Rs $v';
+  }
+
+  String _translatedAnimalTypeName(String rawName) {
+    final normalized = rawName.trim().toLowerCase();
+    if (normalized.isEmpty) return '-';
+
+    if (_containsAny(normalized, const ['milking cow', 'milking cows']) ||
+        (normalized.contains('milking') && !normalized.contains('non'))) {
+      return 'milking_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const [
+          'non milking cow',
+          'non-milking cow',
+          'non milking cows',
+          'non-milking cows',
+          'dry cow',
+          'dry cows',
+        ]) ||
+        normalized.contains('dry')) {
+      return 'dry_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const ['heifer', 'heifers'])) {
+      return 'heifer'.tr;
+    }
+
+    if (_containsAny(normalized, const ['calf', 'calves'])) {
+      return 'calf'.tr;
+    }
+
+    if (_containsAny(normalized, const ['bull', 'bulls'])) {
+      return 'bull'.tr;
+    }
+
+    if (_containsAny(normalized, const ['cow', 'cows'])) {
+      return 'cow_single'.tr;
+    }
+
+    return rawName;
+  }
+
+  bool _containsAny(String value, List<String> checks) {
+    for (final check in checks) {
+      if (value.contains(check)) return true;
+    }
+    return false;
   }
 }

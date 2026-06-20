@@ -194,40 +194,40 @@ class FarmerDetailsController extends GetxController {
 
   void submit() async {
     if (firstName.text.trim().isEmpty) {
-      Get.snackbar("Error", "Enter First Name");
+      Get.snackbar('error'.tr, 'enter_first_name'.tr);
       return;
     }
     if (middleName.text.trim().isEmpty) {
-      Get.snackbar("Error", "Enter Middle Name");
+      Get.snackbar('error'.tr, 'enter_middle_name'.tr);
       return;
     }
     if (lastName.text.trim().isEmpty) {
-      Get.snackbar("Error", "Enter Last Name");
+      Get.snackbar('error'.tr, 'enter_last_name'.tr);
       return;
     }
     if (state.text.trim().isEmpty) {
-      Get.snackbar("Error", "Select State");
+      Get.snackbar('error'.tr, 'select_state'.tr);
       return;
     }
     if (district.text.trim().isEmpty) {
-      Get.snackbar("Error", "Select District");
+      Get.snackbar('error'.tr, 'select_district'.tr);
       return;
     }
     if (taluka.text.trim().isEmpty) {
-      Get.snackbar("Error", "Select Taluka/Subdistrict/City");
+      Get.snackbar('error'.tr, 'select_taluka_city'.tr);
       return;
     }
     if (village.text.trim().isEmpty) {
-      Get.snackbar("Error", "Enter Address/Village");
+      Get.snackbar('error'.tr, 'enter_address_village'.tr);
       return;
     }
     final pin = pincode.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-      Get.snackbar("Error", "Enter valid 6 digit pincode");
+      Get.snackbar('error'.tr, 'enter_valid_6_digit_pincode'.tr);
       return;
     }
     if (selectedPhoto.value == null) {
-      Get.snackbar("Error", "Upload farmer photo");
+      Get.snackbar('error'.tr, 'upload_farmer_photo'.tr);
       return;
     }
 
@@ -269,7 +269,7 @@ class FarmerDetailsController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        Get.snackbar("Success", "Farmer Added Successfully");
+        Get.snackbar('success'.tr, 'farmer_added_successfully'.tr);
 
         final farmerId = int.tryParse(data['data']['id'].toString()) ?? 0;
         final farmerPhoto = data['data']['farmer_photo_url']?.toString() ??
@@ -304,10 +304,10 @@ class FarmerDetailsController extends GetxController {
 
         Get.offAll(() => const MainBottomNavView());
       } else {
-        Get.snackbar("Error", data['message'].toString());
+        Get.snackbar('error'.tr, data['message'].toString());
       }
     } catch (_) {
-      Get.snackbar("Error", "Something went wrong");
+      Get.snackbar('error'.tr, 'something_went_wrong'.tr);
     }
   }
 

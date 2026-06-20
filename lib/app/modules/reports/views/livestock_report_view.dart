@@ -7,12 +7,34 @@ import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/livestock_report_controller.dart';
 
-class LivestockReportView extends StatelessWidget {
+class LivestockReportView extends StatefulWidget {
   const LivestockReportView({super.key});
 
   @override
+  State<LivestockReportView> createState() => _LivestockReportViewState();
+}
+
+class _LivestockReportViewState extends State<LivestockReportView> {
+  late final LivestockReportController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<LivestockReportController>()
+        ? Get.find<LivestockReportController>()
+        : Get.put(LivestockReportController());
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<LivestockReportController>()) {
+      Get.delete<LivestockReportController>();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = Get.put(LivestockReportController());
     return Scaffold(
       backgroundColor: const Color(0xFFF4FAF4),
       body: SafeArea(
@@ -290,7 +312,7 @@ class LivestockReportView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            section.title,
+            _translatedSectionTitle(section.title),
             style: const TextStyle(
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
@@ -356,8 +378,8 @@ class LivestockReportView extends StatelessWidget {
         children: [
           for (var i = 0; i < orderedPairs.length; i++)
               _kvRow(
-                orderedPairs[i].key,
-                orderedPairs[i].value,
+                _translatedReportLabel(orderedPairs[i].key),
+                _translatedReportValue(orderedPairs[i].key, orderedPairs[i].value),
                 isLast: i == orderedPairs.length - 1,
               ),
         ],
@@ -398,6 +420,120 @@ class LivestockReportView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _translatedSectionTitle(String title) {
+    switch (title.trim().toLowerCase()) {
+      case 'milk report':
+        return 'milk_report'.tr;
+      case 'feeding report':
+        return 'feeding_report'.tr;
+      case 'medical history':
+        return 'medical_history'.tr;
+      case 'life cycle history':
+        return 'life_cycle_history'.tr;
+      case 'pregnancy report':
+        return 'pregnancy_report'.tr;
+      case 'mastitis report':
+        return 'mastitis_report'.tr;
+      case 'dmi report':
+        return 'dmi_report'.tr;
+      case 'profit loss report':
+        return 'profit_loss_report'.tr;
+      default:
+        return title;
+    }
+  }
+
+  String _translatedReportLabel(String label) {
+    switch (label.trim().toLowerCase()) {
+      case 'date':
+        return 'date'.tr;
+      case 'pen name':
+        return 'pan_name'.tr;
+      case 'cow name':
+        return 'cow_name'.tr;
+      case 'cow tag no':
+        return 'cow_tag_no'.tr;
+      case 'id':
+        return 'id'.tr;
+      case 'dmi type':
+        return 'dmi_type'.tr;
+      case 'body weight':
+        return 'body_weight'.tr;
+      case 'total milk':
+        return 'total_milk'.tr;
+      case 'required dmi':
+        return 'required_dmi'.tr;
+      case 'actual dmi':
+        return 'actual_dmi'.tr;
+      case 'alert status':
+        return 'alert_status'.tr;
+      case 'test result':
+        return 'test_result'.tr;
+      case 'treatment':
+        return 'treatment'.tr;
+      case 'recovery status':
+        return 'recovery_status'.tr;
+      case 'debit':
+        return 'debit'.tr;
+      case 'credit':
+        return 'credit'.tr;
+      case 'total':
+        return 'total'.tr;
+      default:
+        return label;
+    }
+  }
+
+  String _translatedReportValue(String label, String value) {
+    final normalizedLabel = label.trim().toLowerCase();
+    final normalizedValue = value.trim().toLowerCase();
+    if (normalizedValue.isEmpty || value.trim() == '-') {
+      return value;
+    }
+
+    switch (normalizedLabel) {
+      case 'test result':
+        switch (normalizedValue) {
+          case 'positive':
+            return 'positive'.tr;
+          case 'negative':
+            return 'negative'.tr;
+          case 'suspected':
+            return 'suspected'.tr;
+        }
+      case 'recovery status':
+        switch (normalizedValue) {
+          case 'under_treatment':
+          case 'under treatment':
+          case 'under_treatement':
+          case 'under treatement':
+            return 'under_treatment'.tr;
+          case 'recovered':
+          case 'recoverd':
+            return 'recovered'.tr;
+          case 'not_recovered':
+          case 'not recovered':
+            return 'not_recovered'.tr;
+        }
+      case 'alert status':
+        switch (normalizedValue) {
+          case 'balanced':
+            return 'balanced'.tr;
+          case 'low':
+            return 'low'.tr;
+          case 'high':
+            return 'high'.tr;
+        }
+      case 'dmi type':
+        if (normalizedValue == 'pan wise') {
+          return 'pan_wise'.tr;
+        }
+        break;
+    }
+
+    return value;
   }
 
   Widget _summarySection(List<ReportSummaryCardData> summaryCards) {

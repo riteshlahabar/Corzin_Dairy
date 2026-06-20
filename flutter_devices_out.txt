@@ -1,0 +1,10 @@
+Found 5 connected devices:
+  RMX1833 (mobile)             • 7S9LJBDY495POFWK • android-arm64  • Android 9 (API 28)
+  sdk gphone64 x86 64 (mobile) • emulator-5554    • android-x64    • Android 16 (API 36) (emulator)
+  Windows (desktop)            • windows          • windows-x64    • Microsoft Windows [Version 10.0.26200.8655]
+  Chrome (web)                 • chrome           • web-javascript • Google Chrome 149.0.7827.115
+  Edge (web)                   • edge             • web-javascript • Microsoft Edge 149.0.4022.69
+
+Run "flutter emulators" to list and start any available device emulators.
+
+If you expected another device to be detected, please run "flutter doctor" to diagnose potential issues. You may also try increasing the time to wait for connected devices with the "--device-timeout" flag. Visit https://flutter.dev/setup/ for troubleshooting tips.

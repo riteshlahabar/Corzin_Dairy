@@ -91,33 +91,22 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
           _block(
             title: 'shop_payment_method'.tr,
             child: Obx(
-              () => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5EA),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      controller.selectedPaymentMethod.value == 'cod'
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('shop_cash_on_delivery'.tr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 2),
-                          Text('shop_pay_on_delivery'.tr, style: const TextStyle(fontSize: 12, color: AppColors.grey)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              () => Column(
+                children: [
+                  _paymentMethodTile(
+                    value: ShopPaymentMethod.cod,
+                    icon: Icons.local_shipping_outlined,
+                    title: 'shop_cash_on_delivery'.tr,
+                    subtitle: 'shop_pay_on_delivery'.tr,
+                  ),
+                  const SizedBox(height: 10),
+                  _paymentMethodTile(
+                    value: ShopPaymentMethod.razorpay,
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: 'shop_razorpay'.tr,
+                    subtitle: 'shop_pay_online'.tr,
+                  ),
+                ],
               ),
             ),
           ),
@@ -147,7 +136,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                               ],
                             ),
                           ),
-                          Text('Rs ${controller.lineTotalForItem(item).toStringAsFixed(2)}'),
+                          Text('amount_rs'.trParams({'value': controller.lineTotalForItem(item).toStringAsFixed(2)})),
                         ],
                       ),
                     ),
@@ -180,7 +169,7 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                 onPressed: controller.isPlacingOrder.value
                     ? null
                     : () async {
-                        final ok = await controller.placeOrder(directItems: widget.items);
+                        final ok = await controller.checkoutOrder(directItems: widget.items);
                         if (!mounted || !ok) return;
                         if (widget.clearCartOnSuccess) {
                           controller.cartItems.clear();
@@ -194,7 +183,11 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                       )
-                    : Text('shop_complete_order'.tr),
+                    : Text(
+                        controller.selectedPaymentMethod.value == ShopPaymentMethod.razorpay
+                            ? 'shop_pay_now'.tr
+                            : 'shop_complete_order'.tr,
+                      ),
               ),
             ),
           ),
@@ -228,8 +221,51 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
       child: Row(
         children: [
           Expanded(child: Text(label, style: style)),
-          Text('Rs ${value.toStringAsFixed(2)}', style: style),
+          Text('amount_rs'.trParams({'value': value.toStringAsFixed(2)}), style: style),
         ],
+      ),
+    );
+  }
+
+  Widget _paymentMethodTile({
+    required String value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final selected = controller.selectedPaymentMethod.value == value;
+    return InkWell(
+      onTap: () => controller.selectedPaymentMethod.value = value,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEAF5EA) : const Color(0xFFF6F8F6),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.primary : const Color(0xFFDDE6DD),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.grey)),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
       ),
     );
   }

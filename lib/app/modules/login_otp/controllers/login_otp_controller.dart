@@ -65,7 +65,7 @@ class LoginOtpController extends GetxController {
     debugPrint("🔐 Entered OTP: $otp");
 
     if (!autoVerified && otp.length < 6) {
-      Get.snackbar("Error", "Enter complete OTP");
+      Get.snackbar('error'.tr, 'enter_complete_otp'.tr);
       return;
     }
 
@@ -75,7 +75,7 @@ class LoginOtpController extends GetxController {
       /// Case 1: special test numbers skip firebase verification
       if (isTestNumber) {
         if (otp != "123456") {
-          Get.snackbar("Error", "Invalid OTP");
+          Get.snackbar('error'.tr, 'invalid_otp'.tr);
           isLoading.value = false;
           return;
         }
@@ -94,7 +94,7 @@ class LoginOtpController extends GetxController {
       await handlePostOtpSuccess();
     } catch (e) {
       debugPrint("❌ verifyOtp error: $e");
-      Get.snackbar("Error", "Invalid OTP");
+      Get.snackbar('error'.tr, 'invalid_otp'.tr);
     } finally {
       isLoading.value = false;
     }
@@ -209,26 +209,26 @@ class LoginOtpController extends GetxController {
 
       /// Unexpected response
       await SessionService.setLoggedIn(false);
-      Get.snackbar("Error", "Unable to verify user");
+      Get.snackbar('error'.tr, 'unable_verify_user'.tr);
     } catch (e) {
       debugPrint("❌ checkUserAndNavigate error: $e");
       await SessionService.setLoggedIn(false);
-      Get.snackbar("Error", "Failed to verify user");
+      Get.snackbar('error'.tr, 'failed_verify_user'.tr);
     }
   }
 
   Future<void> resendOtp() async {
-    Get.snackbar("Info", "OTP Resent to $mobile");
+    Get.snackbar('info'.tr, 'otp_resent_to'.trParams({'mobile': mobile}));
   }
 
   void _showInactiveAccountMessage(String adminNumber) {
     final message = adminNumber.isEmpty
-        ? "Your account is inactive. Please contact admin."
-        : "Your account is inactive. Please contact admin: $adminNumber";
+        ? 'account_inactive_message'.tr
+        : 'account_inactive_message_with_admin'.trParams({'number': adminNumber});
 
     Get.closeAllSnackbars();
     Get.snackbar(
-      "Account Inactive",
+      'account_inactive'.tr,
       message,
       snackPosition: SnackPosition.BOTTOM,
       duration: const Duration(seconds: 10),

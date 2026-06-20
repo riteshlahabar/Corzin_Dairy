@@ -132,9 +132,15 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           children: [
-            _typeChip(0, 'all'.tr),
+            _typeChip(
+              0,
+              '${'all'.tr} (${controller.animalCountForType(0, onlyForSale: onlyForSale)})',
+            ),
             ...controller.animalTypes.map(
-              (type) => _typeChip(type.id, type.name),
+              (type) => _typeChip(
+                type.id,
+                '${controller.translatedAnimalTypeName(type.name, plural: true)} (${controller.animalCountForType(type.id, onlyForSale: onlyForSale)})',
+              ),
             ),
           ],
         ),
@@ -170,7 +176,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   Widget _animalCard(AnimalHistoryItem item) {
     final statusText = item.isForSale
         ? 'status_selling'.tr
-        : (item.isActive ? item.lifecycleStatus.capitalizeFirst ?? 'active'.tr : 'status_inactive'.tr);
+        : (item.isActive ? controller.translatedLifecycleStatus(item.lifecycleStatus) : 'status_inactive'.tr);
     final statusColor = item.isForSale
         ? const Color(0xFFB25E00)
         : (item.isActive ? AppColors.primary : Colors.redAccent);
@@ -226,7 +232,12 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                         _miniChip(Icons.sell_outlined, '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}'),
                         if (onlyForSale)
                           _miniChip(Icons.currency_rupee_rounded, _priceText(item.sellingPrice)),
-                        _miniChip(Icons.category_outlined, item.animalTypeName.isEmpty ? '-' : item.animalTypeName),
+                        _miniChip(
+                          Icons.category_outlined,
+                          item.animalTypeName.isEmpty
+                              ? '-'
+                              : controller.translatedAnimalTypeName(item.animalTypeName),
+                        ),
                       ],
                     ),
                   ],
@@ -245,6 +256,14 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               _detailTile('purchase_date'.tr, item.purchaseDate.isEmpty ? '-' : item.purchaseDate, Icons.shopping_bag_outlined),
               _detailTile('age'.tr, item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
               _detailTile('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
+              if (controller.isMilkingAnimalTypeName(item.animalTypeName))
+                _detailTile(
+                  'default_milk_per_milking'.tr,
+                  item.defaultMilkPerSession.trim().isEmpty
+                      ? '-'
+                      : '${item.defaultMilkPerSession} L',
+                  Icons.local_drink_outlined,
+                ),
               _detailTile('breed'.tr, item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
               _detailTile('lactation'.tr, item.lactationNumber.isEmpty ? '-' : item.lactationNumber, Icons.local_drink_rounded),
               _detailTile('ai_date'.tr, item.aiDate.isEmpty ? '-' : item.aiDate, Icons.calendar_month_rounded),
@@ -266,7 +285,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               if (onlyForSale)
                 Expanded(
                   child: _actionButton(
-                    label: 'Cancel selling',
+                    label: 'cancel_selling_title'.tr,
                     icon: Icons.cancel_presentation_rounded,
                     onTap: () => _confirmCancelSellingAnimal(item),
                     filled: false,
@@ -558,7 +577,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   }
 
   void _confirmCancelSellingAnimal(AnimalHistoryItem item) {
-    final animalName = item.animalName.isEmpty ? 'this animal' : item.animalName;
+    final animalName = item.animalName.isEmpty ? 'animal'.tr : item.animalName;
     Get.dialog(
       Dialog(
         backgroundColor: Colors.transparent,
@@ -589,13 +608,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 child: const Icon(Icons.cancel_presentation_rounded, color: Color(0xFFB25E00), size: 28),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Cancel Selling',
+              Text(
+                'cancel_selling_title'.tr,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Are you sure you want to cancel selling $animalName?',
+                'cancel_selling_message'.trParams({'name': animalName}),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
               ),
@@ -638,7 +657,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                                 width: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                               )
-                            : const Text('Confirm'),
+                            : Text('confirm'.tr),
                       ),
                     ),
                   ),

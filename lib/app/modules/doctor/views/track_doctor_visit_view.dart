@@ -70,9 +70,9 @@ class _TrackDoctorVisitViewState extends State<TrackDoctorVisitView> {
         elevation: 0,
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
-        title: const Text(
-          'Live tracking',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Text(
+          'live_tracking'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       body: req == null
@@ -98,7 +98,10 @@ class _TrackDoctorVisitViewState extends State<TrackDoctorVisitView> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${req.animalName} · ${req.status}',
+                          'animal_status_value'.trParams({
+                            'animal': req.animalName,
+                            'status': req.status,
+                          }),
                           style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
                         ),
                         if (req.doctorLiveLatitude != null &&
@@ -107,12 +110,14 @@ class _TrackDoctorVisitViewState extends State<TrackDoctorVisitView> {
                             req.destLongitude != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Doctor is ~${_haversineKm(
-                              req.doctorLiveLatitude!,
-                              req.doctorLiveLongitude!,
-                              req.destLatitude!,
-                              req.destLongitude!,
-                            ).toStringAsFixed(1)} km from your pin',
+                            'doctor_distance_from_pin'.trParams({
+                              'value': _haversineKm(
+                                req.doctorLiveLatitude!,
+                                req.doctorLiveLongitude!,
+                                req.destLatitude!,
+                                req.destLongitude!,
+                              ).toStringAsFixed(1),
+                            }),
                             style: const TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
@@ -121,9 +126,9 @@ class _TrackDoctorVisitViewState extends State<TrackDoctorVisitView> {
                           ),
                         ] else if (req.doctorLiveUpdatedAt.isEmpty) ...[
                           const SizedBox(height: 8),
-                          const Text(
-                            'Waiting for doctor GPS…',
-                            style: TextStyle(fontSize: 12.5, color: AppColors.grey),
+                          Text(
+                            'waiting_doctor_gps'.tr,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
                           ),
                         ],
                       ],

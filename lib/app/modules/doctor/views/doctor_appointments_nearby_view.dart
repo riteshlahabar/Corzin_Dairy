@@ -176,7 +176,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                                 children: [
-                                  if (controller.animals.isEmpty) _emptyCard('No animals added yet.'),
+                                  if (controller.animals.isEmpty) _emptyCard('no_animals_added_yet'.tr),
                                   ...controller.animals.map(_animalCreateCard),
                                 ],
                               ),
@@ -193,7 +193,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                       child: Center(child: CircularProgressIndicator()),
                                     ),
                                   if (!controller.isLoadingRequests.value && currentCards.isEmpty)
-                                    _emptyCard('No current appointments.'),
+                                    _emptyCard('no_current_appointments'.tr),
                                   ...currentCards.map(_currentRequestCard),
                                 ],
                               ),
@@ -210,7 +210,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                       child: Center(child: CircularProgressIndicator()),
                                     ),
                                   if (!controller.isLoadingRequests.value && historyGroups.isEmpty)
-                                    _emptyCard('No treatment history yet.'),
+                                    _emptyCard('no_treatment_history_yet'.tr),
                                   ...historyGroups.map(_historyAnimalCard),
                                 ],
                               ),
@@ -294,14 +294,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      animal.animalName.isEmpty ? 'Animal' : animal.animalName,
+                      animal.animalName.isEmpty ? 'animal'.tr : animal.animalName,
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       animal.tagNumber.isEmpty
-                          ? 'Tag not available'
-                          : 'Tag: ${animal.tagNumber}',
+                          ? 'tag_not_available'.tr
+                          : '${'tag'.tr}: ${animal.tagNumber}',
                       style: const TextStyle(
                         fontSize: 12.2,
                         fontWeight: FontWeight.w600,
@@ -329,8 +329,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       ),
                     ),
                     icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                    label: const Text(
-                      'Create Appointment',
+                    label: Text(
+                      'create_appointment'.tr,
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -358,7 +358,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
     final statusColor = isFollowup
         ? const Color(0xFF0D47A1)
         : (isApprovedState ? const Color(0xFF2E7D32) : const Color(0xFFE07A00));
-    final statusLabel = isFollowup ? 'Follow-up' : (isApprovedState ? 'Accept' : 'Pending');
+    final statusLabel = isFollowup ? 'follow_up'.tr : (isApprovedState ? 'accepted'.tr : 'pending'.tr);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -394,14 +394,14 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
           ),
           const SizedBox(height: 6),
           Text(
-            'Appointment ID: ${request.displayAppointmentCode}',
+            'appointment_id_value'.trParams({'value': request.displayAppointmentCode}),
             style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700, color: AppColors.primary),
           ),
           const SizedBox(height: 4),
           Text(
             animal == null || animal.tagNumber.trim().isEmpty
-                ? 'Tag: -'
-                : 'Tag: ${animal.tagNumber}',
+                ? 'tag_dash'.tr
+                : 'tag_value'.trParams({'value': animal.tagNumber}),
             style: const TextStyle(fontSize: 12.2, color: AppColors.grey),
           ),
           const SizedBox(height: 4),
@@ -431,8 +431,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                       ),
-                      child: const Text(
-                        'Cancel Follow Up',
+                      child: Text(
+                        'cancel_follow_up'.tr,
                         style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -463,8 +463,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                       ),
-                      child: const Text(
-                        'Create Appointment',
+                      child: Text(
+                        'create_appointment'.tr,
                         style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -507,8 +507,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                       ),
-                      child: const Text(
-                        'Cancel Appointment',
+                      child: Text(
+                        'cancel_appointment'.tr,
                         maxLines: 1,
                         style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
                       ),
@@ -565,12 +565,12 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Cancel Appointment?',
+                          'cancel_appointment_title'.tr,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -579,7 +579,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'This will stop the request for every doctor.',
+                          'cancel_appointment_message'.tr,
                           style: TextStyle(
                             fontSize: 12.5,
                             height: 1.35,
@@ -604,13 +604,13 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _cancelDialogInfoRow(Icons.pets_rounded, 'Animal', animalName),
+                    _cancelDialogInfoRow(Icons.pets_rounded, 'animal'.tr, animalName),
                     const SizedBox(height: 9),
-                    _cancelDialogInfoRow(Icons.local_hospital_rounded, 'Doctor', doctorName),
+                    _cancelDialogInfoRow(Icons.local_hospital_rounded, 'doctor'.tr, doctorName),
                     const SizedBox(height: 9),
                     _cancelDialogInfoRow(
                       Icons.confirmation_number_rounded,
-                      'Appointment ID',
+                      'appointment_id'.tr,
                       request.displayAppointmentCode,
                     ),
                   ],
@@ -625,8 +625,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFFFE1A6)),
                 ),
-                child: const Text(
-                  'After cancellation, this appointment will no longer appear in your current list or any doctor app.',
+                child: Text(
+                  'cancel_appointment_warning'.tr,
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.35,
@@ -648,8 +648,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                           side: const BorderSide(color: Color(0xFFDDE8DD)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: const Text(
-                          'Keep',
+                        child: Text(
+                          'keep'.tr,
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -670,8 +670,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                           foregroundColor: AppColors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: const Text(
-                          'Yes, Cancel',
+                        child: Text(
+                          'yes_cancel'.tr,
                           maxLines: 1,
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                         ),
@@ -776,8 +776,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                           const SizedBox(height: 3),
                           Text(
                             animal == null || animal.tagNumber.trim().isEmpty
-                                ? 'Tag: -'
-                                : 'Tag: ${animal.tagNumber}',
+                                ? 'tag_dash'.tr
+                                : 'tag_value'.trParams({'value': animal.tagNumber}),
                             style: const TextStyle(
                               fontSize: 12.2,
                               fontWeight: FontWeight.w600,
@@ -786,7 +786,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            'Latest: ${_formatCardDateTimeLabel(latest.completedAt)}',
+                            'latest_value'.trParams({'value': _formatCardDateTimeLabel(latest.completedAt)}),
                             maxLines: 1,
                             softWrap: false,
                             style: const TextStyle(
@@ -810,8 +810,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                       color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text(
-                      'Completed',
+                    child: Text(
+                      'completed'.tr,
                       style: TextStyle(fontSize: 11.5, color: Color(0xFF2E7D32), fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -834,7 +834,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
-          'Total treatments: $historyCount',
+          'total_treatments_value'.trParams({'count': '$historyCount'}),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -903,8 +903,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          child: const Text(
-            'View History',
+          child: Text(
+            'view_history'.tr,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -1107,8 +1107,8 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
               Obx(
                 () {
                   if (controller.diseases.isEmpty) {
-                    return const Text(
-                      'No diseases available. Please ask admin to add disease from panel.',
+                    return Text(
+                      'no_diseases_available_admin'.tr,
                       style: TextStyle(fontSize: 12),
                     );
                   }
@@ -1188,7 +1188,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
       ),
       builder: (context) {
         final treatmentText = request.treatmentDetails.trim().isEmpty
-            ? 'No treatment details added yet.'
+            ? 'no_treatment_details_added_yet'.tr
             : request.treatmentDetails.trim();
         final onsiteTreatment = request.onsiteTreatment.trim();
         final notes = request.notes.trim();
@@ -1206,61 +1206,61 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                'Treatment Details',
+              Text(
+                'treatment_details_title'.tr,
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
               Text(
-                'Appointment ID: ${request.displayAppointmentCode}',
+                'appointment_id_value'.trParams({'value': request.displayAppointmentCode}),
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
               ),
               const SizedBox(height: 6),
               Text('${'doctor'.tr}: ${request.doctorName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
               Text(
-                'Treatment Date: ${_formatDateTimeLabel(request.completedAt)}',
+                'treatment_date_value'.trParams({'value': _formatDateTimeLabel(request.completedAt)}),
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 6),
               Text('${'animal'.tr}: ${request.animalName}', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 6),
               Text(
-                'Next Follow-up Date: ${_formatDateLabel(request.nextFollowupDate)}',
+                'next_followup_date_value'.trParams({'value': _formatDateLabel(request.nextFollowupDate)}),
                 style: const TextStyle(fontSize: 13),
               ),
               if (request.fees.trim() != '-' || request.charges.trim() != '-') ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Fees: ${request.fees.trim() != '-' ? request.fees : request.charges}',
+                  'fees_value'.trParams({'value': request.fees.trim() != '-' ? request.fees : request.charges}),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],
               if (request.onSiteMedicineCharges.trim() != '-') ...[
                 const SizedBox(height: 6),
                 Text(
-                  'On Site Medicine Charges: ${request.onSiteMedicineCharges}',
+                  'on_site_medicine_charges_value'.trParams({'value': request.onSiteMedicineCharges}),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],
               if (request.totalCharges.trim() != '-' || request.charges.trim() != '-') ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Total: ${request.totalCharges.trim() != '-' ? request.totalCharges : request.charges}',
+                  'total_value'.trParams({'value': request.totalCharges.trim() != '-' ? request.totalCharges : request.charges}),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],
               if (onsiteTreatment.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'On-Site Treatment: $onsiteTreatment',
+                  'on_site_treatment_value'.trParams({'value': onsiteTreatment}),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ],
               if (notes.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Notes: $notes',
+                  'notes_value'.trParams({'value': notes}),
                   style: const TextStyle(fontSize: 12.8),
                 ),
               ],
@@ -1347,7 +1347,7 @@ class _DoctorAppointmentsNearbyViewState extends State<DoctorAppointmentsNearbyV
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      'Total: ${item.totalTabs}',
+                                      'total_value'.trParams({'value': item.totalTabs}),
                                       style: const TextStyle(
                                         fontSize: 11.5,
                                         color: AppColors.primary,
@@ -1718,7 +1718,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Dr. $doctorName',
+                                '${'doctor'.tr} $doctorName',
                                 style: const TextStyle(fontSize: 12.8, fontWeight: FontWeight.w700),
                               ),
                               if (doctorDegree.isNotEmpty) ...[
@@ -1731,7 +1731,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                               if (appointment.charges != '-') ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Fees: ${appointment.charges}',
+                                  'fees_value'.trParams({'value': appointment.charges}),
                                   style: const TextStyle(fontSize: 12.3, color: AppColors.grey),
                                 ),
                               ],
@@ -1746,14 +1746,14 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                               foregroundColor: AppColors.primary,
                             ),
-                            tooltip: 'Call doctor',
+                            tooltip: 'call_doctor'.tr,
                           ),
                       ],
                     ),
                     const SizedBox(height: 8),
                   ],
                   Text(
-                    'Status: ${appointment.status.toUpperCase()}',
+                    'status_value'.trParams({'value': appointment.status.toUpperCase()}),
                     style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 6),
@@ -1763,7 +1763,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                         const Icon(Icons.social_distance_rounded, size: 16, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
-                          'Doctor is ${distanceKm.toStringAsFixed(2)} km away',
+                          'doctor_distance_away'.trParams({'value': distanceKm.toStringAsFixed(2)}),
                           style: const TextStyle(fontSize: 12.5),
                         ),
                       ],
@@ -1774,7 +1774,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                         const Icon(Icons.schedule_rounded, size: 16, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
-                          'Estimated arrival: $etaMinutes minutes',
+                          'estimated_arrival_minutes'.trParams({'value': '$etaMinutes'}),
                           style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1791,7 +1791,7 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'Farmer address: ${appointment.address}',
+                              'farmer_address_value'.trParams({'value': appointment.address}),
                               style: const TextStyle(fontSize: 12.5),
                             ),
                           ),
@@ -1800,12 +1800,12 @@ class _AppointmentTrackingViewState extends State<AppointmentTrackingView> {
                     ],
                   ] else
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.location_searching_rounded, size: 16, color: AppColors.primary),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Waiting for doctor live location update...',
+                            'waiting_doctor_live_location_update'.tr,
                             style: TextStyle(fontSize: 12.5),
                           ),
                         ),

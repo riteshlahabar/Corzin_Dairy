@@ -22,7 +22,9 @@ class HealthController extends GetxController {
   final Rx<DateTime> dmiFromDate = DateTime.now().obs;
   final Rx<DateTime> dmiToDate = DateTime.now().obs;
   final RxString mastitisSearchQuery = ''.obs;
-  final RxString mastitisResultFilter = 'all'.obs;
+  final RxString mastitisResultFilter = 'positive'.obs;
+  final Rxn<DateTime> mastitisFromDate = Rxn<DateTime>();
+  final Rxn<DateTime> mastitisToDate = Rxn<DateTime>();
   String lastSubmitMessage = '';
 
   int farmerId = 0;
@@ -314,49 +316,133 @@ class HealthController extends GetxController {
     }).toList();
   }
 
- List<MastitisGroupItem> get filteredMastitisGroups {
-  final query = mastitisSearchQuery.value.trim().toLowerCase();
-  final filter = mastitisResultFilter.value.trim().toLowerCase();
-  final grouped = <int, List<MastitisRecordItem>>{};
+  List<MastitisGroupItem> get allMastitisGroups {
+    final grouped = <int, List<MastitisRecordItem>>{};
 
-  for (final item in mastitisRecords) {
-    if (item.animalId <= 0) continue;
+    for (final item in mastitisRecords) {
+      if (item.animalId <= 0) continue;
 
-    final groupKey = item.caseId > 0 ? item.caseId : item.id;
-    grouped.putIfAbsent(groupKey, () => <MastitisRecordItem>[]).add(item);
-  }
+      final groupKey = item.caseId > 0 ? item.caseId : item.id;
+      grouped.putIfAbsent(groupKey, () => <MastitisRecordItem>[]).add(item);
+    }
 
-  final groups = grouped.values.map((rows) {
-    rows.sort((a, b) {
-      final dateCompare = _parseMastitisDate(b.date).compareTo(_parseMastitisDate(a.date));
+    final groups = grouped.values.map((rows) {
+      rows.sort((a, b) {
+        final dateCompare =
+            _parseMastitisDate(b.date).compareTo(_parseMastitisDate(a.date));
+        if (dateCompare != 0) return dateCompare;
+        return b.id.compareTo(a.id);
+      });
+
+      return MastitisGroupItem(records: rows);
+    }).toList();
+
+    groups.sort((a, b) {
+      final dateCompare = _parseMastitisDate(b.latestDate)
+          .compareTo(_parseMastitisDate(a.latestDate));
       if (dateCompare != 0) return dateCompare;
-      return b.id.compareTo(a.id);
+      return b.caseId.compareTo(a.caseId);
     });
 
-    return MastitisGroupItem(records: rows);
-  }).where((group) {
-    if (filter != 'all' && group.testResult != filter) {
-      return false;
+    return groups;
+  }
+
+  List<MastitisGroupItem> get filteredMastitisGroups {
+    final query = mastitisSearchQuery.value.trim().toLowerCase();
+    final filter = mastitisResultFilter.value.trim().toLowerCase();
+    final from = mastitisFromDate.value == null
+        ? null
+        : DateTime(
+            mastitisFromDate.value!.year,
+            mastitisFromDate.value!.month,
+            mastitisFromDate.value!.day,
+          );
+    final to = mastitisToDate.value == null
+        ? null
+        : DateTime(
+            mastitisToDate.value!.year,
+            mastitisToDate.value!.month,
+            mastitisToDate.value!.day,
+          );
+
+    return allMastitisGroups.where((group) {
+      if (filter != 'all' && group.effectiveTestResult != filter) {
+        return false;
+      }
+
+      if (from != null || to != null) {
+        final hasDateInRange = group.records.any((row) {
+          final parsed = _parseMastitisDate(row.date);
+          final rowDate = DateTime(parsed.year, parsed.month, parsed.day);
+          if (from != null && rowDate.isBefore(from)) {
+            return false;
+          }
+          if (to != null && rowDate.isAfter(to)) {
+            return false;
+          }
+          return true;
+        });
+
+        if (!hasDateInRange) {
+          return false;
+        }
+      }
+
+      if (query.isEmpty) {
+        return true;
+      }
+
+      return group.searchText.contains(query);
+    }).toList();
+  }
+
+  void setMastitisDateRange({DateTime? from, DateTime? to}) {
+    var nextFrom = from ?? mastitisFromDate.value;
+    var nextTo = to ?? mastitisToDate.value;
+
+    if (nextFrom != null) {
+      nextFrom = DateTime(nextFrom.year, nextFrom.month, nextFrom.day);
+    }
+    if (nextTo != null) {
+      nextTo = DateTime(nextTo.year, nextTo.month, nextTo.day);
     }
 
-    if (query.isEmpty) {
-      return true;
+    if (nextFrom != null && nextTo != null && nextFrom.isAfter(nextTo)) {
+      if (from != null) {
+        nextTo = nextFrom;
+      } else {
+        nextFrom = nextTo;
+      }
     }
 
-    return group.searchText.contains(query);
-  }).toList();
-
-  groups.sort((a, b) {
-    final dateCompare = _parseMastitisDate(b.latestDate).compareTo(_parseMastitisDate(a.latestDate));
-    if (dateCompare != 0) return dateCompare;
-    return b.caseId.compareTo(a.caseId);
-  });
-
-  return groups;
-}
+    mastitisFromDate.value = nextFrom;
+    mastitisToDate.value = nextTo;
+  }
 
   List<HealthAnimalItem> get milkingAnimals {
     return animals.where((animal) => animal.isMilkingCow).toList();
+  }
+
+  Set<int> get activeMastitisAnimalIds {
+    return allMastitisGroups
+        .where(
+          (group) =>
+              group.effectiveTestResult == 'positive' &&
+              group.recoveryStatus != 'recovered' &&
+              group.recoveryStatus != 'recoverd',
+        )
+        .map((group) => group.animalId)
+        .where((animalId) => animalId > 0)
+        .toSet();
+  }
+
+  List<HealthAnimalItem> get availableMastitisAnimals {
+    final activeIds = activeMastitisAnimalIds;
+    final seenIds = <int>{};
+    return milkingAnimals
+        .where((animal) => animal.id > 0 && !activeIds.contains(animal.id))
+        .where((animal) => seenIds.add(animal.id))
+        .toList();
   }
 
   List<DmiRecordItem> get filteredDmiRecords {
@@ -373,9 +459,8 @@ class HealthController extends GetxController {
       dmiToDate.value.day,
     );
 
-    return dmiRecords.where((item) {
-      final itemType = item.animalTypeName.trim().toLowerCase();
-      if (selectedType != 'all' && itemType != selectedType) {
+    return groupedDmiRecords.where((item) {
+      if (selectedType != 'all' && !item.matchesAnimalTypeFilter(selectedType)) {
         return false;
       }
 
@@ -395,21 +480,137 @@ class HealthController extends GetxController {
         return true;
       }
 
-      final haystack = [
-        item.animalName,
-        item.tagNumber,
-        item.animalTypeName,
-        item.dmiType,
-        item.date,
-      ].join(' ').toLowerCase();
-
-      return haystack.contains(query);
+      return item.searchText.contains(query);
     }).toList();
   }
 
+  List<DmiRecordItem> get groupedDmiRecords {
+    if (dmiRecords.isEmpty) {
+      return const <DmiRecordItem>[];
+    }
+
+    final animalById = <int, HealthAnimalItem>{
+      for (final animal in animals)
+        if (animal.id > 0) animal.id: animal,
+    };
+    final grouped = <String, List<DmiRecordItem>>{};
+
+    for (final item in dmiRecords) {
+      final animal = animalById[item.animalId];
+      final resolvedPanId = animal?.panId ?? item.panId;
+      final resolvedPanName = animal?.panName.trim().isNotEmpty == true
+          ? animal!.panName.trim()
+          : item.panName.trim();
+      final key = resolvedPanId > 0
+          ? 'pan_${resolvedPanId}_${item.date}'
+          : 'animal_${item.animalId}_${item.date}';
+
+      grouped.putIfAbsent(key, () => <DmiRecordItem>[]).add(
+        item.copyWith(
+          panId: resolvedPanId,
+          panName: resolvedPanName,
+          animalTypeNames: item.animalTypeNames.isEmpty
+              ? <String>[item.animalTypeName]
+              : item.animalTypeNames,
+          searchAliases: item.searchAliases.isEmpty
+              ? <String>[
+                  item.animalName,
+                  item.tagNumber,
+                  item.animalTypeName,
+                  resolvedPanName,
+                ]
+              : item.searchAliases,
+        ),
+      );
+    }
+
+    final results = grouped.entries.map((entry) {
+      final rows = entry.value;
+      final first = rows.first;
+      if (!first.isPanGroup) {
+        return first.copyWith(
+          animalCount: first.animalCount > 0 ? first.animalCount : 1,
+        );
+      }
+
+      final panName = first.panName.trim().isNotEmpty
+          ? first.panName.trim()
+          : 'PAN #${first.panId}';
+      final animalIds = rows
+          .map((row) => row.animalId)
+          .where((id) => id > 0)
+          .toSet();
+      final typeNames = rows
+          .expand(
+            (row) => row.animalTypeNames.isEmpty
+                ? <String>[row.animalTypeName]
+                : row.animalTypeNames,
+          )
+          .map((type) => type.trim())
+          .where((type) => type.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final aliases = rows
+          .expand((row) => <String>[
+                row.animalName,
+                row.tagNumber,
+                ...row.searchAliases,
+              ])
+          .map((text) => text.trim())
+          .where((text) => text.isNotEmpty && text != '-')
+          .toSet()
+          .toList();
+      final bodyWeight = rows.fold<double>(0, (sum, row) => sum + row.bodyWeightValue);
+      final totalMilk = rows.fold<double>(0, (sum, row) => sum + row.totalMilkValue);
+      final requiredDmi = rows.fold<double>(0, (sum, row) => sum + row.requiredDmiValue);
+      final actualDmi = rows.fold<double>(0, (sum, row) => sum + row.actualDmiValue);
+      final difference = double.parse((actualDmi - requiredDmi).toStringAsFixed(2));
+      final alertStatus = difference.abs() <= 0.5
+          ? 'Balanced'
+          : (difference < 0 ? 'Low' : 'High');
+      final notes = rows
+          .map((row) => row.notes.trim())
+          .where((note) => note.isNotEmpty)
+          .toSet()
+          .join(' | ');
+
+      return DmiRecordItem(
+        animalId: 0,
+        animalName: panName,
+        tagNumber: 'PAN',
+        animalTypeName: typeNames.length == 1 ? typeNames.first : 'Mixed',
+        dmiType: 'Pan Wise',
+        bodyWeight: bodyWeight.toStringAsFixed(2),
+        totalMilk: totalMilk.toStringAsFixed(2),
+        requiredDmi: requiredDmi.toStringAsFixed(2),
+        actualDmi: actualDmi.toStringAsFixed(2),
+        alertStatus: alertStatus,
+        date: first.date,
+        notes: notes,
+        panId: first.panId,
+        panName: panName,
+        animalCount: animalIds.isEmpty ? rows.length : animalIds.length,
+        animalTypeNames: typeNames,
+        searchAliases: aliases,
+      );
+    }).toList();
+
+    results.sort((a, b) {
+      final aDate = _parseDmiDate(a.date) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = _parseDmiDate(b.date) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final dateCompare = bDate.compareTo(aDate);
+      if (dateCompare != 0) return dateCompare;
+      return a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
+    });
+
+    return results;
+  }
+
   List<String> get dmiAnimalTypes {
-    final types = dmiRecords
-        .map((item) => item.animalTypeName.trim())
+    final types = groupedDmiRecords
+        .expand((item) => item.animalTypeNames)
+        .map((type) => type.trim())
         .where((type) => type.isNotEmpty && type != '-')
         .toSet()
         .toList();
@@ -518,13 +719,13 @@ class HealthController extends GetxController {
       }
       lastSubmitMessage = _extractMessage(
         data,
-        fallback: 'Failed to save record',
+        fallback: 'failed_to_save_record'.tr,
       );
-      Get.snackbar('Error', lastSubmitMessage);
+      Get.snackbar('error'.tr, lastSubmitMessage);
       return false;
     } catch (e) {
       lastSubmitMessage = e.toString();
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -580,12 +781,16 @@ class HealthAnimalItem {
   final String animalName;
   final String tagNumber;
   final String animalTypeName;
+  final int panId;
+  final String panName;
 
   HealthAnimalItem({
     required this.id,
     required this.animalName,
     required this.tagNumber,
     required this.animalTypeName,
+    required this.panId,
+    required this.panName,
   });
 
   String get displayName =>
@@ -607,6 +812,8 @@ class HealthAnimalItem {
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
       animalTypeName: json['animal_type_name']?.toString() ?? '',
+      panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
+      panName: json['pan_name']?.toString() ?? '',
     );
   }
 }
@@ -717,6 +924,19 @@ class MastitisGroupItem {
   String get tagNumber => caseRecord.tagNumber;
   String get animalTypeName => caseRecord.animalTypeName;
   String get testResult => _normalize(caseRecord.testResult);
+  String get positiveFoundDate => caseRecord.date;
+  String get effectiveTestResult {
+    if (recoveryStatus == 'recovered' || recoveryStatus == 'recoverd') {
+      return 'negative';
+    }
+
+    final latestResult = _normalize(latest.testResult);
+    if (latestResult.isNotEmpty) {
+      return latestResult;
+    }
+
+    return testResult;
+  }
   String get latestDate => latest.date;
 
   String get recoveryStatus {
@@ -753,7 +973,7 @@ class MastitisGroupItem {
       if (dateCompare != 0) return dateCompare;
       return b.id.compareTo(a.id);
     });
-    return rows.isEmpty ? rows : [rows.first];
+    return rows;
   }
 
   List<MastitisRecordItem> get recoveredRows {
@@ -770,7 +990,7 @@ class MastitisGroupItem {
       if (dateCompare != 0) return dateCompare;
       return b.id.compareTo(a.id);
     });
-    return rows.isEmpty ? rows : [rows.first];
+    return rows;
   }
 
   String get searchText {
@@ -819,6 +1039,11 @@ class DmiRecordItem {
   final String alertStatus;
   final String date;
   final String notes;
+  final int panId;
+  final String panName;
+  final int animalCount;
+  final List<String> animalTypeNames;
+  final List<String> searchAliases;
 
   DmiRecordItem({
     required this.animalId,
@@ -833,6 +1058,11 @@ class DmiRecordItem {
     required this.alertStatus,
     required this.date,
     required this.notes,
+    this.panId = 0,
+    this.panName = '',
+    this.animalCount = 1,
+    this.animalTypeNames = const <String>[],
+    this.searchAliases = const <String>[],
   });
 
   factory DmiRecordItem.fromJson(Map<String, dynamic> json) {
@@ -849,14 +1079,123 @@ class DmiRecordItem {
       alertStatus: json['alert_status']?.toString() ?? '',
       date: json['date']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
+      panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
+      panName: json['pan_name']?.toString() ?? '',
+      animalTypeNames: [
+        json['animal_type_name']?.toString() ?? '',
+      ].where((value) => value.trim().isNotEmpty).toList(),
+      searchAliases: [
+        json['animal_name']?.toString() ?? '',
+        json['tag_number']?.toString() ?? '',
+        json['animal_type_name']?.toString() ?? '',
+        json['pan_name']?.toString() ?? '',
+      ].where((value) => value.trim().isNotEmpty).toList(),
     );
   }
 
+  DmiRecordItem copyWith({
+    int? animalId,
+    String? animalName,
+    String? tagNumber,
+    String? animalTypeName,
+    String? dmiType,
+    String? bodyWeight,
+    String? totalMilk,
+    String? requiredDmi,
+    String? actualDmi,
+    String? alertStatus,
+    String? date,
+    String? notes,
+    int? panId,
+    String? panName,
+    int? animalCount,
+    List<String>? animalTypeNames,
+    List<String>? searchAliases,
+  }) {
+    return DmiRecordItem(
+      animalId: animalId ?? this.animalId,
+      animalName: animalName ?? this.animalName,
+      tagNumber: tagNumber ?? this.tagNumber,
+      animalTypeName: animalTypeName ?? this.animalTypeName,
+      dmiType: dmiType ?? this.dmiType,
+      bodyWeight: bodyWeight ?? this.bodyWeight,
+      totalMilk: totalMilk ?? this.totalMilk,
+      requiredDmi: requiredDmi ?? this.requiredDmi,
+      actualDmi: actualDmi ?? this.actualDmi,
+      alertStatus: alertStatus ?? this.alertStatus,
+      date: date ?? this.date,
+      notes: notes ?? this.notes,
+      panId: panId ?? this.panId,
+      panName: panName ?? this.panName,
+      animalCount: animalCount ?? this.animalCount,
+      animalTypeNames: animalTypeNames ?? this.animalTypeNames,
+      searchAliases: searchAliases ?? this.searchAliases,
+    );
+  }
+
+  bool get isPanGroup => panId > 0;
+
+  double get bodyWeightValue => double.tryParse(bodyWeight.trim()) ?? 0;
+
+  double get totalMilkValue => double.tryParse(totalMilk.trim()) ?? 0;
+
+  double get requiredDmiValue => double.tryParse(requiredDmi.trim()) ?? 0;
+
+  double get actualDmiValue => double.tryParse(actualDmi.trim()) ?? 0;
+
+  String get displayTitle {
+    if (isPanGroup) {
+      final label = panName.trim().isNotEmpty ? panName.trim() : animalName.trim();
+      return animalCount > 1 ? '$label ($animalCount ${'animals'.tr})' : label;
+    }
+    return '${animalName.trim().isEmpty ? 'animal'.tr : animalName} - ${'tag'.tr} ${tagNumber.trim().isEmpty ? '-' : tagNumber}';
+  }
+
+  String get displaySubtitle {
+    if (isPanGroup || dmiType.trim().toLowerCase() == 'pan wise') {
+      return 'pan_wise'.tr;
+    }
+    return dmiType.isEmpty ? '-' : dmiType;
+  }
+
+  bool matchesAnimalTypeFilter(String selectedType) {
+    final normalized = selectedType.trim().toLowerCase();
+    if (normalized.isEmpty || normalized == 'all') return true;
+    return animalTypeNames.any((type) => type.trim().toLowerCase() == normalized) ||
+        animalTypeName.trim().toLowerCase() == normalized;
+  }
+
+  String get searchText {
+    return [
+      animalName,
+      tagNumber,
+      animalTypeName,
+      dmiType,
+      date,
+      panName,
+      ...animalTypeNames,
+      ...searchAliases,
+    ].join(' ').toLowerCase();
+  }
+
   bool get isNonMilking {
-    final text = '$dmiType $animalTypeName'.toLowerCase();
+    if (isPanGroup) {
+      final types = animalTypeNames
+          .map((type) => type.trim().toLowerCase())
+          .where((type) => type.isNotEmpty)
+          .toList();
+      if (types.isNotEmpty) {
+        return types.every(_isNonMilkingType);
+      }
+    }
+    return _isNonMilkingType('$dmiType $animalTypeName'.toLowerCase());
+  }
+
+  bool _isNonMilkingType(String text) {
     return text.contains('non') ||
         text.contains('dry') ||
         text.contains('heifer') ||
-        text.contains('calf');
+        text.contains('calf') ||
+        text.contains('bull');
   }
 }

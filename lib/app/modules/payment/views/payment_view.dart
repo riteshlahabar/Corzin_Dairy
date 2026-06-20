@@ -33,10 +33,13 @@ class PaymentView extends GetView<PaymentController> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final items = controller.payments;
+          final items = controller.filteredPayments;
           final totalBalance = items.fold<double>(
             0,
-            (sum, item) => sum + (item.latest?.totalBalance ?? item.currentBalance),
+            (sum, item) =>
+                sum +
+                (controller.latestVisibleEntry(item)?.totalBalance ??
+                    (controller.hasActiveDateFilter ? 0 : item.currentBalance)),
           );
 
           return RefreshIndicator(
@@ -48,6 +51,8 @@ class PaymentView extends GetView<PaymentController> {
                   dairyCount: items.length,
                   totalBalance: totalBalance,
                 ),
+                const SizedBox(height: 12),
+                _filterCard(context),
                 const SizedBox(height: 12),
                 if (items.isEmpty)
                   _emptyCard()
@@ -190,8 +195,131 @@ class PaymentView extends GetView<PaymentController> {
     );
   }
 
+  Widget _filterCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE3EAE4)),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 42,
+            child: TextField(
+              controller: controller.searchController,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'search_dairy_payment'.tr,
+                hintStyle: TextStyle(
+                  fontSize: 12.2,
+                  color: AppColors.grey.shade600,
+                ),
+                prefixIcon: const Icon(Icons.search_rounded, size: 19),
+                prefixIconConstraints: const BoxConstraints(minWidth: 38),
+                suffixIcon: controller.searchQuery.value.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: controller.searchController.clear,
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FBF8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: TextFormField(
+                    controller: controller.fromDateController,
+                    readOnly: true,
+                    style: const TextStyle(fontSize: 13),
+                    onTap: () => controller.pickFromDate(context),
+                    decoration: _input('from_date'.tr).copyWith(
+                      suffixIcon: controller.fromDateText.value.trim().isEmpty
+                          ? const Icon(Icons.calendar_today_rounded, size: 17)
+                          : IconButton(
+                              onPressed: () {
+                                controller.fromDateController.clear();
+                                controller.fromDateText.value = '';
+                              },
+                              icon: const Icon(Icons.close_rounded, size: 17),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: TextFormField(
+                    controller: controller.toDateController,
+                    readOnly: true,
+                    style: const TextStyle(fontSize: 13),
+                    onTap: () => controller.pickToDate(context),
+                    decoration: _input('to_date'.tr).copyWith(
+                      suffixIcon: controller.toDateText.value.trim().isEmpty
+                          ? const Icon(Icons.calendar_today_rounded, size: 17)
+                          : IconButton(
+                              onPressed: () {
+                                controller.toDateController.clear();
+                                controller.toDateText.value = '';
+                              },
+                              icon: const Icon(Icons.close_rounded, size: 17),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (controller.hasActiveFilters) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: controller.clearFilters,
+                icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+                label: Text('clear'.tr),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _paymentCard(BuildContext context, PaymentDairySummary summary) {
-    final latest = summary.latest;
+    final latest = controller.latestVisibleEntry(summary);
+    final hasFilteredHistory = controller.filteredHistoryForSummary(summary).isNotEmpty;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -234,7 +362,9 @@ class PaymentView extends GetView<PaymentController> {
           const SizedBox(height: 10),
           if (latest == null)
             Text(
-              'no_payment_entry_yet'.tr,
+              controller.hasActiveDateFilter && !hasFilteredHistory
+                  ? 'no_payment_entries_available'.tr
+                  : 'no_payment_entry_yet'.tr,
               style: TextStyle(color: AppColors.grey.shade700, fontWeight: FontWeight.w600),
             )
           else ...[
@@ -646,265 +776,475 @@ class PaymentView extends GetView<PaymentController> {
   }
 
   void _openHistorySheet(PaymentDairySummary summary) {
-    final latest = summary.latest;
+    final visibleHistory = controller.filteredHistoryForSummary(summary);
+    final latest = visibleHistory.isEmpty ? null : visibleHistory.first;
+    final selectedTab = 'history'.obs;
     Get.bottomSheet(
-      Container(
-        height: Get.height * 0.78,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: const BoxDecoration(
-          color: Color(0xFFF5F9F6),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  height: 4,
-                  width: 52,
-                  margin: const EdgeInsets.only(bottom: 12),
+      Obx(() {
+        final isReceivedTab = selectedTab.value == 'received';
+        final receivedHistory =
+            visibleHistory.where((item) => item.paidAmount > 0).toList();
+        final receivedTotal = receivedHistory.fold<double>(
+          0,
+          (sum, item) => sum + item.paidAmount,
+        );
+
+        return Container(
+          height: Get.height * 0.78,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF5F9F6),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    height: 4,
+                    width: 52,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7E0D9),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD7E0D9),
-                    borderRadius: BorderRadius.circular(999),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE1E9E3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _historyTabButton(
+                          label: 'payment_history'.tr,
+                          selected: !isReceivedTab,
+                          onTap: () => selectedTab.value = 'history',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _historyTabButton(
+                          label: 'received_payment'.tr,
+                          selected: isReceivedTab,
+                          onTap: () => selectedTab.value = 'received',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        summary.dairyName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isReceivedTab
+                            ? 'received_payment'.tr
+                            : 'payment_history'.tr,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _historyKpi(
+                              title: 'entries'.tr,
+                              value: isReceivedTab
+                                  ? receivedHistory.length.toString()
+                                  : visibleHistory.length.toString(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _historyKpi(
+                              title: isReceivedTab
+                                  ? 'received_total_payment'.tr
+                                  : 'current_balance'.tr,
+                              value: isReceivedTab
+                                  ? _inr(receivedTotal)
+                                  : _inr(latest?.totalBalance ?? summary.currentBalance),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      summary.dairyName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'payment_history'.tr,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _historyKpi(
-                            title: 'entries'.tr,
-                            value: summary.history.length.toString(),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _historyKpi(
-                            title: 'current_balance'.tr,
-                            value: _inr(latest?.totalBalance ?? summary.currentBalance),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                Expanded(
+                  child: isReceivedTab
+                      ? _buildReceivedPaymentList(receivedHistory)
+                      : _buildPaymentHistoryList(visibleHistory),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: summary.history.isEmpty
-                    ? Center(
-                        child: Text(
-                          'no_payment_entries_available'.tr,
-                          style: TextStyle(color: AppColors.grey.shade700),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        itemCount: summary.history.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = summary.history[index];
-                          return Container(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE4ECE6)),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x0A101828),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 4,
-                                      height: 22,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary,
-                                        borderRadius: BorderRadius.circular(999),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        item.date,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.black,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                if (item.animals.isNotEmpty) ...[
-                                  ...item.animals.map(
-                                    (animal) => Container(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF7FAF8),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: const Color(0xFFE5EEE7)),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            animal.tagNumber.trim().isNotEmpty
-                                                ? '${animal.animalName} / ${animal.tagNumber}'
-                                                : animal.animalName,
-                                            style: const TextStyle(
-                                              fontSize: 12.4,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.black,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          if (animal.morningMilk > 0)
-                                            _historyAmountRow(
-                                              label: '${'morning'.tr} ${'milk'.tr}',
-                                              value: '${animal.morningMilk.toStringAsFixed(2)} L',
-                                              valueColor: const Color(0xFF2E7D32),
-                                            ),
-                                          if (animal.afternoonMilk > 0)
-                                            _historyAmountRow(
-                                              label: '${'afternoon'.tr} ${'milk'.tr}',
-                                              value: '${animal.afternoonMilk.toStringAsFixed(2)} L',
-                                              valueColor: const Color(0xFF2E7D32),
-                                            ),
-                                          if (animal.eveningMilk > 0)
-                                            _historyAmountRow(
-                                              label: '${'evening'.tr} ${'milk'.tr}',
-                                              value: '${animal.eveningMilk.toStringAsFixed(2)} L',
-                                              valueColor: const Color(0xFF2E7D32),
-                                            ),
-                                          _historyAmountRow(
-                                            label: 'animal_total'.tr,
-                                            value: '${animal.totalMilk.toStringAsFixed(2)} L',
-                                            valueColor: AppColors.primary,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                _historyAmountRow(
-                                  label: 'date_total_milk'.tr,
-                                  value: '${item.totalMilk.toStringAsFixed(2)} L',
-                                  valueColor: AppColors.primary,
-                                ),
-                                _historyAmountRow(
-                                  label: 'rate'.tr,
-                                  value: _inr(item.rate),
-                                  valueColor: const Color(0xFF1565C0),
-                                ),
-                                _historyAmountRow(
-                                  label: 'today_milk_amount'.tr,
-                                  value: _inr(item.dayTotalAmount),
-                                  valueColor: AppColors.primary,
-                                ),
-                                const SizedBox(height: 2),
-                                _historyAmountRow(
-                                  label: 'previous_balance'.tr,
-                                  value: _inr(item.previousBalance),
-                                  valueColor: Colors.blueGrey.shade700,
-                                ),
-                                _historyAmountRow(
-                                  label: 'today_balance'.tr,
-                                  value: _inr(item.todayBalance),
-                                  valueColor: Colors.blueGrey.shade700,
-                                ),
-                                _historyAmountRow(
-                                  label: 'paid_amount'.tr,
-                                  value: _inr(item.paidAmount),
-                                  valueColor: Colors.teal.shade700,
-                                ),
-                                _historyAmountRow(
-                                  label: 'paid_date'.tr,
-                                  value: item.paidDate.trim().isNotEmpty ? item.paidDate : '-',
-                                  valueColor: AppColors.black,
-                                ),
-                                _historyAmountRow(
-                                  label: 'total_balance'.tr,
-                                  value: _inr(item.totalBalance),
-                                  valueColor:
-                                      item.totalBalance > 0 ? Colors.orange.shade800 : Colors.green.shade700,
-                                ),
-                                if (item.notes.trim().isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF7FAF8),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFE6EEE8)),
-                                    ),
-                                    child: Text(
-                                      '${'notes'.tr}: ${item.notes}',
-                                      style: TextStyle(
-                                        color: AppColors.grey.shade800,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        );
+      }),
+      isScrollControlled: true,
+    );
+  }
+
+  Widget _historyTabButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : const Color(0xFFF8FBF8),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.grey.shade800,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
-      isScrollControlled: true,
     );
+  }
+
+  Widget _buildPaymentHistoryList(List<PaymentDayEntry> visibleHistory) {
+    if (visibleHistory.isEmpty) {
+      return Center(
+        child: Text(
+          'no_payment_entries_available'.tr,
+          style: TextStyle(color: AppColors.grey.shade700),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: visibleHistory.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final item = visibleHistory[index];
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE4ECE6)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A101828),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.date,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (item.animals.isNotEmpty) ...[
+                ..._groupPaymentHistoryAnimals(item.animals).map(
+                  (animal) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7FAF8),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE5EEE7)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          animal.displayTitle,
+                          style: const TextStyle(
+                            fontSize: 12.4,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.black,
+                          ),
+                        ),
+                        if (animal.subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            animal.subtitle,
+                            style: TextStyle(
+                              fontSize: 11.2,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        if (animal.morningMilk > 0)
+                          _historyAmountRow(
+                            label: '${'morning'.tr} ${'milk'.tr}',
+                            value: '${animal.morningMilk.toStringAsFixed(2)} L',
+                            valueColor: const Color(0xFF2E7D32),
+                          ),
+                        if (animal.afternoonMilk > 0)
+                          _historyAmountRow(
+                            label: '${'afternoon'.tr} ${'milk'.tr}',
+                            value: '${animal.afternoonMilk.toStringAsFixed(2)} L',
+                            valueColor: const Color(0xFF2E7D32),
+                          ),
+                        if (animal.eveningMilk > 0)
+                          _historyAmountRow(
+                            label: '${'evening'.tr} ${'milk'.tr}',
+                            value: '${animal.eveningMilk.toStringAsFixed(2)} L',
+                            valueColor: const Color(0xFF2E7D32),
+                          ),
+                        _historyAmountRow(
+                          label: 'animal_total'.tr,
+                          value: '${animal.totalMilk.toStringAsFixed(2)} L',
+                          valueColor: AppColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              _historyAmountRow(
+                label: 'date_total_milk'.tr,
+                value: '${item.totalMilk.toStringAsFixed(2)} L',
+                valueColor: AppColors.primary,
+              ),
+              _historyAmountRow(
+                label: 'rate'.tr,
+                value: _inr(item.rate),
+                valueColor: const Color(0xFF1565C0),
+              ),
+              _historyAmountRow(
+                label: 'today_milk_amount'.tr,
+                value: _inr(item.dayTotalAmount),
+                valueColor: AppColors.primary,
+              ),
+              const SizedBox(height: 2),
+              _historyAmountRow(
+                label: 'previous_balance'.tr,
+                value: _inr(item.previousBalance),
+                valueColor: Colors.blueGrey.shade700,
+              ),
+              _historyAmountRow(
+                label: 'today_balance'.tr,
+                value: _inr(item.todayBalance),
+                valueColor: Colors.blueGrey.shade700,
+              ),
+              _historyAmountRow(
+                label: 'paid_amount'.tr,
+                value: _inr(item.paidAmount),
+                valueColor: Colors.teal.shade700,
+              ),
+              _historyAmountRow(
+                label: 'paid_date'.tr,
+                value: item.paidDate.trim().isNotEmpty ? item.paidDate : '-',
+                valueColor: AppColors.black,
+              ),
+              _historyAmountRow(
+                label: 'total_balance'.tr,
+                value: _inr(item.totalBalance),
+                valueColor: item.totalBalance > 0
+                    ? Colors.orange.shade800
+                    : Colors.green.shade700,
+              ),
+              if (item.notes.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAF8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE6EEE8)),
+                  ),
+                  child: Text(
+                    '${'notes'.tr}: ${item.notes}',
+                    style: TextStyle(
+                      color: AppColors.grey.shade800,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReceivedPaymentList(List<PaymentDayEntry> receivedHistory) {
+    if (receivedHistory.isEmpty) {
+      return Center(
+        child: Text(
+          'no_received_payment_entries'.tr,
+          style: TextStyle(color: AppColors.grey.shade700),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: receivedHistory.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final item = receivedHistory[index];
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE4ECE6)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A101828),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.date,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${'paid_amount'.tr}: ${_inr(item.paidAmount)}',
+                    style: TextStyle(
+                      color: Colors.teal.shade700,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              if (item.notes.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAF8),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE6EEE8)),
+                  ),
+                  child: Text(
+                    '${'notes'.tr}: ${item.notes}',
+                    style: TextStyle(
+                      color: AppColors.grey.shade800,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<_PaymentHistoryMilkGroup> _groupPaymentHistoryAnimals(
+    List<PaymentLedgerAnimal> animals,
+  ) {
+    final groups = <String, _PaymentHistoryMilkGroup>{};
+
+    for (final animal in animals) {
+      final normalizedPanName = animal.panName.trim();
+      final isPanGroup = animal.panId > 0 && normalizedPanName.isNotEmpty;
+      final key = isPanGroup
+          ? 'pan_${animal.panId}'
+          : 'animal_${animal.animalName.trim().toLowerCase()}_${animal.tagNumber.trim().toLowerCase()}';
+
+      final existing = groups[key];
+      if (existing == null) {
+        groups[key] = _PaymentHistoryMilkGroup.fromAnimal(
+          animal,
+          isPanGroup: isPanGroup,
+        );
+        continue;
+      }
+
+      groups[key] = existing.merge(animal);
+    }
+
+    return groups.values.toList();
   }
 
   Widget _historyKpi({
@@ -980,7 +1320,7 @@ class PaymentView extends GetView<PaymentController> {
     return InputDecoration(
       labelText: hint,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       filled: true,
       fillColor: const Color(0xFFF8FBF8),
       border: OutlineInputBorder(
@@ -1004,4 +1344,67 @@ class PaymentView extends GetView<PaymentController> {
   static String _inr(double value) {
     return 'Rs ${value.toStringAsFixed(2)}';
   }
+}
+
+class _PaymentHistoryMilkGroup {
+  final String title;
+  final String subtitle;
+  final bool isPanGroup;
+  final double morningMilk;
+  final double afternoonMilk;
+  final double eveningMilk;
+  final double totalMilk;
+  final int animalCount;
+
+  const _PaymentHistoryMilkGroup({
+    required this.title,
+    required this.subtitle,
+    required this.isPanGroup,
+    required this.morningMilk,
+    required this.afternoonMilk,
+    required this.eveningMilk,
+    required this.totalMilk,
+    required this.animalCount,
+  });
+
+  factory _PaymentHistoryMilkGroup.fromAnimal(
+    PaymentLedgerAnimal animal, {
+    required bool isPanGroup,
+  }) {
+    final title = isPanGroup
+        ? animal.panName.trim()
+        : (animal.tagNumber.trim().isNotEmpty
+            ? '${animal.animalName} / ${animal.tagNumber}'
+            : animal.animalName);
+    final subtitle = isPanGroup ? animalCountLabel(1) : '';
+
+    return _PaymentHistoryMilkGroup(
+      title: title,
+      subtitle: subtitle,
+      isPanGroup: isPanGroup,
+      morningMilk: animal.morningMilk,
+      afternoonMilk: animal.afternoonMilk,
+      eveningMilk: animal.eveningMilk,
+      totalMilk: animal.totalMilk,
+      animalCount: 1,
+    );
+  }
+
+  _PaymentHistoryMilkGroup merge(PaymentLedgerAnimal animal) {
+    final nextCount = animalCount + 1;
+    return _PaymentHistoryMilkGroup(
+      title: title,
+      subtitle: isPanGroup ? animalCountLabel(nextCount) : subtitle,
+      isPanGroup: isPanGroup,
+      morningMilk: morningMilk + animal.morningMilk,
+      afternoonMilk: afternoonMilk + animal.afternoonMilk,
+      eveningMilk: eveningMilk + animal.eveningMilk,
+      totalMilk: totalMilk + animal.totalMilk,
+      animalCount: nextCount,
+    );
+  }
+
+  String get displayTitle => title.trim().isEmpty ? '-' : title;
+
+  static String animalCountLabel(int count) => '$count ${'animals'.tr}';
 }

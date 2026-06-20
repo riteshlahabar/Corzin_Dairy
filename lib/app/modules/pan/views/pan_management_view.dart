@@ -150,6 +150,7 @@ class _PanManagementViewState extends State<PanManagementView>
                   const SizedBox(height: 8),
                   TextField(
                     controller: controller.panNameController,
+                    textCapitalization: TextCapitalization.words,
                     decoration: InputDecoration(
                       hintText: 'enter_pan_group_name'.tr,
                       filled: true,
@@ -186,12 +187,12 @@ class _PanManagementViewState extends State<PanManagementView>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'PAN Type',
+                      'pan_type'.tr,
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
                     _panTypeSelector(
-                      label: 'Milking PAN',
+                      label: 'milking_pan'.tr,
                       selected: controller.selectedPanType.value ==
                           PanManagementController.panTypeMilking,
                       onTap: () => controller.setPanType(
@@ -199,7 +200,7 @@ class _PanManagementViewState extends State<PanManagementView>
                       ),
                     ),
                     _panTypeSelector(
-                      label: 'Non-Milking PAN',
+                      label: 'non_milking_pan'.tr,
                       selected: controller.selectedPanType.value ==
                           PanManagementController.panTypeNonMilking,
                       onTap: () => controller.setPanType(
@@ -265,7 +266,7 @@ class _PanManagementViewState extends State<PanManagementView>
                     child: Center(
                       child: Text(
                         controller.isMilkingPan
-                            ? 'No milking cows found.'
+                            ? 'no_milking_cows_found'.tr
                             : 'no_animals_found'.tr,
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
@@ -299,7 +300,7 @@ class _PanManagementViewState extends State<PanManagementView>
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            '${'type'.tr}: ${item.animalTypeName.isEmpty ? '-' : item.animalTypeName}\n'
+                            '${'animal_type_label'.tr}: ${item.animalTypeName.isEmpty ? '-' : controller.translatedAnimalTypeName(item.animalTypeName)}\n'
                             '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}'
                             '${item.panName.trim().isEmpty ? '' : '  |  ${'current_pan'.tr}: ${item.panName}'}',
                             style: TextStyle(
@@ -521,7 +522,7 @@ class _PanManagementViewState extends State<PanManagementView>
                       color: Colors.red.shade700,
                     ),
                     label: Text(
-                      'Delete PAN',
+                      'delete_pan'.tr,
                       style: TextStyle(
                         color: Colors.red.shade700,
                         fontWeight: FontWeight.w700,
@@ -582,6 +583,7 @@ class _PanManagementViewState extends State<PanManagementView>
                   const SizedBox(height: 10),
                   TextFormField(
                     initialValue: panName,
+                    textCapitalization: TextCapitalization.words,
                     onChanged: (value) => panName = value,
                     decoration: InputDecoration(
                       labelText: 'pan_name'.tr,
@@ -616,7 +618,7 @@ class _PanManagementViewState extends State<PanManagementView>
                         final selected = selectedMilkShifts.contains(shift);
                         return FilterChip(
                           selected: selected,
-                          label: Text(shift),
+                          label: Text(_translatedMilkShift(shift)),
                           selectedColor: AppColors.primary.withValues(
                             alpha: 0.14,
                           ),
@@ -668,7 +670,7 @@ class _PanManagementViewState extends State<PanManagementView>
                             item.animalName.isEmpty ? '-' : item.animalName,
                           ),
                           subtitle: Text(
-                            '${'type'.tr}: ${item.animalTypeName.isEmpty ? '-' : item.animalTypeName}\n'
+                            '${'animal_type_label'.tr}: ${item.animalTypeName.isEmpty ? '-' : controller.translatedAnimalTypeName(item.animalTypeName)}\n'
                             '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}',
                           ),
                           onChanged: (_) {
@@ -726,9 +728,9 @@ class _PanManagementViewState extends State<PanManagementView>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Delete PAN'),
+          title: Text('delete_pan'.tr),
           content: Text(
-            'Are you sure you want to delete "${pan.name}"?',
+            'delete_pan_confirm'.trParams({'name': pan.name}),
           ),
           actions: [
             TextButton(
@@ -737,8 +739,8 @@ class _PanManagementViewState extends State<PanManagementView>
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text(
-                'Delete',
+              child: Text(
+                'delete'.tr,
                 style: TextStyle(color: Colors.red),
               ),
             ),
@@ -752,12 +754,9 @@ class _PanManagementViewState extends State<PanManagementView>
   }
 
   Future<void> _openTransferSheet(PanGroupItem sourcePan) async {
-    final sourceAnimals = sourcePan.panType ==
-            PanManagementController.panTypeMilking
-        ? sourcePan.animals
-            .where((animal) => animal.isMilkingAnimal)
-            .toList()
-        : sourcePan.animals;
+    final sourceAnimals = sourcePan.animals
+        .where((animal) => animal.matchesPanType(sourcePan.panType))
+        .toList();
 
     if (sourceAnimals.isEmpty) {
       Get.snackbar('info'.tr, 'no_animals_available_for_transfer'.tr);
@@ -767,11 +766,7 @@ class _PanManagementViewState extends State<PanManagementView>
     List<PanGroupItem> destinationPansForAnimal(PanAnimalItem animal) {
       return controller.pans.where((item) {
         if (item.id == sourcePan.id) return false;
-        if (item.panType == PanManagementController.panTypeMilking &&
-            !animal.isMilkingAnimal) {
-          return false;
-        }
-        return true;
+        return animal.matchesPanType(item.panType);
       }).toList();
     }
 
@@ -779,6 +774,7 @@ class _PanManagementViewState extends State<PanManagementView>
     final initialDestinationPans = destinationPansForAnimal(sourceAnimals.first);
     int? selectedToPanId =
         initialDestinationPans.isNotEmpty ? initialDestinationPans.first.id : null;
+    int? selectedAnimalTypeId;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -820,6 +816,9 @@ class _PanManagementViewState extends State<PanManagementView>
 
                       final destinationPans =
                           destinationPansForAnimal(selectedAnimal);
+                      final availableAnimalTypes = controller.animalTypes
+                          .where((type) => type.id != selectedAnimal.animalTypeId)
+                          .toList();
                       if (!destinationPans
                           .any((item) => item.id == selectedToPanId)) {
                         selectedToPanId =
@@ -853,6 +852,7 @@ class _PanManagementViewState extends State<PanManagementView>
                             onChanged: (value) {
                               setState(() {
                                 selectedAnimalId = value;
+                                selectedAnimalTypeId = null;
                                 if (value == null) {
                                   selectedToPanId = null;
                                   return;
@@ -885,9 +885,7 @@ class _PanManagementViewState extends State<PanManagementView>
                                 border:
                                     Border.all(color: Colors.grey.shade300),
                               ),
-                              child: const Text(
-                                'No compatible destination PAN for selected animal.',
-                              ),
+                              child: Text('no_compatible_destination_pan'.tr),
                             )
                           else
                             DropdownButtonFormField<int>(
@@ -912,6 +910,51 @@ class _PanManagementViewState extends State<PanManagementView>
                               onChanged: (value) =>
                                   setState(() => selectedToPanId = value),
                             ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${'current_animal_type'.tr}: ${selectedAnimal.animalTypeName.isEmpty ? '-' : controller.translatedAnimalTypeName(selectedAnimal.animalTypeName)}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<int?>(
+                            initialValue: selectedAnimalTypeId,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'change_animal_type_optional'.tr,
+                              filled: true,
+                              fillColor: const Color(0xFFF7FCF7),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: [
+                              DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text(
+                                  'keep_current_animal_type'.trParams({
+                                    'type': selectedAnimal.animalTypeName.isEmpty
+                                        ? '-'
+                                        : controller.translatedAnimalTypeName(selectedAnimal.animalTypeName),
+                                  }),
+                                ),
+                              ),
+                              ...availableAnimalTypes.map(
+                                (type) => DropdownMenuItem<int?>(
+                                  value: type.id,
+                                  child: Text(
+                                    controller.translatedAnimalTypeName(type.name),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() => selectedAnimalTypeId = value);
+                            },
+                          ),
                         ],
                       );
                     },
@@ -932,6 +975,7 @@ class _PanManagementViewState extends State<PanManagementView>
                         final ok = await controller.transferAnimalToPan(
                           animalId: selectedAnimalId!,
                           toPanId: selectedToPanId!,
+                          animalTypeId: selectedAnimalTypeId,
                         );
                         if (ok && sheetContext.mounted) {
                           Navigator.of(sheetContext).pop();
@@ -1000,7 +1044,7 @@ class _PanManagementViewState extends State<PanManagementView>
                 final isChecked = selected.contains(shift);
                 return FilterChip(
                   selected: isChecked,
-                  label: Text(shift),
+                  label: Text(_translatedMilkShift(shift)),
                   selectedColor: AppColors.primary.withValues(alpha: 0.14),
                   checkmarkColor: AppColors.primary,
                   onSelected: (_) => onToggle(shift),
@@ -1073,7 +1117,7 @@ class _PanManagementViewState extends State<PanManagementView>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                shift,
+                _translatedMilkShift(shift),
                 style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -1133,5 +1177,18 @@ class _PanManagementViewState extends State<PanManagementView>
         ),
       ),
     );
+  }
+
+  String _translatedMilkShift(String shift) {
+    switch (shift.trim().toLowerCase()) {
+      case 'morning':
+        return 'morning'.tr;
+      case 'afternoon':
+        return 'afternoon'.tr;
+      case 'evening':
+        return 'evening'.tr;
+      default:
+        return shift;
+    }
   }
 }

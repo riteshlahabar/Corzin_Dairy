@@ -29,12 +29,17 @@ class DietPlanController extends GetxController {
   final RxList<FeedDietPlanModel> plans = <FeedDietPlanModel>[].obs;
   final TextEditingController dietPlanNameController = TextEditingController();
   final TextEditingController referenceDateController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
   final FocusNode dietPlanNameFocus = FocusNode();
+  final RxString searchQuery = ''.obs;
   final RxDouble bodyWeight = 0.0.obs;
   final RxDouble milkProduction = 0.0.obs;
+  final RxDouble actualDmi = 0.0.obs;
   final RxDouble targetDmi = 0.0.obs;
   final RxDouble plannedDryMatter = 0.0.obs;
   final RxDouble dmiGap = 0.0.obs;
+  final RxDouble actualDmiGap = 0.0.obs;
+  final RxBool isNonMilkingContext = false.obs;
 
   int farmerId = 0;
   int _nextFeedBlockId = 1;
@@ -43,6 +48,29 @@ class DietPlanController extends GetxController {
   bool _isAutoRefreshingList = false;
   bool _isPreparingEditForm = false;
   bool _isAddFormPrepared = false;
+
+  List<FeedDietPlanModel> get filteredPlans {
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) return plans;
+
+    return plans.where((plan) {
+      final owner = _searchableOwnerLabel(plan);
+      final subtypeText = plan.subtypeDetails
+          .map((detail) => '${detail.feedTypeName} ${detail.name}')
+          .join(' ')
+          .toLowerCase();
+      final haystack = <String>[
+        plan.dietPlanName,
+        plan.feedType,
+        plan.unit,
+        plan.tagNumber,
+        plan.animalName,
+        owner,
+        subtypeText,
+      ].join(' ').toLowerCase();
+      return haystack.contains(query);
+    }).toList();
+  }
 
   List<FeedingAnimalModel> get animalsForSelection {
     final pan = selectedPan.value;
@@ -63,6 +91,27 @@ class DietPlanController extends GetxController {
       }
     }
     return null;
+  }
+
+  String _searchableOwnerLabel(FeedDietPlanModel plan) {
+    if (plan.panId > 0) {
+      for (final pan in pans) {
+        if (pan.id == plan.panId) {
+          return pan.name.trim();
+        }
+      }
+      return 'pan ${plan.panId}';
+    }
+    return '${plan.animalName} ${plan.tagNumber}';
+  }
+
+  void updateSearchQuery(String value) {
+    searchQuery.value = value;
+  }
+
+  void clearSearch() {
+    searchController.clear();
+    searchQuery.value = '';
   }
 
   @override
@@ -437,7 +486,10 @@ class DietPlanController extends GetxController {
     if (farmerId == 0 || resolvedAnimal == null) {
       bodyWeight.value = 0;
       milkProduction.value = 0;
+      actualDmi.value = 0;
       targetDmi.value = 0;
+      actualDmiGap.value = 0;
+      isNonMilkingContext.value = false;
       _refreshDmiSummary();
       return;
     }
@@ -461,20 +513,36 @@ class DietPlanController extends GetxController {
         final payload = data['data'] as Map? ?? {};
         bodyWeight.value = double.tryParse((payload['body_weight'] ?? '0').toString()) ?? 0;
         milkProduction.value = double.tryParse((payload['milk_production'] ?? '0').toString()) ?? 0;
+        actualDmi.value = double.tryParse((payload['actual_dmi'] ?? '0').toString()) ?? 0;
         targetDmi.value = double.tryParse((payload['target_dmi'] ?? '0').toString()) ?? 0;
+        actualDmiGap.value = double.tryParse((payload['dmi_gap'] ?? '0').toString()) ?? 0;
+        isNonMilkingContext.value = _asBool(payload['is_non_milking']);
       } else {
         bodyWeight.value = 0;
         milkProduction.value = 0;
+        actualDmi.value = 0;
         targetDmi.value = 0;
+        actualDmiGap.value = 0;
+        isNonMilkingContext.value = false;
       }
     } catch (_) {
       bodyWeight.value = 0;
       milkProduction.value = 0;
+      actualDmi.value = 0;
       targetDmi.value = 0;
+      actualDmiGap.value = 0;
+      isNonMilkingContext.value = false;
     } finally {
       isMetricsLoading.value = false;
       _refreshDmiSummary();
     }
+  }
+
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value?.toString().trim().toLowerCase() ?? '';
+    return text == 'true' || text == '1' || text == 'yes';
   }
 
   Future<void> savePlan() async {
@@ -486,7 +554,7 @@ class DietPlanController extends GetxController {
     }
     if (dietPlanNameController.text.trim().isEmpty) {
       dietPlanNameFocus.requestFocus();
-      Get.snackbar('error'.tr, 'Diet plan name is required');
+      Get.snackbar('error'.tr, 'diet_plan_name_required'.tr);
       return;
     }
 
@@ -784,19 +852,29 @@ class DietPlanController extends GetxController {
       return;
     }
 
+    final primaryType = blocks.firstWhere(
+      (block) => block.selectedFeedType != null,
+      orElse: () => blocks.first,
+    ).selectedFeedType;
+    if (primaryType == null) {
+      Get.snackbar('error'.tr, 'please_select_feed_type_for_all'.tr);
+      return;
+    }
+
     final ok = await updatePlan(
       planId: editingPlanId,
       panId: selectedPan.value != null && selectedPan.value!.id > 0 ? selectedPan.value!.id : null,
       referenceDate: selectedReferenceDateApi,
+      feedTypeId: primaryType.id,
+      unit: primaryType.defaultUnit,
       subtypeDetails: nextSubtypes,
     );
     if (ok) {
-      await fetchAnimals(showLoader: false);
       _lastListRefreshAt = null;
-      Get.snackbar('success'.tr, 'diet_plan_updated_success'.tr);
       clearEditContext();
       _clearForm();
-      Get.back();
+      Get.back(result: true);
+      Get.snackbar('success'.tr, 'diet_plan_updated_success'.tr);
     }
   }
 
@@ -823,6 +901,8 @@ class DietPlanController extends GetxController {
     int? daysCount,
     int? panId,
     String? referenceDate,
+    int? feedTypeId,
+    String? unit,
     required List<Map<String, dynamic>> subtypeDetails,
   }) async {
     if (farmerId == 0) {
@@ -846,6 +926,12 @@ class DietPlanController extends GetxController {
       if (referenceDate != null && referenceDate.trim().isNotEmpty) {
         payload['reference_date'] = referenceDate.trim();
       }
+      if (feedTypeId != null && feedTypeId > 0) {
+        payload['feed_type_id'] = feedTypeId.toString();
+      }
+      if (unit != null && unit.trim().isNotEmpty) {
+        payload['unit'] = unit.trim();
+      }
       if (daysCount != null && daysCount > 0) {
         payload['days_count'] = daysCount.toString();
       }
@@ -856,7 +942,6 @@ class DietPlanController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchPlans();
         return true;
       }
       Get.snackbar('error'.tr, _extractApiMessage(data) ?? 'unable_update_diet_plan'.tr);
@@ -928,9 +1013,12 @@ class DietPlanController extends GetxController {
     referenceDateController.text = DateFormat('dd/MM/yyyy').format(DateTime.now());
     bodyWeight.value = 0;
     milkProduction.value = 0;
+    actualDmi.value = 0;
     targetDmi.value = 0;
     plannedDryMatter.value = 0;
     dmiGap.value = 0;
+    actualDmiGap.value = 0;
+    isNonMilkingContext.value = false;
     _clearFeedBlocks();
     _ensureAtLeastOneFeedBlock();
     feedBlocks.refresh();
@@ -947,6 +1035,7 @@ class DietPlanController extends GetxController {
   void onClose() {
     dietPlanNameController.dispose();
     referenceDateController.dispose();
+    searchController.dispose();
     dietPlanNameFocus.dispose();
     _clearFeedBlocks();
     super.onClose();

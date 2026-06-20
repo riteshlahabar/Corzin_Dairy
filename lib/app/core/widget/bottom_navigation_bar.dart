@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../modules/doctor/controllers/doctor_controller.dart';
+import '../../modules/animal/controllers/animal_controller.dart';
 import '../../modules/doctor/views/doctor_appointments_nearby_view.dart';
 import '../../modules/fetch_location/views/fetch_location_view.dart';
 import '../../modules/feeding/views/feeding_history_view.dart';
@@ -17,6 +18,7 @@ import '../../modules/pan/views/pan_management_view.dart';
 import '../../modules/payment/controllers/payment_controller.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
 import '../../modules/profile/views/profile_view.dart';
+import '../../modules/refer_farmer/views/refer_farmer_view.dart';
 import '../../modules/reports/views/livestock_report_view.dart';
 import '../../modules/shop/controllers/shop_controller.dart';
 // import '../../modules/shop/views/my_orders_view.dart';
@@ -257,6 +259,9 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
       openDrawerRoute(Routes.UPGRADE);
       return;
     }
+    if (routeName == Routes.ANIMAL && Get.isRegistered<AnimalController>()) {
+      Get.delete<AnimalController>(force: true);
+    }
     final route = AppPages.routes.firstWhereOrNull(
       (item) => item.name == routeName,
     );
@@ -382,6 +387,7 @@ class MainBottomNavView extends StatefulWidget {
 
 class _MainBottomNavViewState extends State<MainBottomNavView> {
   late final BottomNavController controller;
+  final Map<int, Widget> _pageCache = <int, Widget>{};
 
   T _resetAndPut<T extends GetxController>(
     T Function() builder, {
@@ -407,19 +413,29 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     _resetAndPut<ShopController>(() => ShopController(), permanent: true);
     _resetAndPut<ProfileController>(() => ProfileController(), permanent: true);
     _resetAndPut<UpgradeController>(() => UpgradeController(), permanent: true);
+    _pageCache[widget.initialIndex] = _buildPageForIndex(widget.initialIndex);
+  }
+
+  Widget _buildPageForIndex(int index) {
+    switch (index) {
+      case 0:
+        return const HomeView();
+      case 1:
+        return const DoctorAppointmentsNearbyView();
+      case 2:
+        return const SizedBox();
+      case 3:
+        return const LivestockReportView();
+      case 4:
+        return const ProfileView();
+      default:
+        return const HomeView();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-    final List<Widget> pages = [
-      const HomeView(),
-      const DoctorAppointmentsNearbyView(),
-      const SizedBox(),
-      // Temporary swap: hide Shop tab and show Livestock Report tab.
-      const LivestockReportView(),
-      const ProfileView(),
-    ];
 
     return PopScope(
       canPop: false,
@@ -444,14 +460,19 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         body: Obx(() {
           final drawerPage = controller.activeDrawerPage.value;
           final planLocked = Get.find<HomeController>().isPlanLocked.value;
+          final currentIndex = controller.currentIndex.value;
+          _pageCache.putIfAbsent(currentIndex, () => _buildPageForIndex(currentIndex));
           return Stack(
             children: [
               planLocked
                   ? const UpgradeView()
                   : drawerPage ??
                   IndexedStack(
-                    index: controller.currentIndex.value,
-                    children: pages,
+                    index: currentIndex,
+                    children: List<Widget>.generate(
+                      5,
+                      (index) => _pageCache[index] ?? const SizedBox.shrink(),
+                    ),
                   ),
               if (drawerPage != null || planLocked)
                 Positioned(
@@ -475,8 +496,12 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         }),
         bottomNavigationBar: keyboardVisible
             ? null
-            : Obx(
-                () => BottomAppBar(
+            : Obx(() {
+                final planLocked = Get.find<HomeController>().isPlanLocked.value;
+                if (planLocked) {
+                  return const SizedBox.shrink();
+                }
+                return BottomAppBar(
                   color: AppColors.white,
                   elevation: 10,
                   height: 60,
@@ -551,8 +576,8 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                       ],
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
       ),
     );
   }
@@ -815,9 +840,23 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     //   },
                     // ),
                     _drawerTile(
+                      icon: Icons.share_rounded,
+                      title: 'refer_to_farmer'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const ReferFarmerView());
+                      },
+                    ),
+                    _drawerTile(
                       icon: Icons.translate_rounded,
                       title: 'change_language'.tr,
                       onTap: () {
+                        if (controller._isPlanLocked) {
+                          Get.back();
+                          controller._showPlanLockedMessage();
+                          controller.openDrawerRoute(Routes.UPGRADE);
+                          return;
+                        }
                         Get.back();
                         Get.toNamed(
                           Routes.LANGUAGE,

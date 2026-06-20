@@ -8,14 +8,14 @@ class SplashView extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(SplashController());
+    final splashController = controller;
     return Scaffold(
       backgroundColor: Colors.white,
 
       body: Center(
         child: GestureDetector(
           onTap: () {
-            controller.goToNext();
+            splashController.goToNext();
           },
 
           /// ✅ FIXED: added child

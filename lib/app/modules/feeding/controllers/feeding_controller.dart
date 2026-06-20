@@ -195,25 +195,18 @@ class FeedingController extends GetxController {
     if (current != null) {
       final matched = dietPlans.firstWhereOrNull((plan) => plan.id == current.id);
       if (matched == null) {
-        selectedDietPlan.value = null;
-        selectedDietPlanId.value = null;
-        dietPlanDays.value = 0;
-        dietPlanDaysRemaining.value = 0;
+        selectDietPlan(null);
       } else {
-        selectedDietPlan.value = matched;
-        selectedDietPlanId.value = matched.id;
+        selectDietPlan(matched);
       }
     } else if (selectedDietPlanId.value != null) {
       final matched = dietPlans.firstWhereOrNull(
         (plan) => plan.id == selectedDietPlanId.value,
       );
       if (matched == null) {
-        selectedDietPlanId.value = null;
-        dietPlanDays.value = 0;
-        dietPlanDaysRemaining.value = 0;
+        selectDietPlan(null);
       } else {
-        selectedDietPlan.value = matched;
-        selectedDietPlanId.value = matched.id;
+        selectDietPlan(matched);
       }
     }
   }
@@ -288,20 +281,31 @@ class FeedingController extends GetxController {
     selectedDietPlanId.value = value?.id;
     dietPlanDays.value = value?.daysCount ?? 0;
     dietPlanDaysRemaining.value = value?.daysRemaining ?? 0;
+
     if (value == null) {
+      selectedFeedType.value = null;
+      selectedUnit.value = 'Kg';
+      packageQuantity.value = 0;
+      totalSubtypeQuantity.value = 0;
+      _clearSubtypeInputs();
+      _recalculateBalance();
       return;
     }
+
     final matchedType = feedTypes.firstWhereOrNull(
       (item) => item.id == value.feedTypeId,
     );
+
     if (matchedType != null) {
-      if (selectedFeedType.value?.id != matchedType.id) {
-        onFeedTypeChanged(matchedType, clearSelectedDietPlan: false);
-      } else {
-        selectedUnit.value = value.unit;
-      }
+      selectedFeedType.value = matchedType;
+      selectedUnit.value = value.unit;
+      _resetSubtypeInputs(matchedType.subtypes);
+    } else {
+      selectedFeedType.value = null;
+      selectedUnit.value = value.unit;
+      _clearSubtypeInputs();
     }
-    selectedUnit.value = value.unit;
+
     _applyDietPlanToSubtypeInputs(value);
   }
 
@@ -314,9 +318,26 @@ class FeedingController extends GetxController {
     selectDietPlan(plan);
   }
 
+  String dietPlanDisplayLabel(FeedDietPlanModel plan) {
+    final planName = plan.dietPlanName.trim();
+    final title = planName.isNotEmpty
+        ? planName
+        : (plan.feedType.trim().isEmpty ? 'Diet Plan' : plan.feedType.trim());
+    final availableToday = _availablePackageQuantityForPlan(plan);
+    return '$title | ${availableToday.toStringAsFixed(2)} ${plan.unit}';
+  }
+
   void _applyDietPlanToSubtypeInputs(FeedDietPlanModel plan) {
+    final availableToday = _availablePackageQuantityForPlan(plan);
+    packageQuantity.value = availableToday;
+    totalSubtypeQuantity.value = availableToday;
+    balanceQuantity.value = availableToday;
+
     final currentType = selectedFeedType.value;
-    if (currentType == null) return;
+    if (currentType == null) {
+      _recalculateBalance();
+      return;
+    }
 
     final byId = <int, FeedSubtypeModel>{
       for (final subtype in currentType.subtypes) subtype.id: subtype,
@@ -330,6 +351,10 @@ class FeedingController extends GetxController {
       subtypeQuantityControllers[subtype.id]?.clear();
     }
 
+    final ratio = plan.planQuantity > 0
+        ? (availableToday / plan.planQuantity).clamp(0.0, 1.0)
+        : 0.0;
+
     for (final detail in plan.subtypeDetails) {
       FeedSubtypeModel? target;
       if (detail.subtypeId > 0) {
@@ -338,53 +363,52 @@ class FeedingController extends GetxController {
       target ??= byName[detail.name.trim().toLowerCase()];
       if (target == null) continue;
       subtypeSelected[target.id] = true;
-      subtypeQuantityControllers[target.id]?.text = detail.quantity.toStringAsFixed(2);
+      final scaledQuantity = plan.planQuantity > 0
+          ? (detail.quantity * ratio)
+          : detail.quantity;
+      subtypeQuantityControllers[target.id]?.text =
+          scaledQuantity.toStringAsFixed(2);
     }
 
-    // In Add Feeding, package quantity should reflect current remaining balance
-    // from selected diet plan (not original total planned quantity).
-    packageQuantity.value = plan.remainingQuantity;
-    totalSubtypeQuantity.value = plan.remainingQuantity;
-    balanceQuantity.value = plan.remainingQuantity;
     _recalculateBalance();
   }
 
   Future<void> submitFeeding() async {
     if (!formKey.currentState!.validate()) return;
     if (selectedAnimal.value == null && selectedPan.value == null) {
-      Get.snackbar('Error', 'Please select an animal or PAN');
+      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr);
       return;
     }
     final effectiveFeedType = _effectiveFeedType();
     if (effectiveFeedType == null) {
-      Get.snackbar('Error', 'No feed type found for selected diet plan');
+      Get.snackbar('error'.tr, 'no_feed_type_found_selected_diet_plan'.tr);
       return;
     }
     if (selectedDietPlan.value == null && selectedDietPlanId.value != null) {
       selectDietPlanById(selectedDietPlanId.value);
     }
     if (dietPlans.isNotEmpty && selectedDietPlan.value == null) {
-      Get.snackbar('Error', 'Please select diet plan for selected animal/PAN.');
+      Get.snackbar('error'.tr, 'please_select_diet_plan_for_selected_animal_pan'.tr);
       return;
     }
     if (selectedFeedingTime.value.trim().isEmpty || !availableFeedingTimes.contains(selectedFeedingTime.value)) {
-      Get.snackbar('Info', 'No feeding time is available for selected date.');
+      Get.snackbar('info'.tr, 'no_feeding_time_available_selected_date'.tr);
       return;
     }
 
     final feedingQty = double.tryParse(quantityController.text.trim()) ?? 0;
     if (feedingQty <= 0) {
-      Get.snackbar('Error', 'Please enter feeding quantity');
+      Get.snackbar('error'.tr, 'please_enter_feeding_quantity'.tr);
       return;
     }
     final rateText = ratePerUnitController.text.trim();
     if (rateText.isEmpty) {
-      Get.snackbar('Error', 'Please enter rate per unit');
+      Get.snackbar('error'.tr, 'please_enter_rate_per_unit'.tr);
       return;
     }
     final ratePerUnit = double.tryParse(rateText) ?? -1;
     if (ratePerUnit < 0) {
-      Get.snackbar('Error', 'Please enter a valid rate per unit');
+      Get.snackbar('error'.tr, 'please_enter_valid_rate_per_unit'.tr);
       return;
     }
     final calculatedFeedingCost = feedingQty * ratePerUnit;
@@ -394,15 +418,15 @@ class FeedingController extends GetxController {
       final availableQty = packageQuantity.value;
       if (availableQty <= 0.000001) {
         Get.snackbar(
-          'Error',
-          'No balance package quantity is left. Please update this diet plan or create a new diet plan.',
+          'error'.tr,
+          'no_balance_package_quantity_left'.tr,
         );
         return;
       }
       if ((feedingQty - availableQty) > 0.000001) {
         Get.snackbar(
-          'Error',
-          'Feeding quantity cannot be greater than balance package quantity. Please update this diet plan or create a new diet plan.',
+          'error'.tr,
+          'feeding_quantity_cannot_exceed_balance'.tr,
         );
         return;
       }
@@ -410,7 +434,7 @@ class FeedingController extends GetxController {
 
     final subtypePayload = _dietSubtypePayload();
     if (subtypePayload.isEmpty) {
-      Get.snackbar('Error', 'Selected diet plan has no subtype quantity');
+      Get.snackbar('error'.tr, 'selected_diet_plan_has_no_subtype_quantity'.tr);
       return;
     }
 
@@ -418,35 +442,39 @@ class FeedingController extends GetxController {
       final pan = selectedPan.value!;
       final panAnimals = animals.where((animal) => animal.belongsToPan(pan)).toList();
       if (panAnimals.isEmpty) {
-        Get.snackbar('Error', 'No animals found in selected PAN');
+        Get.snackbar('error'.tr, 'no_animals_found_in_selected_pan_msg'.tr);
         return;
       }
 
-      final perAnimalDivider = panAnimals.length;
-      final perAnimalFeedingQty = feedingQty / perAnimalDivider;
-      final perAnimalPackageQty = packageQuantity.value / perAnimalDivider;
-      final perAnimalBalanceQty = balanceQuantity.value / perAnimalDivider;
-      final perAnimalSubtypePayload = subtypePayload
-          .map(
-            (item) => <String, dynamic>{
-              if (item['subtype_id'] != null) 'subtype_id': item['subtype_id'],
-              'name': item['name'],
-              'quantity':
-                  (double.tryParse(item['quantity'].toString()) ?? 0) / perAnimalDivider,
-            },
-          )
-          .toList();
-
-      final perAnimalQtyText = _formatDistributedValue(perAnimalFeedingQty);
+      final subtypePayloadByAnimal =
+          _distributeSubtypePayloadAcrossAnimals(subtypePayload, panAnimals);
+      final packageQuantityByAnimal = <int, double>{
+        for (final animal in panAnimals)
+          animal.id: _sumSubtypeQuantity(subtypePayloadByAnimal[animal.id] ?? const []),
+      };
+      final feedingQuantityByAnimal = _distributeFeedingAcrossAnimals(
+        totalFeedingQuantity: feedingQty,
+        panAnimals: panAnimals,
+        packageQuantityByAnimal: packageQuantityByAnimal,
+      );
+      final balanceQuantityByAnimal = <int, double>{
+        for (final animal in panAnimals)
+          animal.id: double.parse(
+            (packageQuantityByAnimal[animal.id]! - feedingQuantityByAnimal[animal.id]!)
+                .clamp(0.0, double.infinity)
+                .toStringAsFixed(2),
+          ),
+      };
       final quantityByAnimal = <int, String>{
-        for (final animal in panAnimals) animal.id: perAnimalQtyText,
+        for (final animal in panAnimals)
+          animal.id: _formatDistributedValue(feedingQuantityByAnimal[animal.id] ?? 0),
       };
 
       final result = await submitBulkFeeding(
         quantityByAnimal,
-        packageQuantityPerAnimal: perAnimalPackageQty,
-        balanceQuantityPerAnimal: perAnimalBalanceQty,
-        subtypePayloadPerAnimal: perAnimalSubtypePayload,
+        packageQuantityByAnimal: packageQuantityByAnimal,
+        balanceQuantityByAnimal: balanceQuantityByAnimal,
+        subtypePayloadByAnimal: subtypePayloadByAnimal,
         ratePerUnitForAll: ratePerUnit,
         includeDietPlanId: true,
       );
@@ -454,27 +482,33 @@ class FeedingController extends GetxController {
       final failedCount = result['failed'] ?? 0;
 
       if (successCount > 0 && failedCount == 0) {
-        final successMessage = 'Feeding entry saved successfully for $successCount animals in ${pan.name}';
+        final successMessage = 'feeding_saved_for_animals'.trParams({
+          'count': '$successCount',
+          'pan': pan.name,
+        });
         await refreshAutoSchedule();
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
-            'Success',
+            'success'.tr,
             successMessage,
             snackPosition: SnackPosition.BOTTOM,
           );
         });
       } else if (successCount > 0) {
         Get.snackbar(
-          'Partial Success',
-          'Saved for $successCount animals, failed for $failedCount.',
+          'partial_success'.tr,
+          'feeding_saved_partial'.trParams({
+            'success': '$successCount',
+            'failed': '$failedCount',
+          }),
           snackPosition: SnackPosition.BOTTOM,
         );
       } else {
         Get.snackbar(
-          'Error',
-          'Failed to save feeding for selected PAN.',
+          'error'.tr,
+          'failed_save_feeding_selected_pan'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
       }
@@ -492,7 +526,7 @@ class FeedingController extends GetxController {
           'diet_plan_id': selectedDietPlan.value!.id.toString(),
         'feed_type': effectiveFeedType.name,
         'quantity': quantityController.text.trim(),
-        'package_quantity': packageQuantity.value.toStringAsFixed(2),
+        'package_quantity': _recordPackageQuantity().toStringAsFixed(2),
         'feeding_quantity': quantityController.text.trim(),
         'balance_quantity': balanceQuantity.value.toStringAsFixed(2),
         'rate_per_unit': ratePerUnit.toStringAsFixed(2),
@@ -515,25 +549,26 @@ class FeedingController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final successMessage = data['message']?.toString() ?? 'Feeding entry saved successfully';
+        final successMessage =
+            data['message']?.toString() ?? 'feeding_entry_saved_successfully'.tr;
         await refreshAutoSchedule();
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
-            'Success',
+            'success'.tr,
             successMessage,
             snackPosition: SnackPosition.BOTTOM,
           );
         });
       } else {
         Get.snackbar(
-          'Error',
-          data['message']?.toString() ?? 'Failed to save feeding entry',
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_save_feeding_entry'.tr,
         );
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isSubmitting.value = false;
     }
@@ -542,17 +577,17 @@ class FeedingController extends GetxController {
   Future<Map<String, int>> submitBulkFeeding(
     Map<int, String> quantityByAnimal,
     {
-    double? packageQuantityPerAnimal,
-    double? balanceQuantityPerAnimal,
+    Map<int, double>? packageQuantityByAnimal,
+    Map<int, double>? balanceQuantityByAnimal,
     double? ratePerUnitForAll,
-    List<Map<String, dynamic>>? subtypePayloadPerAnimal,
+    Map<int, List<Map<String, dynamic>>>? subtypePayloadByAnimal,
     bool includeDietPlanId = true,
   }
   ) async {
     if (farmerId == 0) {
       Get.snackbar(
-        'Error',
-        'Farmer ID not found. Please login again.',
+        'error'.tr,
+        'farmer_id_not_found_login_again'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};
@@ -560,18 +595,8 @@ class FeedingController extends GetxController {
     final effectiveFeedType = _effectiveFeedType();
     if (effectiveFeedType == null) {
       Get.snackbar(
-        'Error',
-        'No feed type found for selected diet plan.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return {'success': 0, 'failed': 0};
-    }
-
-    final subtypePayload = subtypePayloadPerAnimal ?? _dietSubtypePayload();
-    if (subtypePayload.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Selected diet plan has no subtype quantity.',
+        'error'.tr,
+        'no_feed_type_found_selected_diet_plan'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};
@@ -587,8 +612,8 @@ class FeedingController extends GetxController {
 
     if (entries.isEmpty) {
       Get.snackbar(
-        'Error',
-        'Please enter at least one valid quantity.',
+        'error'.tr,
+        'please_enter_at_least_one_valid_quantity'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};
@@ -603,6 +628,15 @@ class FeedingController extends GetxController {
     for (final entry in entries) {
       try {
         final feedingQty = double.tryParse(entry.value) ?? 0;
+        final subtypePayload = subtypePayloadByAnimal?[entry.key] ?? _dietSubtypePayload();
+        if (subtypePayload.isEmpty) {
+          failedCount++;
+          continue;
+        }
+        final packageQtyForAnimal =
+            packageQuantityByAnimal?[entry.key] ?? packageQuantity.value;
+        final balanceQtyForAnimal =
+            balanceQuantityByAnimal?[entry.key] ?? balanceQuantity.value;
         final payload = {
           'farmer_id': farmerId.toString(),
           'animal_id': entry.key.toString(),
@@ -611,11 +645,9 @@ class FeedingController extends GetxController {
             'diet_plan_id': selectedDietPlan.value!.id.toString(),
           'feed_type': effectiveFeedType.name,
           'quantity': entry.value,
-          'package_quantity':
-              (packageQuantityPerAnimal ?? packageQuantity.value).toStringAsFixed(2),
+          'package_quantity': packageQtyForAnimal.toStringAsFixed(2),
           'feeding_quantity': entry.value,
-          'balance_quantity':
-              (balanceQuantityPerAnimal ?? balanceQuantity.value).toStringAsFixed(2),
+          'balance_quantity': balanceQtyForAnimal.toStringAsFixed(2),
           'rate_per_unit': effectiveRatePerUnit.toStringAsFixed(2),
           'feeding_cost': (feedingQty * effectiveRatePerUnit).toStringAsFixed(2),
           'feed_subtype_details': subtypePayload,
@@ -699,6 +731,7 @@ class FeedingController extends GetxController {
       if (selectedFeedingTime.value != 'Morning') {
         selectedFeedingTime.value = 'Morning';
       }
+      _refreshSelectedDietPlanForCurrentDay();
       return;
     }
 
@@ -719,6 +752,7 @@ class FeedingController extends GetxController {
     if (!next.contains(selectedFeedingTime.value)) {
       selectedFeedingTime.value = next.isEmpty ? '' : next.first;
     }
+    _refreshSelectedDietPlanForCurrentDay();
   }
 
   List<Map<String, dynamic>> _rowsForSelectedTarget(DateTime date) {
@@ -792,6 +826,125 @@ class FeedingController extends GetxController {
         .replaceAll(RegExp(r'\.$'), '');
   }
 
+  Map<int, List<Map<String, dynamic>>> _distributeSubtypePayloadAcrossAnimals(
+    List<Map<String, dynamic>> subtypePayload,
+    List<FeedingAnimalModel> panAnimals,
+  ) {
+    final distributed = <int, List<Map<String, dynamic>>>{
+      for (final animal in panAnimals) animal.id: <Map<String, dynamic>>[],
+    };
+    if (panAnimals.isEmpty) {
+      return distributed;
+    }
+
+    for (final item in subtypePayload) {
+      final totalQuantity = double.tryParse(item['quantity'].toString()) ?? 0;
+      final splits = _distributeAmountAcrossAnimals(totalQuantity, panAnimals);
+      for (final animal in panAnimals) {
+        final splitQuantity = splits[animal.id] ?? 0;
+        if (splitQuantity <= 0) continue;
+        distributed[animal.id]!.add({
+          if (item['subtype_id'] != null) 'subtype_id': item['subtype_id'],
+          if (item['feed_type_id'] != null) 'feed_type_id': item['feed_type_id'],
+          if (item['feed_type_name'] != null) 'feed_type_name': item['feed_type_name'],
+          'name': item['name'],
+          'quantity': splitQuantity,
+          if (item['dm_percent'] != null) 'dm_percent': item['dm_percent'],
+        });
+      }
+    }
+
+    return distributed;
+  }
+
+  Map<int, double> _distributeFeedingAcrossAnimals({
+    required double totalFeedingQuantity,
+    required List<FeedingAnimalModel> panAnimals,
+    required Map<int, double> packageQuantityByAnimal,
+  }) {
+    final capacities = <int, int>{
+      for (final animal in panAnimals)
+        animal.id: _toCents(packageQuantityByAnimal[animal.id] ?? 0),
+    };
+    final targetCents = _toCents(totalFeedingQuantity);
+    final distributedCents = _distributeCentsWithCap(
+      totalCents: targetCents,
+      capacitiesByAnimal: capacities,
+      panAnimals: panAnimals,
+    );
+    return {
+      for (final animal in panAnimals)
+        animal.id: _fromCents(distributedCents[animal.id] ?? 0),
+    };
+  }
+
+  Map<int, double> _distributeAmountAcrossAnimals(
+    double totalQuantity,
+    List<FeedingAnimalModel> panAnimals,
+  ) {
+    final cents = _toCents(totalQuantity);
+    final count = panAnimals.length;
+    if (count == 0) return <int, double>{};
+    final base = cents ~/ count;
+    final remainder = cents % count;
+    return {
+      for (var index = 0; index < panAnimals.length; index++)
+        panAnimals[index].id: _fromCents(base + (index < remainder ? 1 : 0)),
+    };
+  }
+
+  Map<int, int> _distributeCentsWithCap({
+    required int totalCents,
+    required Map<int, int> capacitiesByAnimal,
+    required List<FeedingAnimalModel> panAnimals,
+  }) {
+    final allocations = <int, int>{
+      for (final animal in panAnimals) animal.id: 0,
+    };
+    if (panAnimals.isEmpty || totalCents <= 0) {
+      return allocations;
+    }
+
+    final base = totalCents ~/ panAnimals.length;
+    for (final animal in panAnimals) {
+      final capacity = capacitiesByAnimal[animal.id] ?? 0;
+      allocations[animal.id] = base > capacity ? capacity : base;
+    }
+
+    var allocated = allocations.values.fold<int>(0, (sum, value) => sum + value);
+    var remaining = totalCents - allocated;
+    while (remaining > 0) {
+      var distributedAny = false;
+      for (final animal in panAnimals) {
+        if (remaining <= 0) break;
+        final id = animal.id;
+        final capacity = capacitiesByAnimal[id] ?? 0;
+        final current = allocations[id] ?? 0;
+        if (current >= capacity) continue;
+        allocations[id] = current + 1;
+        remaining--;
+        distributedAny = true;
+      }
+      if (!distributedAny) {
+        break;
+      }
+    }
+
+    return allocations;
+  }
+
+  double _sumSubtypeQuantity(List<Map<String, dynamic>> payload) {
+    var total = 0.0;
+    for (final item in payload) {
+      total += double.tryParse(item['quantity'].toString()) ?? 0;
+    }
+    return double.parse(total.toStringAsFixed(2));
+  }
+
+  int _toCents(double value) => (value * 100).round();
+
+  double _fromCents(int cents) => double.parse((cents / 100).toStringAsFixed(2));
+
   void onFeedTypeChanged(
     FeedTypeModel? value, {
     bool clearSelectedDietPlan = true,
@@ -862,20 +1015,80 @@ class FeedingController extends GetxController {
       }
     });
     totalSubtypeQuantity.value = total;
-    packageQuantity.value = total;
+    if (selectedDietPlan.value == null) {
+      packageQuantity.value = total;
+    }
     _recalculateBalance();
   }
 
   List<Map<String, dynamic>> _dietSubtypePayload() {
-    final plan = selectedDietPlan.value;
-    if (plan == null) return [];
+    final selectedPlan = selectedDietPlan.value;
+    if (selectedPlan != null && selectedPlan.subtypeDetails.isNotEmpty) {
+      final recordPackageQuantity = _recordPackageQuantity();
+      if (recordPackageQuantity <= 0 || selectedPlan.planQuantity <= 0) {
+        return <Map<String, dynamic>>[];
+      }
+
+      final ratio =
+          (recordPackageQuantity / selectedPlan.planQuantity).clamp(0.0, 1.0);
+
+      return selectedPlan.subtypeDetails
+          .where((detail) => detail.quantity > 0)
+          .map((detail) {
+            final scaledQuantity = double.parse(
+              (detail.quantity * ratio).toStringAsFixed(2),
+            );
+            return <String, dynamic>{
+              if (detail.subtypeId > 0) 'subtype_id': detail.subtypeId,
+              if (detail.feedTypeId > 0) 'feed_type_id': detail.feedTypeId,
+              if (detail.feedTypeName.trim().isNotEmpty)
+                'feed_type_name': detail.feedTypeName,
+              'name': detail.name,
+              'quantity': scaledQuantity,
+              if (detail.dmPercent > 0)
+                'dm_percent': double.parse(detail.dmPercent.toStringAsFixed(2)),
+            };
+          })
+          .where((item) => (item['quantity'] as double) > 0)
+          .toList();
+    }
+
     final payload = <Map<String, dynamic>>[];
-    for (final detail in plan.subtypeDetails) {
-      if (detail.quantity <= 0) continue;
+    final feedType = _effectiveFeedType();
+    final subtypeById = <int, FeedSubtypeModel>{
+      for (final subtype in (feedType?.subtypes ?? const <FeedSubtypeModel>[]))
+        subtype.id: subtype,
+    };
+    final dmPercentBySubtypeId = <int, double>{};
+    final dmPercentBySubtypeName = <String, double>{};
+    for (final detail in selectedPlan?.subtypeDetails ?? const <FeedDietSubtypeDetail>[]) {
+      if (detail.subtypeId > 0) {
+        dmPercentBySubtypeId[detail.subtypeId] = detail.dmPercent;
+      }
+      final nameKey = detail.name.trim().toLowerCase();
+      if (nameKey.isNotEmpty) {
+        dmPercentBySubtypeName[nameKey] = detail.dmPercent;
+      }
+    }
+
+    for (final entry in subtypeSelected.entries) {
+      if (!entry.value) continue;
+      final qty = double.tryParse(
+            subtypeQuantityControllers[entry.key]?.text.trim() ?? '',
+          ) ??
+          0;
+      if (qty <= 0) continue;
+      final subtype = subtypeById[entry.key];
+      if (subtype == null) continue;
+      final dmPercent = dmPercentBySubtypeId[subtype.id] ??
+          dmPercentBySubtypeName[subtype.name.trim().toLowerCase()] ??
+          0;
       payload.add({
-        if (detail.subtypeId > 0) 'subtype_id': detail.subtypeId,
-        'name': detail.name,
-        'quantity': detail.quantity,
+        'subtype_id': subtype.id,
+        'name': subtype.name,
+        'quantity': double.parse(qty.toStringAsFixed(2)),
+        if (dmPercent > 0)
+          'dm_percent': double.parse(dmPercent.toStringAsFixed(2)),
       });
     }
     return payload;
@@ -887,6 +1100,63 @@ class FeedingController extends GetxController {
     balanceQuantity.value = balance < 0 ? 0 : balance;
   }
 
+  void _refreshSelectedDietPlanForCurrentDay() {
+    final current = selectedDietPlan.value;
+    if (current == null) {
+      _recalculateBalance();
+      return;
+    }
+    final matched =
+        dietPlans.firstWhereOrNull((plan) => plan.id == current.id) ?? current;
+    selectedDietPlan.value = matched;
+    _applyDietPlanToSubtypeInputs(matched);
+  }
+
+  double _availablePackageQuantityForPlan(FeedDietPlanModel plan) {
+    final fullDailyQuantity = plan.planQuantity > 0
+        ? plan.planQuantity
+        : (plan.remainingQuantity > 0 ? plan.remainingQuantity : 0);
+    final consumedToday = _consumedQuantityForSelectedDay(plan);
+    final remaining = fullDailyQuantity - consumedToday;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  double _consumedQuantityForSelectedDay(FeedDietPlanModel plan) {
+    final date = _selectedFeedingDate() ?? DateTime.now();
+    final rows = _rowsForSelectedTarget(date);
+    var total = 0.0;
+    for (final row in rows) {
+      if (!_rowMatchesDietPlan(row, plan)) continue;
+      total += _asDouble(row['feeding_quantity']);
+    }
+    return total;
+  }
+
+  bool _rowMatchesDietPlan(Map<String, dynamic> row, FeedDietPlanModel plan) {
+    final rowPlanId = int.tryParse((row['diet_plan_id'] ?? '').toString()) ?? 0;
+    if (plan.id > 0 && rowPlanId > 0) {
+      return rowPlanId == plan.id;
+    }
+
+    final rowPlanName = (row['diet_plan_name'] ?? row['plan_name'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final planName = plan.dietPlanName.trim().toLowerCase();
+    if (rowPlanName.isNotEmpty && planName.isNotEmpty) {
+      return rowPlanName == planName;
+    }
+
+    final rowFeedTypeId =
+        int.tryParse((row['feed_type_id'] ?? '').toString()) ?? 0;
+    return plan.feedTypeId > 0 && rowFeedTypeId == plan.feedTypeId;
+  }
+
+  double _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse((value ?? '').toString().trim()) ?? 0;
+  }
+
   void _recalculateFeedingCost() {
     final qty = double.tryParse(quantityController.text.trim()) ?? 0;
     final rate = double.tryParse(ratePerUnitController.text.trim()) ?? 0;
@@ -895,6 +1165,19 @@ class FeedingController extends GetxController {
       return;
     }
     feedingCost.value = qty * rate;
+  }
+
+  double _recordPackageQuantity() {
+    final plan = selectedDietPlan.value;
+    if (plan != null) {
+      if (packageQuantity.value > 0) {
+        return packageQuantity.value;
+      }
+      if (plan.planQuantity > 0) {
+        return plan.planQuantity;
+      }
+    }
+    return packageQuantity.value;
   }
 
   void clearForm() {
@@ -1069,6 +1352,7 @@ class FeedDietPlanModel {
   final String referenceDate;
   final double bodyWeight;
   final double milkProduction;
+  final double actualDmi;
   final double targetDmi;
   final String unit;
   final int daysCount;
@@ -1093,6 +1377,7 @@ class FeedDietPlanModel {
     required this.referenceDate,
     required this.bodyWeight,
     required this.milkProduction,
+    required this.actualDmi,
     required this.targetDmi,
     required this.unit,
     required this.daysCount,
@@ -1109,7 +1394,7 @@ class FeedDietPlanModel {
   String get displayLabel {
     final planName = dietPlanName.trim();
     final title = planName.isNotEmpty ? planName : (feedType.trim().isEmpty ? 'Diet Plan' : feedType.trim());
-    return '$title | ${remainingQuantity.toStringAsFixed(2)} $unit';
+    return '$title | ${planQuantity.toStringAsFixed(2)} $unit';
   }
 
   factory FeedDietPlanModel.fromJson(Map<String, dynamic> json) {
@@ -1128,6 +1413,7 @@ class FeedDietPlanModel {
       referenceDate: (json['reference_date'] ?? '').toString(),
       bodyWeight: double.tryParse((json['body_weight'] ?? '0').toString()) ?? 0,
       milkProduction: double.tryParse((json['milk_production'] ?? '0').toString()) ?? 0,
+      actualDmi: double.tryParse((json['actual_dmi'] ?? '0').toString()) ?? 0,
       targetDmi: double.tryParse((json['target_dmi'] ?? '0').toString()) ?? 0,
       unit: (json['unit'] ?? 'Kg').toString(),
       daysCount: int.tryParse((json['days_count'] ?? '').toString()) ?? 0,
@@ -1185,3 +1471,4 @@ class FeedDietSubtypeDetail {
     );
   }
 }
+

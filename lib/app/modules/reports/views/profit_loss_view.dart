@@ -5,12 +5,34 @@ import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/profit_loss_controller.dart';
 
-class ProfitLossView extends StatelessWidget {
+class ProfitLossView extends StatefulWidget {
   const ProfitLossView({super.key});
 
   @override
+  State<ProfitLossView> createState() => _ProfitLossViewState();
+}
+
+class _ProfitLossViewState extends State<ProfitLossView> {
+  late final ProfitLossController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<ProfitLossController>()
+        ? Get.find<ProfitLossController>()
+        : Get.put(ProfitLossController());
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<ProfitLossController>()) {
+      Get.delete<ProfitLossController>();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = Get.put(ProfitLossController());
     return Scaffold(
       backgroundColor: const Color(0xFFF4FAF4),
       body: SafeArea(
@@ -237,7 +259,7 @@ class ProfitLossView extends StatelessWidget {
             ),
           ),
           Text(
-            'Rs ${summary.netProfit.toStringAsFixed(2)}',
+            'amount_rs'.trParams({'value': summary.netProfit.toStringAsFixed(2)}),
             style: TextStyle(color: Colors.white.withValues(alpha: 0.98), fontSize: 16, fontWeight: FontWeight.w800),
           ),
         ],

@@ -267,35 +267,35 @@ class MilkController extends GetxController {
   Future<void> submitMilk() async {
     if (!formKey.currentState!.validate()) return;
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer ID not found. Please login again.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (selectedAnimal.value == null) {
       if (selectedPan.value == null) {
-        Get.snackbar('Error', 'Please select an animal or PAN', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr, snackPosition: SnackPosition.BOTTOM);
         return;
       }
     }
     if (selectedShift.value.trim().isEmpty || !availableShifts.contains(selectedShift.value)) {
-      Get.snackbar('Info', 'No milk shift is available for selected date.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('info'.tr, 'no_milk_shift_available_selected_date'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (selectedPan.value != null) {
       final pan = selectedPan.value!;
       if (panCowMilkEntries.isEmpty) {
-        Get.snackbar('Error', 'No animals found in selected PAN', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, 'no_animals_found_in_selected_pan_msg'.tr, snackPosition: SnackPosition.BOTTOM);
         return;
       }
 
       final totalQty = double.tryParse(quantityController.text.trim()) ?? 0;
       if (totalQty <= 0) {
-        Get.snackbar('Error', 'Please enter valid milk quantity', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, 'enter_valid_milk_qty'.tr, snackPosition: SnackPosition.BOTTOM);
         return;
       }
       recalculateCowMilkTotal();
       if (!isCowMilkMatched) {
         Get.snackbar(
-          'Validation',
+          'validation'.tr,
           'Cow-wise total does not match quantity liters.',
           snackPosition: SnackPosition.BOTTOM,
         );
@@ -305,28 +305,31 @@ class MilkController extends GetxController {
       final saved = await submitPanMilk();
 
       if (saved) {
-        final successMessage = 'Milk record saved successfully for ${panCowMilkEntries.length} animals in ${pan.name}';
+        final successMessage = 'milk_record_saved_for_animals_in_pan'.trParams({
+          'count': '${panCowMilkEntries.length}',
+          'pan': pan.name,
+        });
         await refreshAutoSchedule();
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
-            'Success',
+            'success'.tr,
             successMessage,
             snackPosition: SnackPosition.BOTTOM,
           );
         });
       } else {
         Get.snackbar(
-          'Error',
-          'Failed to save milk for selected PAN.',
+          'error'.tr,
+          'failed_save_milk_for_selected_pan'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
       }
       return;
     }
     if (selectedDairy.value == null) {
-      Get.snackbar('Error', 'Please select a dairy', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_dairy'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -360,7 +363,7 @@ class MilkController extends GetxController {
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar(
-            'Success',
+            'success'.tr,
             successMessage,
             snackPosition: SnackPosition.BOTTOM,
           );
@@ -373,12 +376,12 @@ class MilkController extends GetxController {
         } else if (data['message'] != null) {
           errorMessage = data['message'].toString();
         }
-        Get.snackbar('Validation Error', errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
+        Get.snackbar('validation'.tr, errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to save milk record', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_milk_record'.tr, snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
     } finally {
       isSubmitting.value = false;
     }
@@ -398,21 +401,21 @@ class MilkController extends GetxController {
 
   Future<bool> submitPanMilk() async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer ID not found. Please login again.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
     final pan = selectedPan.value;
     final dairy = selectedDairy.value;
     if (pan == null) {
-      Get.snackbar('Error', 'Please select a PAN.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_pan'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
     if (dairy == null) {
-      Get.snackbar('Error', 'Please select a dairy first.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_dairy_first'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
     if (panCowMilkEntries.isEmpty) {
-      Get.snackbar('Error', 'No animals found in selected PAN.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'no_animals_found_in_selected_pan_msg'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
 
@@ -421,12 +424,12 @@ class MilkController extends GetxController {
       return value == null || value < 0;
     });
     if (invalid) {
-      Get.snackbar('Error', 'Please enter valid cow-wise milk quantities.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_enter_valid_cow_wise_milk_quantities'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
     recalculateCowMilkTotal();
     if (!isCowMilkMatched) {
-      Get.snackbar('Validation', 'Cow-wise total does not match quantity liters.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('validation'.tr, 'cow_total_mismatch_warning'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     }
 
@@ -465,10 +468,10 @@ class MilkController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return data['status'] == true;
       }
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to save PAN milk record', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_pan_milk_record'.tr, snackPosition: SnackPosition.BOTTOM);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
       return false;
     } finally {
       isSubmitting.value = false;
@@ -480,16 +483,16 @@ class MilkController extends GetxController {
   ) async {
     if (farmerId == 0) {
       Get.snackbar(
-        'Error',
-        'Farmer ID not found. Please login again.',
+        'error'.tr,
+        'farmer_id_not_found_login_again'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};
     }
     if (selectedDairy.value == null) {
       Get.snackbar(
-        'Error',
-        'Please select a dairy first.',
+        'error'.tr,
+        'please_select_dairy_first'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};
@@ -505,8 +508,8 @@ class MilkController extends GetxController {
 
     if (entries.isEmpty) {
       Get.snackbar(
-        'Error',
-        'Please enter at least one valid quantity.',
+        'error'.tr,
+        'please_enter_at_least_one_valid_quantity'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return {'success': 0, 'failed': 0};

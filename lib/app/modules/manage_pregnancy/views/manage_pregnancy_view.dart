@@ -19,7 +19,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
         foregroundColor: Colors.white,
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Record'),
+        label: Text('add_record'.tr),
       ),
       body: SafeArea(
         top: false,
@@ -32,7 +32,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               child: TextField(
                 controller: controller.searchController,
                 decoration: _inputDecoration(
-                  'Search cow, tag, doctor, status...',
+                  'search_cow_tag_doctor_status'.tr,
                   icon: Icons.search_rounded,
                 ),
               ),
@@ -49,7 +49,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                         child: controller.filteredRecords.isEmpty
                             ? ListView(
                                 padding: const EdgeInsets.all(24),
-                                children: const [
+                                children: [
                                   SizedBox(height: 120),
                                   Icon(
                                     Icons.health_and_safety_rounded,
@@ -59,7 +59,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                                   SizedBox(height: 12),
                                   Center(
                                     child: Text(
-                                      'No pregnancy records found',
+                                      'no_pregnancy_records_found'.tr,
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
@@ -110,9 +110,9 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
             color: Colors.white,
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Manage Pregnancy',
+              'manage_pregnancy'.tr,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -224,7 +224,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_dash(record.uniqueId)}  |  Tag: ${_dash(record.tagNumber)}',
+                      '${_dash(record.uniqueId)}  |  ${'tag'.tr}: ${_dash(record.tagNumber)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -248,15 +248,15 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                 runSpacing: 8,
                 children: [
                   _detailTile(
-                    'AI Date',
+                    'ai_date'.tr,
                     _dash(record.aiDate),
                     Icons.event_rounded,
                     width: tileWidth,
                   ),
                   _detailTile(
                     _isPregnancyChecked(record)
-                        ? 'Pregnancy Check Date'
-                        : 'Check Due',
+                        ? 'pregnancy_check_date'.tr
+                        : 'pregnancy_check_due'.tr,
                     _isPregnancyChecked(record)
                         ? _dash(record.pregnancyCheckDate)
                         : _dash(record.pregnancyCheckDueDate),
@@ -265,16 +265,16 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                   ),
                   if (record.status == 'pregnant') ...[
                     _detailTile(
-                      'Expected Calving',
+                      'expected_calving'.tr,
                       _dash(record.expectedCalvingDate),
                       Icons.child_care_rounded,
                       width: tileWidth,
                     ),
                     _detailTile(
-                      'Remaining',
+                      'remaining'.tr,
                       record.remainingDays == null
                           ? '-'
-                          : '${record.remainingDays} days',
+                          : '${record.remainingDays} ${'days'.tr}',
                       Icons.timelapse_rounded,
                       width: tileWidth,
                     ),
@@ -295,7 +295,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
             children: [
               Expanded(
                 child: _statusActionButton(
-                  label: 'Pregnant',
+                  label: 'pregnant'.tr,
                   color: AppColors.primary,
                   isSelected: record.status == 'pregnant',
                   onTap: () => _openPregnancyCheckSheet(
@@ -307,7 +307,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               const SizedBox(width: 8),
               Expanded(
                 child: _statusActionButton(
-                  label: 'Non Pregnant',
+                  label: 'non_pregnant'.tr,
                   color: const Color(0xFFE67E22),
                   isSelected: record.status == 'not_pregnant',
                   onTap: () => _openPregnancyCheckSheet(
@@ -323,7 +323,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
             children: [
               Expanded(
                 child: _actionButton(
-                  'Edit',
+                  'edit'.tr,
                   Icons.edit_rounded,
                   AppColors.primary,
                   () => _openForm(context, record: record),
@@ -332,7 +332,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               const SizedBox(width: 8),
               Expanded(
                 child: _actionButton(
-                  'Delete',
+                  'delete'.tr,
                   Icons.delete_outline_rounded,
                   Colors.red.shade600,
                   () => _confirmDelete(record),
@@ -463,8 +463,8 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                 children: [
                   Text(
                     nextStatus == 'pregnant'
-                        ? 'Mark as Pregnant'
-                        : 'Mark as Non Pregnant',
+                        ? 'mark_as_pregnant'.tr
+                        : 'mark_as_non_pregnant'.tr,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -474,7 +474,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                     controller: checkDateController,
                     readOnly: true,
                     decoration: _inputDecoration(
-                      'Pregnancy Check Date',
+                      'pregnancy_check_date'.tr,
                       icon: Icons.calendar_month_rounded,
                     ),
                     onTap: () async {
@@ -518,8 +518,8 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                                     checkDateController.text.trim();
                                 if (checkDate.isEmpty) {
                                   Get.snackbar(
-                                    'Validation',
-                                    'Please select pregnancy check date',
+                                    'validation'.tr,
+                                    'please_select_pregnancy_check_date'.tr,
                                   );
                                   return;
                                 }
@@ -551,8 +551,8 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                               )
                             : Text(
                                 nextStatus == 'pregnant'
-                                    ? 'Confirm Pregnant'
-                                    : 'Confirm Non Pregnant',
+                                    ? 'confirm_pregnant'.tr
+                                    : 'confirm_non_pregnant'.tr,
                               ),
                       ),
                     ),
@@ -607,13 +607,13 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
           iconDisabledColor: AppColors.primary,
           dropdownColor: const Color(0xFFF4FAF4),
           decoration: _inputDecoration(
-            'Select Animal',
+            'select_animal'.tr,
             icon: Icons.pets_rounded,
           ),
           items: [
-            const DropdownMenuItem<int?>(
+            DropdownMenuItem<int?>(
               value: null,
-              child: Text('All'),
+              child: Text('all'.tr),
             ),
             ...controller.animals.map(
               (animal) => DropdownMenuItem<int?>(
@@ -688,13 +688,13 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Delete Pregnancy Record',
+              Text(
+                'delete_pregnancy_record'.tr,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Are you sure you want to delete ${record.cowLabel} pregnancy record?',
+                'delete_pregnancy_record_confirm'.trParams({'name': record.cowLabel}),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,
@@ -715,7 +715,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      child: const Text('Cancel'),
+                      child: Text('cancel'.tr),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -745,7 +745,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Delete'),
+                            : Text('delete'.tr),
                       ),
                     ),
                   ),
@@ -888,8 +888,8 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                   Expanded(
                     child: Text(
                       widget.record == null
-                          ? 'Add Pregnancy Record'
-                          : 'Edit Pregnancy Record',
+                          ? 'add_pregnancy_record'.tr
+                          : 'edit_pregnancy_record'.tr,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -914,7 +914,7 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                         initialValue: animalId == 0 ? null : animalId,
                         isExpanded: true,
                         dropdownColor: const Color(0xFFF4FAF4),
-                        decoration: _decor('Select Cow *'),
+                        decoration: _decor('${'select_cow'.tr} *'),
                         items: controller.animals
                             .map(
                               (animal) => DropdownMenuItem(
@@ -935,20 +935,20 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                           });
                         },
                         validator: (value) =>
-                            value == null ? 'Please select cow' : null,
+                            value == null ? 'please_select_cow'.tr : null,
                       ),
                     ),
                     const SizedBox(height: 10),
                     _textBox(
-                      'Lactation Number',
+                      'lactation_number'.tr,
                       lactationNumberController,
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 10),
-                    _dateBox('Heat Date', heatDate),
+                    _dateBox('heat_date'.tr, heatDate),
                     const SizedBox(height: 10),
                     _dateBox(
-                      'AI Date *',
+                      '${'ai_date'.tr} *',
                       aiDate,
                       requiredField: true,
                       onPicked: _autoDates,
@@ -956,24 +956,24 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       initialValue: serviceType,
-                      decoration: _decor('Service Type *'),
+                      decoration: _decor('${'service_type'.tr} *'),
                       dropdownColor: const Color(0xFFF4FAF4),
-                      items: const [
-                        DropdownMenuItem(value: 'ai', child: Text('AI')),
-                        DropdownMenuItem(value: 'natural', child: Text('Natural')),
+                      items: [
+                        const DropdownMenuItem(value: 'ai', child: Text('AI')),
+                        DropdownMenuItem(value: 'natural', child: Text('natural'.tr)),
                       ],
                       onChanged: (value) =>
                           setState(() => serviceType = value ?? 'ai'),
                     ),
                     const SizedBox(height: 10),
-                    _textBox('Bull Name', bullName),
+                    _textBox('bull_name'.tr, bullName),
                     const SizedBox(height: 10),
-                    _textBox('Semen No', semenNo),
+                    _textBox('semen_no'.tr, semenNo),
                     const SizedBox(height: 10),
-                    _textBox('Doctor Name', doctorName),
+                    _textBox('doctor_name'.tr, doctorName),
                     const SizedBox(height: 10),
                     _dateBox(
-                      'Pregnancy Check Due Date *',
+                      '${'pregnancy_check_due_date'.tr} *',
                       checkDueDate,
                       requiredField: true,
                     ),
@@ -982,7 +982,7 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                       controller: notes,
                       minLines: 2,
                       maxLines: 4,
-                      decoration: _decor('Notes'),
+                      decoration: _decor('notes'.tr),
                     ),
                     const SizedBox(height: 18),
                     Obx(
@@ -1010,8 +1010,8 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                                 )
                               : Text(
                                   widget.record == null
-                                      ? 'Save Record'
-                                      : 'Update Record',
+                                      ? 'save_record'.tr
+                                      : 'update_record'.tr,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
                                   ),

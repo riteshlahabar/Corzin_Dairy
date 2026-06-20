@@ -124,12 +124,15 @@ class ShopOrderDetailsView extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  'x${item.quantity}${item.unit.trim().isEmpty ? '' : ' ${item.unit}'}',
+                                  'quantity_with_unit'.trParams({
+                                    'qty': '${item.quantity}',
+                                    'unit': item.unit.trim().isEmpty ? '' : ' ${item.unit}',
+                                  }),
                                   style: const TextStyle(fontSize: 13, color: AppColors.grey),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Rs ${item.lineTotal.toStringAsFixed(2)}',
+                                  'amount_rs'.trParams({'value': item.lineTotal.toStringAsFixed(2)}),
                                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                                 ),
                               ],

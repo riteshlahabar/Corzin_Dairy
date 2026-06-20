@@ -110,7 +110,7 @@ class ManagePregnancyController extends GetxController {
       }
     } catch (e) {
       records.clear();
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
     } finally {
       isLoading.value = false;
     }
@@ -140,11 +140,11 @@ class ManagePregnancyController extends GetxController {
     required bool isCurrent,
   }) async {
     if (animalId <= 0) {
-      Get.snackbar('Validation', 'Please select cow');
+      Get.snackbar('validation'.tr, 'please_select_cow'.tr);
       return false;
     }
     if (aiDate.trim().isEmpty) {
-      Get.snackbar('Validation', 'Please select AI date');
+      Get.snackbar('validation'.tr, 'please_select_ai_date'.tr);
       return false;
     }
 
@@ -183,17 +183,17 @@ class ManagePregnancyController extends GetxController {
       final data = _decode(response.body);
       if (_isSuccessResponse(response, data)) {
         Get.snackbar(
-          'Success',
-          _extractMessage(data, fallback: 'Pregnancy record saved'),
+          'success'.tr,
+          _extractMessage(data, fallback: 'pregnancy_record_saved'.tr),
           duration: const Duration(seconds: 4),
         );
         await fetchRecords();
         return true;
       }
-      Get.snackbar('Error', _extractMessage(data, fallback: 'Unable to save'));
+      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_save'.tr));
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -220,17 +220,17 @@ class ManagePregnancyController extends GetxController {
       final data = _decode(response.body);
       if (_isSuccessResponse(response, data)) {
         Get.snackbar(
-          'Success',
-          _extractMessage(data, fallback: 'Pregnancy status updated'),
+          'success'.tr,
+          _extractMessage(data, fallback: 'pregnancy_status_updated'.tr),
           duration: const Duration(seconds: 4),
         );
         await fetchRecords();
         return true;
       }
-      Get.snackbar('Error', _extractMessage(data, fallback: 'Unable to update'));
+      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_update'.tr));
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -247,17 +247,17 @@ class ManagePregnancyController extends GetxController {
       final data = _decode(response.body);
       if (_isSuccessResponse(response, data)) {
         Get.snackbar(
-          'Success',
-          _extractMessage(data, fallback: 'Pregnancy record deleted'),
+          'success'.tr,
+          _extractMessage(data, fallback: 'pregnancy_record_deleted'.tr),
           duration: const Duration(seconds: 4),
         );
         await fetchRecords();
         return true;
       }
-      Get.snackbar('Error', _extractMessage(data, fallback: 'Unable to delete'));
+      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_delete'.tr));
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -294,13 +294,23 @@ class ManagePregnancyController extends GetxController {
   }
 
   String statusLabel(String status) {
-    if (status == 'all') return 'All';
-    return status
-        .split('_')
-        .map((part) => part.isEmpty
-            ? part
-            : '${part[0].toUpperCase()}${part.substring(1)}')
-        .join(' ');
+    switch (status.trim().toLowerCase()) {
+      case 'all':
+        return 'all'.tr;
+      case 'pregnancy_check_due':
+        return 'pregnancy_check_due'.tr;
+      case 'pregnant':
+        return 'pregnant'.tr;
+      case 'not_pregnant':
+        return 'non_pregnant'.tr;
+      default:
+        return status
+            .split('_')
+            .map((part) => part.isEmpty
+                ? part
+                : '${part[0].toUpperCase()}${part.substring(1)}')
+            .join(' ');
+    }
   }
 
   String addDays(String date, int days) {
@@ -349,9 +359,11 @@ class ManagePregnancyController extends GetxController {
 
       await LocalNotificationService.instance.showMessage(
         id: record.id + 700000,
-        title: 'Pregnancy Check Reminder',
-        body:
-            '${record.cowLabel} pregnancy check is due on ${record.pregnancyCheckDueDate}.',
+        title: 'pregnancy_check_reminder'.tr,
+        body: 'pregnancy_check_due_on'.trParams({
+          'cow': record.cowLabel,
+          'date': record.pregnancyCheckDueDate,
+        }),
       );
       await prefs.setBool(reminderKey, true);
     }

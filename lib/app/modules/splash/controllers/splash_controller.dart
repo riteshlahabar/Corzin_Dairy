@@ -18,7 +18,8 @@ class SplashController extends GetxController {
     Future.delayed(const Duration(seconds: 5), () async {
       debugPrint("⏳ Timer finished");
 
-      if (Get.currentRoute != Routes.SPLASH) {
+      final currentRoute = Get.currentRoute;
+      if (currentRoute.isNotEmpty && currentRoute != Routes.SPLASH) {
         debugPrint("❌ Already left splash → skip navigation");
         return;
       }

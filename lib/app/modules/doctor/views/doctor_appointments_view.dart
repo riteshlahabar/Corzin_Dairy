@@ -65,13 +65,13 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                           children: [
-                            _sectionTitle('Animals'),
+                            _sectionTitle('animals'.tr),
                             const SizedBox(height: 10),
                             if (controller.animals.isEmpty)
-                              _emptyCard('No animals added yet.'),
+                              _emptyCard('no_animals_added_yet'.tr),
                             ...controller.animals.map(_animalCard),
                             const SizedBox(height: 12),
-                            _sectionTitle('My Appointments'),
+                            _sectionTitle('my_appointments'.tr),
                             const SizedBox(height: 10),
                             if (controller.isLoadingRequests.value)
                               const Padding(
@@ -82,7 +82,7 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                               ),
                             if (!controller.isLoadingRequests.value &&
                                 controller.sortedRequests.isEmpty)
-                              _emptyCard('No appointments created yet.'),
+                              _emptyCard('no_appointments_created_yet'.tr),
                             ...controller.sortedRequests.map(_requestCard),
                           ],
                         ),
@@ -159,8 +159,8 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                 const SizedBox(height: 2),
                 Text(
                   animal.tagNumber.isEmpty
-                      ? 'Tag not available'
-                      : 'Tag: ${animal.tagNumber}',
+                      ? 'tag_not_available'.tr
+                      : 'tag_value'.trParams({'value': animal.tagNumber}),
                   style: const TextStyle(fontSize: 12.2, color: AppColors.grey),
                 ),
               ],
@@ -177,8 +177,8 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'Create Appointment',
+              child: Text(
+                'create_appointment'.tr,
                 style: TextStyle(fontSize: 11.8, fontWeight: FontWeight.w600),
               ),
             ),
@@ -260,32 +260,32 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Animal: ${request.animalName}',
+            'animal_value'.trParams({'value': request.animalName}),
             style: const TextStyle(fontSize: 12.2),
           ),
           const SizedBox(height: 4),
           Text(
-            'Concern: ${request.concern}',
+            'concern_value'.trParams({'value': request.concern}),
             style: const TextStyle(fontSize: 12.2),
           ),
           if (request.diseaseNames.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Disease: ${request.diseaseNames.join(', ')}',
+              'disease_value'.trParams({'value': request.diseaseNames.join(', ')}),
               style: const TextStyle(fontSize: 12.2),
             ),
           ],
           if (request.diseaseDetails.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Details: ${request.diseaseDetails}',
+              'details_value'.trParams({'value': request.diseaseDetails}),
               style: const TextStyle(fontSize: 12.2),
             ),
           ],
           if (request.visitOtp.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Visit OTP: ${request.visitOtp}',
+              'visit_otp_value'.trParams({'value': request.visitOtp}),
               style: const TextStyle(
                 fontSize: 12.2,
                 fontWeight: FontWeight.w700,
@@ -295,21 +295,21 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
           if (request.treatmentDetails.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Treatment: ${request.treatmentDetails}',
+              'treatment_value'.trParams({'value': request.treatmentDetails}),
               style: const TextStyle(fontSize: 12.2),
             ),
           ],
           if (request.charges != '-') ...[
             const SizedBox(height: 4),
             Text(
-              'Charges: ${request.charges}',
+              'charges_value'.trParams({'value': request.charges}),
               style: const TextStyle(fontSize: 12.2),
             ),
           ],
           if (request.scheduledAt.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Schedule: ${request.scheduledAt}',
+              'schedule_value'.trParams({'value': request.scheduledAt}),
               style: const TextStyle(fontSize: 12.2),
             ),
           ],
@@ -325,8 +325,8 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                             request: request,
                             approved: false,
                           ),
-                    child: const Text(
-                      'Decline',
+                    child: Text(
+                      'decline'.tr,
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
@@ -377,15 +377,15 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
     await Get.dialog(
       AlertDialog(
         title: Text(
-          'Create Appointment • ${animal.animalName.isEmpty ? 'Animal' : animal.animalName}',
+          '${'create_appointment'.tr} - ${animal.animalName.isEmpty ? 'animal'.tr : animal.animalName}',
         ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Select Doctor',
+              Text(
+                'select_doctor'.tr,
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
@@ -418,15 +418,15 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Disease (checkbox)',
+              Text(
+                'disease_checkbox'.tr,
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               Obx(() {
                 if (controller.diseases.isEmpty) {
-                  return const Text(
-                    'No diseases available. Please ask admin to add disease from panel.',
+                  return Text(
+                    'no_diseases_available_admin'.tr,
                     style: TextStyle(fontSize: 12),
                   );
                 }
@@ -475,8 +475,8 @@ class DoctorAppointmentsView extends GetView<DoctorController> {
                 );
               }),
               const SizedBox(height: 10),
-              const Text(
-                'Disease Details',
+              Text(
+                'disease_details'.tr,
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),

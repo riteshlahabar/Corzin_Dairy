@@ -75,6 +75,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                   children: [
                     _filterChip('all', 'all'.tr),
                     _filterChip('active', 'active'.tr),
+                    _filterChip('selling', 'status_selling'.tr),
                     _filterChip('sold', 'sold'.tr),
                     _filterChip('death', 'death'.tr),
                   ],
@@ -174,7 +175,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
-                                                    '${'pan'.tr}: ${animal.animalTypeName.isEmpty ? '-' : animal.animalTypeName}',
+                                                    '${'type'.tr}: ${animal.animalTypeName.isEmpty ? '-' : controller.translatedAnimalTypeName(animal.animalTypeName)}',
                                                     style: TextStyle(
                                                       fontSize: 12.5,
                                                       color: AppColors
@@ -185,9 +186,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                                 ],
                                               ),
                                             ),
-                                            _statusBadge(
-                                              animal.lifecycleStatus,
-                                            ),
+                                            _statusBadge(animal),
                                           ],
                                         ),
                                         const SizedBox(height: 14),
@@ -199,7 +198,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                         ),
                                         _detailRow(
                                           'age'.tr,
-                                          animal.age.isEmpty ? '-' : animal.age,
+                                          animal.age.isEmpty ? '-' : controller.translatedAge(animal.age),
                                         ),
                                         _detailRow(
                                           'birth_date'.tr,
@@ -211,7 +210,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                           'gender'.tr,
                                           animal.gender.isEmpty
                                               ? '-'
-                                              : animal.gender,
+                                              : controller.translatedGender(animal.gender),
                                         ),
                                         _detailRow(
                                           'weight'.tr,
@@ -311,13 +310,18 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     );
   }
 
-  Widget _statusBadge(String value) {
+  Widget _statusBadge(ManageAnimalItem animal) {
+    final value = animal.displayStatus;
     Color color = AppColors.primary;
     if (value == 'sold') {
       color = const Color(0xFF1976D2);
+    } else if (value == 'selling') {
+      color = const Color(0xFFB25E00);
     } else if (value == 'death') {
       color = Colors.red;
     }
+
+    final label = value == 'selling' ? 'status_selling'.tr : (value.isEmpty ? 'active'.tr : value.toLowerCase().tr);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -326,7 +330,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        value.isEmpty ? 'active'.tr : value.toLowerCase().tr,
+        label,
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
@@ -361,99 +365,230 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
 
   void _openManageSheet(ManageAnimalItem animal) {
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Obx(() {
-          final liveAnimal = controller.animals.firstWhereOrNull(
-                (item) => item.id == animal.id,
-              ) ??
-              animal;
-          final animalName = liveAnimal.animalName.isEmpty
-              ? 'Animal'
-              : liveAnimal.animalName;
+      Builder(
+        builder: (sheetContext) {
+          Future<void> closeLifecycleSheet() async {
+            if (sheetContext.mounted) {
+              Navigator.of(sheetContext).pop();
+            }
+          }
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    height: 4,
-                    width: 54,
-                    margin: const EdgeInsets.only(bottom: 18),
-                    decoration: BoxDecoration(
-                      color: AppColors.grey,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                Text(
-                  'animal_lifecycle'.tr,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'manage_selected_animal'.trParams({
-                    'name': liveAnimal.animalName.isEmpty
-                        ? 'animal'.tr
-                        : liveAnimal.animalName,
-                  }),
-                  style:
-                      TextStyle(fontSize: 13, color: AppColors.grey.shade700),
-                ),
-                const SizedBox(height: 18),
-                _sheetButton(
-                  liveAnimal.isForSale
-                      ? 'Cancel selling $animalName'
-                      : 'Sell $animalName',
-                  const Color(0xFFB25E00),
-                  liveAnimal.isForSale
-                      ? () => _confirmCancelSellingAnimal(liveAnimal)
-                      : () => _confirmSellAnimal(liveAnimal),
-                  icon: liveAnimal.isForSale
-                      ? Icons.cancel_presentation_rounded
-                      : Icons.storefront_rounded,
-                ),
-                const SizedBox(height: 10),
-                _sheetButton('mark_active'.tr, AppColors.primary, () async {
-                  final ok = await controller.updateAnimalLifecycle(
-                    animalId: liveAnimal.id,
-                    action: 'active',
-                  );
-                  if (ok) Get.back();
-                }, icon: Icons.check_circle_rounded),
-                const SizedBox(height: 10),
-                _sheetButton('mark_sold'.tr, const Color(0xFF1976D2), () async {
-                  final ok = await controller.updateAnimalLifecycle(
-                    animalId: liveAnimal.id,
-                    action: 'sold',
-                  );
-                  if (ok) Get.back();
-                }, icon: Icons.verified_rounded),
-                const SizedBox(height: 10),
-                _sheetButton('record_death'.tr, Colors.red.shade600, () async {
-                  final ok = await controller.updateAnimalLifecycle(
-                    animalId: liveAnimal.id,
-                    action: 'death',
-                  );
-                  if (ok) Get.back();
-                }, icon: Icons.warning_amber_rounded),
-              ],
+          return Container(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
+            child: Obx(() {
+              final liveAnimal = controller.animals.firstWhereOrNull(
+                    (item) => item.id == animal.id,
+                  ) ??
+                  animal;
+              final animalName = liveAnimal.animalName.isEmpty
+                  ? 'Animal'
+                  : liveAnimal.animalName;
+              final statusMessage = _lifecycleStatusMessage(
+                lifecycleStatus: liveAnimal.lifecycleStatus,
+              );
+              final canShowSellAction = _canShowSellAction(
+                lifecycleStatus: liveAnimal.lifecycleStatus,
+              );
+              final canShowLifecycleActions =
+                  _canShowLifecycleActions(lifecycleStatus: liveAnimal.lifecycleStatus);
+              final canMarkActive = _canShowMarkActive(
+                lifecycleStatus: liveAnimal.lifecycleStatus,
+                isForSale: liveAnimal.isForSale,
+              );
+
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        height: 4,
+                        width: 54,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: AppColors.grey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'animal_lifecycle'.tr,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'manage_selected_animal'.trParams({
+                        'name': liveAnimal.animalName.isEmpty
+                            ? 'animal'.tr
+                            : liveAnimal.animalName,
+                      }),
+                      style:
+                          TextStyle(fontSize: 13, color: AppColors.grey.shade700),
+                    ),
+                    const SizedBox(height: 18),
+                    if (canShowSellAction)
+                      _sheetButton(
+                        liveAnimal.isForSale
+                            ? 'cancel_selling_named'.trParams({'name': animalName})
+                            : 'sell_named'.trParams({'name': animalName}),
+                        const Color(0xFFB25E00),
+                        liveAnimal.isForSale
+                            ? () => _confirmCancelSellingAnimal(
+                                  liveAnimal,
+                                  onSuccess: closeLifecycleSheet,
+                                )
+                            : () => _confirmSellAnimal(
+                                  liveAnimal,
+                                  onSuccess: closeLifecycleSheet,
+                                ),
+                        icon: liveAnimal.isForSale
+                            ? Icons.cancel_presentation_rounded
+                            : Icons.storefront_rounded,
+                      ),
+                    if (statusMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F7F7),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Text(
+                          statusMessage,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (canShowLifecycleActions) ...[
+                      const SizedBox(height: 10),
+                      if (canMarkActive) ...[
+                        _sheetButton('mark_active'.tr, AppColors.primary, () async {
+                          await _confirmAndHandleLifecycleAction(
+                            animalId: liveAnimal.id,
+                            action: 'active',
+                            label: 'mark_active'.tr,
+                            onSuccess: closeLifecycleSheet,
+                          );
+                        }, icon: Icons.check_circle_rounded),
+                        const SizedBox(height: 10),
+                      ],
+                      _sheetButton('mark_sold'.tr, const Color(0xFF1976D2), () async {
+                        await _confirmAndHandleLifecycleAction(
+                          animalId: liveAnimal.id,
+                          action: 'sold',
+                          label: 'mark_sold'.tr,
+                          onSuccess: closeLifecycleSheet,
+                        );
+                      }, icon: Icons.verified_rounded),
+                      const SizedBox(height: 10),
+                      _sheetButton('record_death'.tr, Colors.red.shade600, () async {
+                        await _confirmAndHandleLifecycleAction(
+                          animalId: liveAnimal.id,
+                          action: 'death',
+                          label: 'record_death'.tr,
+                          onSuccess: closeLifecycleSheet,
+                        );
+                      }, icon: Icons.warning_amber_rounded),
+                    ],
+                  ],
+                ),
+              );
+            }),
           );
-        }),
+        },
       ),
       isScrollControlled: true,
     );
   }
 
-  void _confirmSellAnimal(ManageAnimalItem animal) {
-    final animalName = animal.animalName.isEmpty ? 'this animal' : animal.animalName;
+  Future<void> _confirmAndHandleLifecycleAction({
+    required int animalId,
+    required String action,
+    required String label,
+    Future<void> Function()? onSuccess,
+  }) async {
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text('confirmation'.tr),
+        content: Text('confirm_action'.trParams({'action': label})),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text('cancel'.tr),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: Text('ok'.tr, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await controller.updateAnimalLifecycle(
+      animalId: animalId,
+      action: action,
+    );
+    if (!ok) return;
+    if (onSuccess != null) {
+      await onSuccess();
+    }
+  }
+
+  bool _canShowMarkActive({
+    required String lifecycleStatus,
+    required bool isForSale,
+  }) {
+    final normalized = lifecycleStatus.trim().toLowerCase();
+    if (isForSale) return false;
+    return normalized != 'active' &&
+        normalized != 'sold' &&
+        normalized != 'death';
+  }
+
+  bool _canShowLifecycleActions({
+    required String lifecycleStatus,
+  }) {
+    return lifecycleStatus.trim().toLowerCase() == 'active';
+  }
+
+  String? _lifecycleStatusMessage({
+    required String lifecycleStatus,
+  }) {
+    final normalized = lifecycleStatus.trim().toLowerCase();
+    if (normalized == 'sold') {
+      return 'animal_already_sold'.tr;
+    }
+    if (normalized == 'death') {
+      return 'animal_already_dead'.tr;
+    }
+    return null;
+  }
+
+  bool _canShowSellAction({
+    required String lifecycleStatus,
+  }) {
+    final normalized = lifecycleStatus.trim().toLowerCase();
+    return normalized != 'sold' && normalized != 'death';
+  }
+
+  void _confirmSellAnimal(
+    ManageAnimalItem animal, {
+    Future<void> Function()? onSuccess,
+  }) {
+    final animalName = animal.animalName.isEmpty ? 'animal'.tr : animal.animalName;
     var priceText = '';
     final priceError = ''.obs;
 
@@ -487,13 +622,13 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 child: const Icon(Icons.storefront_rounded, color: Color(0xFFB25E00), size: 28),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Confirm Sale',
+              Text(
+                'confirm_sale_title'.tr,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Are you sure you want to sell $animalName?',
+                'confirm_sale_message'.trParams({'name': animalName}),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
               ),
@@ -560,10 +695,14 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                 if (Get.isDialogOpen == true) {
                                   Get.back();
                                 }
-                                await controller.sellAnimal(
+                                final ok = await controller.sellAnimal(
                                   animal,
                                   sellingPrice: price,
                                 );
+                                if (!ok) return;
+                                if (onSuccess != null) {
+                                  await onSuccess();
+                                }
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFB25E00),
@@ -590,8 +729,11 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
     );
   }
 
-  void _confirmCancelSellingAnimal(ManageAnimalItem animal) {
-    final animalName = animal.animalName.isEmpty ? 'this animal' : animal.animalName;
+  void _confirmCancelSellingAnimal(
+    ManageAnimalItem animal, {
+    Future<void> Function()? onSuccess,
+  }) {
+    final animalName = animal.animalName.isEmpty ? 'animal'.tr : animal.animalName;
     Get.dialog(
       Dialog(
         backgroundColor: Colors.transparent,
@@ -622,13 +764,13 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                 child: const Icon(Icons.cancel_presentation_rounded, color: Color(0xFFB25E00), size: 28),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Cancel Selling',
+              Text(
+                'cancel_selling_title'.tr,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Are you sure you want to cancel selling $animalName?',
+                'cancel_selling_message'.trParams({'name': animalName}),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
               ),
@@ -656,7 +798,11 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                 if (Get.isDialogOpen == true) {
                                   Get.back();
                                 }
-                                await controller.cancelSellingAnimal(animal);
+                                final ok = await controller.cancelSellingAnimal(animal);
+                                if (!ok) return;
+                                if (onSuccess != null) {
+                                  await onSuccess();
+                                }
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFB25E00),
@@ -670,7 +816,7 @@ class ManageAnimalView extends GetView<ManageAnimalController> {
                                 width: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                               )
-                            : const Text('Confirm'),
+                            : Text('confirm'.tr),
                       ),
                     ),
                   ),

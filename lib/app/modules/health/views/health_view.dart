@@ -136,11 +136,12 @@ class _HealthViewState extends State<HealthView> {
           else
             ...records.map((item) {
               return _card(
-                title: '${item.animalName} - Tag ${item.tagNumber}',
-                subtitle: item.dmiType.isEmpty ? '-' : item.dmiType,
+                title: item.displayTitle,
+                subtitle: item.displaySubtitle,
                 dateText: item.date,
                 status: _cardStatusLabel(item.alertStatus),
                 rows: [
+                  if (item.isPanGroup) _info('animals'.tr, '${item.animalCount}'),
                   _info('required_dmi'.tr, '${item.requiredDmi} Kg'),
                   _info('body_weight'.tr, '${item.bodyWeight} Kg'),
                   if (!item.isNonMilking) _info('total_milk'.tr, '${item.totalMilk} L'),
@@ -182,55 +183,56 @@ class _HealthViewState extends State<HealthView> {
     final treatments = item.treatments;
     final recoveredRows = item.recoveredRows;
     final isRecovered = item.recoveryStatus == 'recovered' || item.recoveryStatus == 'recoverd';
+    final recoveredRow = recoveredRows.isNotEmpty ? recoveredRows.first : null;
     return _card(
-      title: '${item.animalName} - Tag ${item.tagNumber}',
-      subtitle: _mastitisResultLabel(item.testResult),
-      dateText: item.latestDate,
+      title: '${item.animalName} - ${'tag'.tr} ${item.tagNumber}',
+      subtitle: _mastitisResultLabel(item.effectiveTestResult),
+      dateLabel: 'positive_found_date'.tr,
+      dateText: item.positiveFoundDate,
       status: _mastitisStatusLabel(item.recoveryStatus),
       rows: [
         if (treatments.isEmpty)
-          _info('treatment'.tr, 'No treatment added')
+          _info('treatment'.tr, 'no_treatment_added'.tr)
         else
           ...treatments.map(
             (row) => _info(row.date, row.treatment),
           ),
-        if (recoveredRows.isNotEmpty) ...[
+        if (recoveredRow != null) ...[
           const SizedBox(height: 4),
-          ...recoveredRows.map(
-            (row) => _info(row.date, 'recovered'.tr),
+          _info(recoveredRow.date, 'recovered'.tr),
+        ],
+        if (!isRecovered) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openMastitisTreatmentSheet(context, item),
+                  icon: const Icon(Icons.medical_services_outlined, size: 18),
+                  label: Text('add_treatment'.tr),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _confirmMastitisRecovered(item),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: Text('recovered'.tr),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: isRecovered ? null : () => _openMastitisTreatmentSheet(context, item),
-                icon: const Icon(Icons.medical_services_outlined, size: 18),
-                label: const Text('Add Treatment'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: isRecovered ? null : () => _confirmMastitisRecovered(item),
-                icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
-                label: Text('recovered'.tr),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.grey.shade300,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -238,26 +240,36 @@ class _HealthViewState extends State<HealthView> {
   Widget _dmiSearchAndDateFilters() {
     return Column(
       children: [
-        TextField(
-          onChanged: (value) => controller.dmiSearchQuery.value = value,
-          decoration: InputDecoration(
-            hintText: 'Search by animal name or tag',
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-            filled: true,
-            fillColor: Colors.white,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+        SizedBox(
+          height: 42,
+          child: TextField(
+            onChanged: (value) => controller.dmiSearchQuery.value = value,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'search_by_animal_name_or_tag'.tr,
+              hintStyle: TextStyle(fontSize: 12.2, color: AppColors.grey.shade600),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: AppColors.primary,
+                size: 19,
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 38),
+              filled: true,
+              fillColor: Colors.white,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+              ),
             ),
           ),
         ),
@@ -266,7 +278,7 @@ class _HealthViewState extends State<HealthView> {
           children: [
             Expanded(
               child: _dmiDateButton(
-                label: 'From',
+                label: 'from'.tr,
                 date: controller.dmiFromDate.value,
                 onTap: () => _pickDmiDate(isFrom: true),
               ),
@@ -274,7 +286,7 @@ class _HealthViewState extends State<HealthView> {
             const SizedBox(width: 8),
             Expanded(
               child: _dmiDateButton(
-                label: 'To',
+                label: 'to'.tr,
                 date: controller.dmiToDate.value,
                 onTap: () => _pickDmiDate(isFrom: false),
               ),
@@ -336,7 +348,7 @@ class _HealthViewState extends State<HealthView> {
   }
 
   Widget _dmiAnimalTypeFilters() {
-    final filters = <String, String>{'all': 'All'};
+    final filters = <String, String>{'all': 'all'.tr};
     for (final type in controller.dmiAnimalTypes) {
       filters[type.toLowerCase()] = type;
     }
@@ -373,36 +385,114 @@ class _HealthViewState extends State<HealthView> {
   }
 
   Widget _mastitisSearchBar() {
-    return TextField(
-      onChanged: (value) => controller.mastitisSearchQuery.value = value,
-      decoration: InputDecoration(
-        hintText: 'Search mastitis records',
-        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
-        filled: true,
-        fillColor: Colors.white,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
+    return Obx(
+      () => Column(
+        children: [
+          TextField(
+            onChanged: (value) => controller.mastitisSearchQuery.value = value,
+            decoration: InputDecoration(
+              hintText: 'search_mastitis_records'.tr,
+              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+              filled: true,
+              fillColor: Colors.white,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _mastitisDateButton(
+                  label: 'from'.tr,
+                  date: controller.mastitisFromDate.value,
+                  onTap: () => _pickMastitisDate(isFrom: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _mastitisDateButton(
+                  label: 'to'.tr,
+                  date: controller.mastitisToDate.value,
+                  onTap: () => _pickMastitisDate(isFrom: false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mastitisDateButton({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onTap,
+  }) {
+    final value = date == null ? label : "$label: ${DateFormat('dd/MM/yyyy').format(date)}";
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+          border: Border.all(color: const Color(0xFFDDEBDE)),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                value,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Future<void> _pickMastitisDate({required bool isFrom}) async {
+    final current = isFrom ? controller.mastitisFromDate.value : controller.mastitisToDate.value;
+    final initialDate = current ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked == null) return;
+
+    if (isFrom) {
+      controller.setMastitisDateRange(from: picked);
+    } else {
+      controller.setMastitisDateRange(to: picked);
+    }
+  }
+
   Widget _mastitisResultFilters() {
     final filters = <String, String>{
-      'all': 'All',
       'positive': 'positive'.tr,
       'negative': 'negative'.tr,
+      'all': 'all'.tr,
     };
 
     return Obx(
@@ -441,6 +531,7 @@ class _HealthViewState extends State<HealthView> {
   Widget _card({
     required String title,
     required String subtitle,
+    String dateLabel = '',
     String dateText = '-',
     String status = '',
     Widget? action,
@@ -485,7 +576,10 @@ class _HealthViewState extends State<HealthView> {
             runSpacing: 8,
             children: [
               _metaPill(Icons.pets_outlined, subtitle),
-              _metaPill(Icons.calendar_month_rounded, '${'date'.tr}: $dateText'),
+              _metaPill(
+                Icons.calendar_month_rounded,
+                '${dateLabel.isEmpty ? 'date'.tr : dateLabel}: $dateText',
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -529,12 +623,14 @@ class _HealthViewState extends State<HealthView> {
   }
 
   Widget _statusPill(String status) {
-    final statusLower = status.toLowerCase();
-    final bool isGood = statusLower.contains('balanced') ||
+    final statusLower = status.trim().toLowerCase();
+    final bool isGood = statusLower == 'balanced' ||
+        statusLower == 'balanced'.tr.toLowerCase() ||
         statusLower.contains('auto') ||
-        statusLower.contains('recovered') ||
-        statusLower.contains('negative') ||
-        statusLower == 'recovered'.tr.toLowerCase();
+        statusLower == 'recovered' ||
+        statusLower == 'recovered'.tr.toLowerCase() ||
+        statusLower == 'negative' ||
+        statusLower == 'negative'.tr.toLowerCase();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -556,6 +652,15 @@ class _HealthViewState extends State<HealthView> {
     final normalized = status.trim().toLowerCase();
     if (normalized == 'auto calculated') {
       return '';
+    }
+    if (normalized == 'balanced') {
+      return 'balanced'.tr;
+    }
+    if (normalized == 'low') {
+      return 'low'.tr;
+    }
+    if (normalized == 'high') {
+      return 'high'.tr;
     }
     return status;
   }
@@ -638,108 +743,132 @@ class _HealthViewState extends State<HealthView> {
   }
 
   Future<void> _openMastitisSheet(BuildContext context) async {
-    final selectedAnimal = Rxn<HealthAnimalItem>();
+    final selectedAnimalId = RxnInt();
     final testResult = 'positive'.obs;
     final localSaving = false.obs;
 
     await Get.bottomSheet(
       Obx(
-        () => Container(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _sheetHandle(),
-                Text(
-                  'add_mastitis_record'.tr,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<HealthAnimalItem>(
-                  initialValue: selectedAnimal.value,
-                  isExpanded: true,
-                  decoration: _sheetDecoration('select_animal'.tr),
-                  items: controller.milkingAnimals
-                      .map(
-                        (animal) => DropdownMenuItem<HealthAnimalItem>(
-                          value: animal,
-                          child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => selectedAnimal.value = value,
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: testResult.value,
-                  decoration: _sheetDecoration('test_result'.tr),
-                  items: [
-                    DropdownMenuItem(value: 'positive', child: Text('positive'.tr)),
-                    DropdownMenuItem(value: 'negative', child: Text('negative'.tr)),
-                  ],
-                  onChanged: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      testResult.value = value;
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (localSaving.value || controller.isSubmitting.value)
-                        ? null
-                        : () async {
-                            final animal = selectedAnimal.value;
-                            if (animal == null) {
-                              Get.snackbar('validation'.tr, 'select_animal'.tr);
-                              return;
-                            }
+        () {
+          final animals = <HealthAnimalItem>[];
+          final seenIds = <int>{};
+          for (final animal in controller.availableMastitisAnimals) {
+            if (animal.id <= 0 || !seenIds.add(animal.id)) {
+              continue;
+            }
+            animals.add(animal);
+          }
 
-                            localSaving.value = true;
-                            final ok = await controller.saveMastitis(
-                              animalId: animal.id,
-                              testResult: testResult.value,
-                            );
-                            localSaving.value = false;
-                            if (ok) {
-                              _closeSheetAndShowSuccess(
-                                controller.lastSubmitMessage.trim().isEmpty
-                                    ? 'Mastitis record saved successfully'
-                                    : controller.lastSubmitMessage.trim(),
-                              );
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: (localSaving.value || controller.isSubmitting.value)
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
-                          )
-                        : Text('save_record'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
+          final selectedId = selectedAnimalId.value;
+          final matchingCount = selectedId == null
+              ? 0
+              : animals.where((animal) => animal.id == selectedId).length;
+          final dropdownValue = matchingCount == 1 ? selectedId : null;
+          if (selectedId != null && dropdownValue == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (selectedAnimalId.value == selectedId) {
+                selectedAnimalId.value = null;
+              }
+            });
+          }
+
+          return Container(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              MediaQuery.of(context).viewInsets.bottom + 16,
             ),
-          ),
-        ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  Text(
+                    'add_mastitis_record'.tr,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    initialValue: dropdownValue,
+                    isExpanded: true,
+                    decoration: _sheetDecoration('select_animal'.tr),
+                    items: animals
+                        .map(
+                          (animal) => DropdownMenuItem<int>(
+                            value: animal.id,
+                            child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => selectedAnimalId.value = value,
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: testResult.value,
+                    decoration: _sheetDecoration('test_result'.tr),
+                    items: [
+                      DropdownMenuItem(value: 'positive', child: Text('positive'.tr)),
+                      DropdownMenuItem(value: 'negative', child: Text('negative'.tr)),
+                    ],
+                    onChanged: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        testResult.value = value;
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: (localSaving.value || controller.isSubmitting.value)
+                          ? null
+                          : () async {
+                              final animalId = selectedAnimalId.value;
+                              if (animalId == null || animalId <= 0) {
+                                Get.snackbar('validation'.tr, 'select_animal'.tr);
+                                return;
+                              }
+
+                              localSaving.value = true;
+                              final ok = await controller.saveMastitis(
+                                animalId: animalId,
+                                testResult: testResult.value,
+                              );
+                              localSaving.value = false;
+                              if (ok) {
+                                _closeSheetAndShowSuccess(
+                                  controller.lastSubmitMessage.trim().isEmpty
+                                      ? 'mastitis_record_saved_successfully'.tr
+                                      : controller.lastSubmitMessage.trim(),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: (localSaving.value || controller.isSubmitting.value)
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                            )
+                          : Text('save_record'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
       isScrollControlled: true,
     );
@@ -769,13 +898,13 @@ class _HealthViewState extends State<HealthView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _sheetHandle(),
-              const Text(
-                'Add Treatment',
+              Text(
+                'add_treatment'.tr,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 10),
               Text(
-                '${item.animalName} - Tag ${item.tagNumber}',
+                '${item.animalName} - ${'tag'.tr} ${item.tagNumber}',
                 style: TextStyle(
                   color: AppColors.grey.shade700,
                   fontWeight: FontWeight.w700,
@@ -784,6 +913,7 @@ class _HealthViewState extends State<HealthView> {
               const SizedBox(height: 10),
               TextFormField(
                 controller: treatmentController,
+                textCapitalization: TextCapitalization.sentences,
                 minLines: 2,
                 maxLines: 3,
                 decoration: _sheetDecoration('treatment'.tr),
@@ -824,13 +954,14 @@ class _HealthViewState extends State<HealthView> {
                           final treatment = treatmentController.text.trim();
 
                           if (treatment.isEmpty) {
-                            Get.snackbar('validation'.tr, 'Please enter treatment');
+                            Get.snackbar('validation'.tr, 'please_enter_treatment'.tr);
                             return;
                           }
 
                           localSaving.value = true;
 
                           final ok = await controller.addMastitisTreatment(
+                            mastitisRecordId: item.caseId,
                             animalId: item.animalId,
                             treatment: treatment,
                             date: selectedDate.value,
@@ -841,7 +972,7 @@ class _HealthViewState extends State<HealthView> {
                           if (ok) {
                             _closeSheetAndShowSuccess(
                               controller.lastSubmitMessage.trim().isEmpty
-                                  ? 'Treatment added successfully'
+                                  ? 'treatment_added_successfully'.tr
                                   : controller.lastSubmitMessage.trim(),
                             );
                           }
@@ -863,8 +994,8 @@ class _HealthViewState extends State<HealthView> {
                             strokeWidth: 2.2,
                           ),
                         )
-                      : const Text(
-                          'Save Treatment',
+                      : Text(
+                          'save_treatment'.tr,
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                 ),
@@ -882,17 +1013,17 @@ class _HealthViewState extends State<HealthView> {
     final ok = await Get.dialog<bool>(
       AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Confirm Recovery'),
-        content: Text('Are you sure your animal ${item.animalName} is recovered?'),
+        title: Text('confirm_recovery'.tr),
+        content: Text('animal_recovered_confirm'.trParams({'name': item.animalName})),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('Cancel'),
+            child: Text('cancel'.tr),
           ),
           ElevatedButton(
             onPressed: () => Get.back(result: true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            child: const Text('OK'),
+            child: Text('ok'.tr),
           ),
         ],
       ),
@@ -900,14 +1031,15 @@ class _HealthViewState extends State<HealthView> {
 
     if (ok != true) return;
     final saved = await controller.markMastitisRecovered(
+      mastitisRecordId: item.caseId,
       animalId: item.animalId,
       date: DateTime.now(),
     );
     if (saved) {
       Get.snackbar(
-        'Success',
+        'success'.tr,
         controller.lastSubmitMessage.trim().isEmpty
-            ? 'Animal marked as recovered'
+            ? 'animal_marked_recovered'.tr
             : controller.lastSubmitMessage.trim(),
         duration: const Duration(seconds: 4),
       );
@@ -933,7 +1065,7 @@ class _HealthViewState extends State<HealthView> {
       Get.back();
     }
     Future.delayed(const Duration(milliseconds: 250), () {
-      Get.snackbar('Success', message, duration: const Duration(seconds: 4));
+      Get.snackbar('success'.tr, message, duration: const Duration(seconds: 4));
     });
   }
 

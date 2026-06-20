@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
@@ -9,6 +11,12 @@ import '../../../core/utils/api.dart';
 class PaymentController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isSaving = false.obs;
+  final TextEditingController searchController = TextEditingController();
+  final TextEditingController fromDateController = TextEditingController();
+  final TextEditingController toDateController = TextEditingController();
+  final RxString searchQuery = ''.obs;
+  final RxString fromDateText = ''.obs;
+  final RxString toDateText = ''.obs;
   int farmerId = 0;
 
   final RxList<PaymentDairySummary> payments = <PaymentDairySummary>[].obs;
@@ -17,7 +25,70 @@ class PaymentController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    searchController.addListener(() {
+      searchQuery.value = searchController.text.trim();
+    });
     loadPayments();
+  }
+
+  bool get hasActiveDateFilter =>
+      fromDateText.value.trim().isNotEmpty || toDateText.value.trim().isNotEmpty;
+
+  bool get hasActiveFilters =>
+      searchQuery.value.trim().isNotEmpty || hasActiveDateFilter;
+
+  List<PaymentDairySummary> get filteredPayments {
+    final query = searchQuery.value.trim().toLowerCase();
+    return payments.where((summary) {
+      final nameMatches =
+          query.isEmpty || summary.dairyName.toLowerCase().contains(query);
+      if (!nameMatches) return false;
+      if (!hasActiveDateFilter) return true;
+      return filteredHistoryForSummary(summary).isNotEmpty;
+    }).toList();
+  }
+
+  List<PaymentDayEntry> filteredHistoryForSummary(PaymentDairySummary summary) {
+    if (!hasActiveDateFilter) return summary.history;
+    final start = _parseFilterDate(fromDateText.value.trim());
+    final end = _parseFilterDate(toDateText.value.trim());
+    return summary.history.where((entry) {
+      final date = _parsePaymentDate(entry);
+      if (date == null) return false;
+      if (start != null && date.isBefore(start)) return false;
+      if (end != null && date.isAfter(end)) return false;
+      return true;
+    }).toList();
+  }
+
+  PaymentDayEntry? latestVisibleEntry(PaymentDairySummary summary) {
+    final visibleHistory = filteredHistoryForSummary(summary);
+    return visibleHistory.isEmpty ? null : visibleHistory.first;
+  }
+
+  Future<void> pickFromDate(BuildContext context) async {
+    final picked = await _pickDate(context, fromDateText.value.trim());
+    if (picked == null) return;
+    final formatted = _displayDate(picked);
+    fromDateController.text = formatted;
+    fromDateText.value = formatted;
+  }
+
+  Future<void> pickToDate(BuildContext context) async {
+    final picked = await _pickDate(context, toDateText.value.trim());
+    if (picked == null) return;
+    final formatted = _displayDate(picked);
+    toDateController.text = formatted;
+    toDateText.value = formatted;
+  }
+
+  void clearFilters() {
+    searchController.clear();
+    fromDateController.clear();
+    toDateController.clear();
+    searchQuery.value = '';
+    fromDateText.value = '';
+    toDateText.value = '';
   }
 
   Future<void> loadPayments({bool silent = false}) async {
@@ -165,6 +236,77 @@ class PaymentController extends GetxController {
     }
     return null;
   }
+
+  Future<DateTime?> _pickDate(BuildContext context, String existingText) async {
+    final initialDate = _parseFilterDate(existingText) ?? DateTime.now();
+    return showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFF2E7D32),
+            surface: Color(0xFFF2FAF2),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+  }
+
+  DateTime? _parseFilterDate(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(value);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? _parsePaymentDate(PaymentDayEntry entry) {
+    final dateKey = entry.dateKey.trim();
+    if (dateKey.isNotEmpty) {
+      final parsedKey = DateTime.tryParse(dateKey);
+      if (parsedKey != null) {
+        return DateTime(parsedKey.year, parsedKey.month, parsedKey.day);
+      }
+    }
+
+    final raw = entry.date.trim();
+    if (raw.isEmpty) return null;
+    final direct = DateTime.tryParse(raw);
+    if (direct != null) {
+      return DateTime(direct.year, direct.month, direct.day);
+    }
+
+    const patterns = <String>[
+      'dd/MM/yyyy',
+      'yyyy-MM-dd',
+      'dd-MM-yyyy',
+    ];
+    for (final pattern in patterns) {
+      try {
+        final parsed = DateFormat(pattern).parseStrict(raw);
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  String _displayDate(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  @override
+  void onClose() {
+    searchController.dispose();
+    fromDateController.dispose();
+    toDateController.dispose();
+    super.onClose();
+  }
 }
 
 class PaymentDairyOption {
@@ -291,6 +433,8 @@ class PaymentDayEntry {
 class PaymentLedgerAnimal {
   final String animalName;
   final String tagNumber;
+  final int panId;
+  final String panName;
   final double morningMilk;
   final double afternoonMilk;
   final double eveningMilk;
@@ -299,6 +443,8 @@ class PaymentLedgerAnimal {
   const PaymentLedgerAnimal({
     required this.animalName,
     required this.tagNumber,
+    this.panId = 0,
+    this.panName = '',
     required this.morningMilk,
     required this.afternoonMilk,
     required this.eveningMilk,
@@ -309,6 +455,8 @@ class PaymentLedgerAnimal {
     return PaymentLedgerAnimal(
       animalName: (json['animal_name'] ?? '-').toString(),
       tagNumber: (json['tag_number'] ?? '').toString(),
+      panId: _toInt(json['pan_id']),
+      panName: (json['pan_name'] ?? '').toString(),
       morningMilk: _toDouble(json['morning_milk']),
       afternoonMilk: _toDouble(json['afternoon_milk']),
       eveningMilk: _toDouble(json['evening_milk']),
@@ -318,5 +466,9 @@ class PaymentLedgerAnimal {
 
   static double _toDouble(dynamic value) {
     return double.tryParse(value?.toString() ?? '0') ?? 0;
+  }
+
+  static int _toInt(dynamic value) {
+    return int.tryParse(value?.toString() ?? '0') ?? 0;
   }
 }

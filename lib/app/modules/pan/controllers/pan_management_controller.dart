@@ -16,6 +16,7 @@ class PanManagementController extends GetxController {
 
   final RxList<PanAnimalItem> animals = <PanAnimalItem>[].obs;
   final RxList<PanGroupItem> pans = <PanGroupItem>[].obs;
+  final RxList<PanAnimalTypeOption> animalTypes = <PanAnimalTypeOption>[].obs;
   final RxList<int> selectedAnimalIds = <int>[].obs;
   final RxList<String> selectedMilkShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
   final RxString selectedPanType = panTypeMilking.obs;
@@ -29,22 +30,59 @@ class PanManagementController extends GetxController {
 
   List<PanAnimalItem> get filteredAnimals {
     final available = animals.where((item) => (item.panId ?? 0) <= 0).toList();
-    if (!isMilkingPan) {
-      return available;
-    }
-    return available.where((item) => item.isMilkingAnimal).toList();
+    return available
+        .where((item) => item.matchesPanType(selectedPanType.value))
+        .toList();
   }
 
   List<PanAnimalItem> editableAnimalsForPan(PanGroupItem pan) {
-    final isMilking = pan.panType == panTypeMilking;
     return animals.where((item) {
       final panId = item.panId ?? 0;
       final isCurrentPanAnimal = panId == pan.id;
       final isUnassigned = panId <= 0;
       if (!(isCurrentPanAnimal || isUnassigned)) return false;
-      if (!isMilking) return true;
-      return item.isMilkingAnimal;
+      return item.matchesPanType(pan.panType);
     }).toList();
+  }
+
+  String translatedAnimalTypeName(String rawName, {bool plural = false}) {
+    final normalized = rawName.trim().toLowerCase();
+    if (normalized.isEmpty) return rawName;
+
+    if (_containsAny(normalized, const ['milking cow', 'milking cows']) ||
+        (normalized.contains('milking') && !normalized.contains('non'))) {
+      return plural ? 'milking_cows'.tr : 'milking_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const [
+          'non milking cow',
+          'non-milking cow',
+          'non milking cows',
+          'non-milking cows',
+          'dry cow',
+          'dry cows',
+        ]) ||
+        normalized.contains('dry')) {
+      return plural ? 'dry_cows'.tr : 'dry_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const ['heifer', 'heifers'])) {
+      return plural ? 'heifers'.tr : 'heifer'.tr;
+    }
+
+    if (_containsAny(normalized, const ['calf', 'calves'])) {
+      return plural ? 'calves'.tr : 'calf'.tr;
+    }
+
+    if (_containsAny(normalized, const ['bull', 'bulls'])) {
+      return plural ? 'bulls'.tr : 'bull'.tr;
+    }
+
+    if (_containsAny(normalized, const ['cow', 'cows'])) {
+      return plural ? 'cow'.tr : 'cow_single'.tr;
+    }
+
+    return rawName;
   }
 
   @override
@@ -56,8 +94,7 @@ class PanManagementController extends GetxController {
   Future<void> _initData() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
-    await fetchAnimals();
-    await fetchPans();
+    await Future.wait([fetchAnimals(), fetchPans(), fetchAnimalTypes()]);
   }
 
   Future<void> fetchAnimals() async {
@@ -124,8 +161,36 @@ class PanManagementController extends GetxController {
     }
   }
 
+  Future<void> fetchAnimalTypes() async {
+    try {
+      final response = await http.get(
+        Uri.parse(Api.animalTypes),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        final List<dynamic> list = (data['data'] as List?) ?? const [];
+        animalTypes.assignAll(
+          list
+              .whereType<Map>()
+              .map(
+                (item) => PanAnimalTypeOption.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .where((item) => item.id > 0 && item.name.trim().isNotEmpty)
+              .toList(),
+        );
+      } else {
+        animalTypes.clear();
+      }
+    } catch (_) {
+      animalTypes.clear();
+    }
+  }
+
   Future<void> refreshAll() async {
-    await Future.wait([fetchAnimals(), fetchPans()]);
+    await Future.wait([fetchAnimals(), fetchPans(), fetchAnimalTypes()]);
   }
 
   void toggleAnimalSelection(int animalId) {
@@ -142,7 +207,7 @@ class PanManagementController extends GetxController {
     }
     if (selectedMilkShifts.contains(shift)) {
       if (selectedMilkShifts.length == 1) {
-        Get.snackbar('Info', 'Please keep at least one milk shift selected.');
+        Get.snackbar('info'.tr, 'please_keep_at_least_one_milk_shift_selected'.tr);
         return;
       }
       selectedMilkShifts.remove(shift);
@@ -168,22 +233,29 @@ class PanManagementController extends GetxController {
     selectedMilkShifts.clear();
   }
 
+  bool _containsAny(String value, List<String> checks) {
+    for (final check in checks) {
+      if (value.contains(check)) return true;
+    }
+    return false;
+  }
+
   Future<bool> createPan() async {
     final panName = panNameController.text.trim();
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer session not found.');
+      Get.snackbar('error'.tr, 'farmer_session_not_found'.tr);
       return false;
     }
     if (panName.isEmpty) {
-      Get.snackbar('Error', 'Please enter PAN name.');
+      Get.snackbar('error'.tr, 'please_enter_pan_name'.tr);
       return false;
     }
     if (selectedAnimalIds.length < 2) {
-      Get.snackbar('Error', 'Select minimum 2 animals for PAN creating.');
+      Get.snackbar('error'.tr, 'select_minimum_2_animals_for_pan'.tr);
       return false;
     }
     if (isMilkingPan && selectedMilkShifts.isEmpty) {
-      Get.snackbar('Error', 'Please select milk shifts for Milking PAN.');
+      Get.snackbar('error'.tr, 'please_select_milk_shifts_for_milking_pan'.tr);
       return false;
     }
 
@@ -210,14 +282,14 @@ class PanManagementController extends GetxController {
         selectedPanType.value = panTypeMilking;
         selectedMilkShifts.assignAll(<String>['Morning', 'Afternoon', 'Evening']);
         await refreshAll();
-        Get.snackbar('Success', data['message']?.toString() ?? 'PAN created successfully.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'pan_created_successfully'.tr);
         return true;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to create PAN.');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_create_pan'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -233,19 +305,19 @@ class PanManagementController extends GetxController {
   }) async {
     final panName = name.trim();
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer session not found.');
+      Get.snackbar('error'.tr, 'farmer_session_not_found'.tr);
       return false;
     }
     if (panName.isEmpty) {
-      Get.snackbar('Error', 'Please enter PAN name.');
+      Get.snackbar('error'.tr, 'please_enter_pan_name'.tr);
       return false;
     }
     if (animalIds.length < 2) {
-      Get.snackbar('Error', 'Select minimum 2 animals for PAN creating.');
+      Get.snackbar('error'.tr, 'select_minimum_2_animals_for_pan'.tr);
       return false;
     }
     if (panType == panTypeMilking && milkShifts.isEmpty) {
-      Get.snackbar('Error', 'Please select milk shifts for Milking PAN.');
+      Get.snackbar('error'.tr, 'please_select_milk_shifts_for_milking_pan'.tr);
       return false;
     }
 
@@ -268,14 +340,14 @@ class PanManagementController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         await refreshAll();
-        Get.snackbar('Success', data['message']?.toString() ?? 'PAN updated successfully.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'pan_updated_successfully'.tr);
         return true;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to update PAN.');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_update_pan'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -303,18 +375,15 @@ class PanManagementController extends GetxController {
 
   List<PanGroupItem> _applyPanTypeAnimalRules(List<PanGroupItem> source) {
     return source.map((pan) {
-      if (pan.panType != panTypeMilking) {
-        return pan;
-      }
-      final milkingAnimals = pan.animals
-          .where((animal) => animal.isMilkingAnimal)
+      final allowedAnimals = pan.animals
+          .where((animal) => animal.matchesPanType(pan.panType))
           .toList();
-      if (milkingAnimals.length == pan.animals.length) {
+      if (allowedAnimals.length == pan.animals.length) {
         return pan;
       }
       return pan.copyWith(
-        animals: milkingAnimals,
-        animalsCount: milkingAnimals.length,
+        animals: allowedAnimals,
+        animalsCount: allowedAnimals.length,
       );
     }).toList();
   }
@@ -322,9 +391,10 @@ class PanManagementController extends GetxController {
   Future<bool> transferAnimalToPan({
     required int animalId,
     required int toPanId,
+    int? animalTypeId,
   }) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer session not found.');
+      Get.snackbar('error'.tr, 'farmer_session_not_found'.tr);
       return false;
     }
 
@@ -344,24 +414,61 @@ class PanManagementController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
+        if (animalTypeId != null && animalTypeId > 0) {
+          final typeChanged = await _updateAnimalType(
+            animalId: animalId,
+            animalTypeId: animalTypeId,
+          );
+          if (!typeChanged) {
+            await refreshAll();
+            Get.snackbar(
+              'info'.tr,
+              'animal_transferred_but_type_not_updated'.tr,
+            );
+            return true;
+          }
+        }
         await refreshAll();
-        Get.snackbar('Success', data['message']?.toString() ?? 'Animal PAN transferred successfully.');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'animal_pan_transferred_successfully'.tr);
         return true;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to transfer PAN.');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_transfer_pan'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
     }
   }
 
+  Future<bool> _updateAnimalType({
+    required int animalId,
+    required int animalTypeId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${Api.animalLifecycle}/$animalId'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'action': 'move_type',
+          'animal_type_id': animalTypeId.toString(),
+        }),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      return response.statusCode == 200 && data['status'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> deletePan(int panId) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer session not found.');
+      Get.snackbar('error'.tr, 'farmer_session_not_found'.tr);
       return false;
     }
 
@@ -381,8 +488,8 @@ class PanManagementController extends GetxController {
       if (response.statusCode == 200 && data['status'] == true) {
         await refreshAll();
         Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? 'PAN deleted successfully.',
+          'success'.tr,
+          data['message']?.toString() ?? 'pan_deleted_successfully'.tr,
         );
         return true;
       }
@@ -391,14 +498,14 @@ class PanManagementController extends GetxController {
       if (message is Map) {
         final first = message.values.isNotEmpty ? message.values.first : null;
         if (first is List && first.isNotEmpty) {
-          Get.snackbar('Error', first.first.toString());
+          Get.snackbar('error'.tr, first.first.toString());
           return false;
         }
       }
-      Get.snackbar('Error', message?.toString() ?? 'Failed to delete PAN.');
+      Get.snackbar('error'.tr, message?.toString() ?? 'failed_to_delete_pan'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -420,6 +527,7 @@ class PanAnimalItem {
   final String lifecycleStatus;
   final int? panId;
   final String panName;
+  final int animalTypeId;
   final String animalTypeName;
 
   PanAnimalItem({
@@ -430,6 +538,7 @@ class PanAnimalItem {
     required this.lifecycleStatus,
     required this.panId,
     required this.panName,
+    required this.animalTypeId,
     required this.animalTypeName,
   });
 
@@ -442,6 +551,7 @@ class PanAnimalItem {
       lifecycleStatus: (json['lifecycle_status'] ?? 'active').toString(),
       panId: int.tryParse('${json['pan_id'] ?? ''}'),
       panName: (json['pan_name'] ?? '').toString(),
+      animalTypeId: int.tryParse('${json['animal_type_id'] ?? 0}') ?? 0,
       animalTypeName: (json['animal_type_name'] ?? '').toString(),
     );
   }
@@ -453,6 +563,33 @@ class PanAnimalItem {
         type.contains('non milking') ||
         type.contains('dry');
     return hasMilking && !hasNonMilking;
+  }
+
+  bool matchesPanType(String panType) {
+    if (panType == PanManagementController.panTypeMilking) {
+      return isMilkingAnimal;
+    }
+    if (panType == PanManagementController.panTypeNonMilking) {
+      return !isMilkingAnimal;
+    }
+    return true;
+  }
+}
+
+class PanAnimalTypeOption {
+  final int id;
+  final String name;
+
+  const PanAnimalTypeOption({
+    required this.id,
+    required this.name,
+  });
+
+  factory PanAnimalTypeOption.fromJson(Map<String, dynamic> json) {
+    return PanAnimalTypeOption(
+      id: int.tryParse('${json['id'] ?? 0}') ?? 0,
+      name: (json['name'] ?? '').toString(),
+    );
   }
 }
 

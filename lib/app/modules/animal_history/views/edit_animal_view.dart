@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
+import '../../home/controllers/home_controller.dart';
 import '../controllers/animal_history_controller.dart';
 
 class EditAnimalView extends StatefulWidget {
@@ -290,6 +292,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
             controller: _animalNameController,
             focusNode: _animalNameFocus,
             textInputAction: TextInputAction.next,
+            textCapitalization: TextCapitalization.words,
             decoration: _inputDecoration('enter_animal_name'.tr),
             validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_animal_name'.tr : null,
           ),
@@ -357,6 +360,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
           TextFormField(
             controller: _breedNameController,
             textInputAction: TextInputAction.next,
+            textCapitalization: TextCapitalization.words,
             decoration: _inputDecoration('enter_breed_name'.tr),
           ),
           const SizedBox(height: 18),
@@ -384,7 +388,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
                         tooltip: 'Clear',
                       ),
               ),
-              validator: (value) => (value ?? '').trim().isEmpty ? 'Please select birth date' : null,
+              validator: (value) => (value ?? '').trim().isEmpty ? 'please_select_birth_date'.tr : null,
             ),
           ),
           ValueListenableBuilder<TextEditingValue>(
@@ -470,9 +474,9 @@ class _EditAnimalViewState extends State<EditAnimalView> {
                       decoration: _inputDecoration('enter_weight'.tr),
                       validator: (value) {
                         final text = (value ?? '').trim();
-                        if (text.isEmpty) return 'Please enter weight';
+                        if (text.isEmpty) return 'please_enter_weight'.tr;
                         final parsed = double.tryParse(text);
-                        if (parsed == null || parsed <= 0) return 'Please enter valid weight';
+                        if (parsed == null || parsed <= 0) return 'please_enter_valid_weight'.tr;
                         return null;
                       },
                     ),
@@ -493,7 +497,7 @@ class _EditAnimalViewState extends State<EditAnimalView> {
               decoration: _inputDecoration('enter_default_milk_per_milking'.tr),
               validator: (value) {
                 final text = (value ?? '').trim();
-                if (text.isEmpty) return 'Please enter expected milk yield per shift';
+                if (text.isEmpty) return 'please_enter_expected_milk_yield_per_shift'.tr;
                 final parsed = double.tryParse(text);
                 if (parsed == null || parsed < 0) return 'enter_valid_milk_qty'.tr;
                 return null;
@@ -691,24 +695,24 @@ class _EditAnimalViewState extends State<EditAnimalView> {
       return;
     }
     if (_selectedTypeId == 0) {
-      Get.snackbar('Error', 'please_select_animal_type'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_animal_type'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (_showMotherAnimalDropdown && _selectedMotherAnimal == null) {
-      Get.snackbar('Error', 'please_select_mother_animal'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_mother_animal'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final ageInfo = _calculateAgeInfoFromText(_birthDateController.text);
     if (ageInfo == null) {
-      Get.snackbar('Error', 'Please select valid birth date', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_valid_birth_date'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (widget.item.image.trim().isEmpty && _selectedImage == null) {
-      Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'upload_animal_image'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
-    final ok = await controller.updateAnimal(
+    final successMessage = await controller.updateAnimal(
       item: widget.item,
       animalName: _animalNameController.text,
       tagNumber: _tagNumberController.text,
@@ -726,8 +730,23 @@ class _EditAnimalViewState extends State<EditAnimalView> {
       imageFile: _selectedImage,
     );
 
-    if (ok) {
-      Get.back();
+    if (successMessage != null) {
+      if (Get.isRegistered<HomeController>()) {
+        await Get.find<HomeController>().refreshDashboard(silent: true);
+      }
+      if (Get.isRegistered<BottomNavController>()) {
+        Get.find<BottomNavController>().changeTab(0);
+      } else {
+        Get.offAllNamed(Routes.HOME);
+      }
+      Future.delayed(const Duration(milliseconds: 150), () {
+        Get.snackbar(
+          'success'.tr,
+          successMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5),
+        );
+      });
     }
   }
 

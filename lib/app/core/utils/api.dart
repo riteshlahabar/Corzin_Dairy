@@ -64,6 +64,7 @@ class Api {
 
   static const String addDairy = "$baseUrl/dairy";
   static const String dairyList = "$baseUrl/dairy/list";
+  static const String dairyUpdate = "$baseUrl/dairy/update";
   static const String dairyPayments = "$baseUrl/dairy/payments";
   static const String dairyPaymentEntry = "$baseUrl/dairy/payments/entry";
   static const String livestockReport = "$baseUrl/reports/livestock";
@@ -82,4 +83,5 @@ class Api {
   static const String shopOrders = "$baseUrl/shop/orders";
   static const String shopOrdersByFarmer = "$baseUrl/shop/orders/farmer";
   static const String subscriptionPlans = "$baseUrl/subscription/plans";
+  static const String subscriptionPurchase = "$baseUrl/subscription/purchase";
 }

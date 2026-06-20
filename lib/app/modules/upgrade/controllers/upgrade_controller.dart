@@ -1,26 +1,38 @@
-import 'package:get/get.dart';
 import 'dart:convert';
+
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/razorpay_service.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 import '../../home/controllers/home_controller.dart';
 
 class UpgradeController extends GetxController {
   final RxBool isLoading = false.obs;
+  final RxBool isPurchasingPlan = false.obs;
+  final RxInt purchasingPlanId = 0.obs;
+  final RxInt selectedPlanId = 0.obs;
   final RxString adminContactName = ''.obs;
   final RxString adminContactNumber = ''.obs;
+
+  int farmerId = 0;
+  String farmerName = '';
+  String mobileNumber = '';
 
   final RxList<PlanModel> plans = <PlanModel>[
     const PlanModel(
       name: 'free_plan',
-      price: '₹0',
+      price: 'Rs 0',
+      amount: 0,
       features: ['limited_animals', 'limited_pans', 'basic_dashboard'],
       highlighted: false,
     ),
     const PlanModel(
       name: 'paid_plan',
-      price: '₹999 / year',
+      price: 'Rs 999 / year',
+      amount: 999,
       features: ['unlimited_animals', 'unlimited_pans', 'advanced_reports'],
       highlighted: true,
     ),
@@ -29,7 +41,18 @@ class UpgradeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadData();
+    _initialise();
+  }
+
+  Future<void> _initialise() async {
+    await _loadSessionContext();
+    await loadData();
+  }
+
+  Future<void> _loadSessionContext() async {
+    farmerId = await SessionService.getFarmerId();
+    farmerName = await SessionService.getFarmerName();
+    mobileNumber = await SessionService.getMobile();
   }
 
   Future<void> loadData() async {
@@ -39,8 +62,11 @@ class UpgradeController extends GetxController {
   Future<void> loadPlans() async {
     try {
       isLoading.value = true;
+      final uri = farmerId > 0
+          ? Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId')
+          : Uri.parse(Api.subscriptionPlans);
       final response = await http.get(
-        Uri.parse(Api.subscriptionPlans),
+        uri,
         headers: {'Accept': 'application/json'},
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -50,13 +76,58 @@ class UpgradeController extends GetxController {
           plans.assignAll(
             list.map((item) => PlanModel.fromJson(item)).toList(),
           );
+          _ensureSelectedPlan();
         }
       }
     } catch (_) {
       // Keep fallback plans when API is not available.
     } finally {
+      _ensureSelectedPlan();
       isLoading.value = false;
     }
+  }
+
+  void _ensureSelectedPlan() {
+    if (plans.isEmpty) {
+      selectedPlanId.value = 0;
+      return;
+    }
+
+    final currentId = selectedPlanId.value;
+    if (currentId != 0 && plans.any((plan) => plan.id == currentId)) {
+      return;
+    }
+
+    final highlighted = plans.firstWhereOrNull((plan) => plan.highlighted);
+    selectedPlanId.value = (highlighted ?? plans.first).id;
+  }
+
+  void selectPlan(PlanModel plan) {
+    selectedPlanId.value = plan.id;
+  }
+
+  PlanModel get selectedPlan {
+    if (plans.isEmpty) {
+      return const PlanModel(
+        name: 'paid_plan',
+        price: 'Rs 0',
+        amount: 0,
+        features: <String>[],
+        highlighted: false,
+      );
+    }
+
+    return plans.firstWhereOrNull((plan) => plan.id == selectedPlanId.value) ??
+        plans.first;
+  }
+
+  Future<void> continueWithSelectedPlan() async {
+    final plan = selectedPlan;
+    if (plan.amount > 0) {
+      await purchasePlan(plan);
+      return;
+    }
+    await contactAdmin();
   }
 
   Future<void> loadAdminContact() async {
@@ -97,28 +168,147 @@ class UpgradeController extends GetxController {
     }
     final number = adminContactNumber.value.replaceAll(RegExp(r'[^0-9+]'), '');
     if (number.isEmpty) {
-      Get.snackbar('Error', 'Admin contact number is not available.');
+      Get.snackbar('error'.tr, 'admin_contact_number_not_available'.tr);
       return;
     }
     final uri = Uri(scheme: 'tel', path: number);
     if (!await launchUrl(uri)) {
-      Get.snackbar('Error', 'Unable to open dialer.');
+      Get.snackbar('error'.tr, 'unable_open_dialer'.tr);
     }
+  }
+
+  Future<void> purchasePlan(PlanModel plan) async {
+    if (isPurchasingPlan.value) return;
+
+    if (plan.amount <= 0) {
+      Get.snackbar('info'.tr, 'free_plan_no_payment'.tr);
+      return;
+    }
+    if (farmerId <= 0) {
+      Get.snackbar('error'.tr, 'please_login_again'.tr);
+      return;
+    }
+
+    try {
+      isPurchasingPlan.value = true;
+      purchasingPlanId.value = plan.id;
+
+      final paymentResult = await RazorpayService.instance.openCheckout(
+        amount: plan.amount,
+        customerName: farmerName,
+        contact: mobileNumber,
+        description: 'Subscription - ${plan.name.tr}',
+        notes: {
+          'flow': 'subscription',
+          'farmer_id': '$farmerId',
+          'plan_id': '${plan.id}',
+        },
+      );
+
+      if (!paymentResult.success) {
+        if (paymentResult.message.trim().isNotEmpty &&
+            paymentResult.message.trim() != 'payment_cancelled'.tr) {
+          Get.snackbar('payment'.tr, paymentResult.message.trim());
+        }
+        return;
+      }
+
+      final saved = await _saveSubscriptionPurchase(
+        plan: plan,
+        paymentMeta: paymentResult.toApiPayload(),
+      );
+
+      if (saved) {
+        if (Get.isRegistered<HomeController>()) {
+          await Get.find<HomeController>().loadDashboard(silent: true);
+        }
+        Get.snackbar('success'.tr, 'subscription_payment_success'.tr);
+      } else {
+        Get.snackbar('info'.tr, 'subscription_activation_pending'.tr);
+      }
+    } finally {
+      isPurchasingPlan.value = false;
+      purchasingPlanId.value = 0;
+    }
+  }
+
+  Future<bool> _saveSubscriptionPurchase({
+    required PlanModel plan,
+    required Map<String, dynamic> paymentMeta,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'farmer_id': farmerId,
+        'plan_id': plan.id,
+        'plan_name': plan.name,
+        'amount': double.parse(plan.amount.toStringAsFixed(2)),
+        'payment_method': 'razorpay',
+        'payment_status': 'paid',
+        ...paymentMeta,
+      };
+
+      final response = await http.post(
+        Uri.parse(Api.subscriptionPurchase),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      return (response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  FarmerPlanModel get currentPlan {
+    if (Get.isRegistered<HomeController>()) {
+      return Get.find<HomeController>().currentPlan.value;
+    }
+    return const FarmerPlanModel(
+      name: 'free_plan',
+      amount: 'Rs 0',
+      expiryDate: '30 days',
+      startDate: '-',
+      renewDate: '-',
+    );
+  }
+
+  bool get isPlanLocked {
+    return Get.isRegistered<HomeController>() &&
+        Get.find<HomeController>().isPlanLocked.value;
+  }
+
+  String get planLockMessage {
+    if (!Get.isRegistered<HomeController>()) return '';
+    return Get.find<HomeController>().planLockMessage.value;
+  }
+
+  int get planDaysLeft {
+    if (!Get.isRegistered<HomeController>()) return 0;
+    return Get.find<HomeController>().planDaysLeft.value;
   }
 }
 
 class PlanModel {
-  final String name;
-  final String price;
-  final List<String> features;
-  final bool highlighted;
-
   const PlanModel({
+    this.id = 0,
     required this.name,
     required this.price,
+    required this.amount,
     required this.features,
     required this.highlighted,
   });
+
+  final int id;
+  final String name;
+  final String price;
+  final double amount;
+  final List<String> features;
+  final bool highlighted;
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
     final featuresRaw = json['features'];
@@ -127,17 +317,29 @@ class PlanModel {
       for (final item in featuresRaw) {
         features.add(item.toString());
       }
+    } else if (featuresRaw is String && featuresRaw.trim().isNotEmpty) {
+      features.add(featuresRaw.trim());
     }
 
     final isHighlighted =
         json['highlighted'] == true || json['is_popular'] == true;
     final name = json['name']?.toString() ?? 'plan';
-    final priceLabel = json['price_label']?.toString();
-    final amount = json['price']?.toString();
+    final priceAmount = double.tryParse(json['price']?.toString() ?? '0') ?? 0;
+    final priceLabel = json['price_label']?.toString().trim();
 
     return PlanModel(
+      id: int.tryParse(
+            json['id']?.toString() ??
+                json['plan_id']?.toString() ??
+                json['farmer_plan_id']?.toString() ??
+                '0',
+          ) ??
+          0,
       name: name,
-      price: priceLabel ?? (amount != null ? 'Rs $amount' : 'Rs 0'),
+      price: (priceLabel?.isNotEmpty == true)
+          ? priceLabel!
+          : 'Rs ${priceAmount.toStringAsFixed(0)}',
+      amount: priceAmount,
       features: features,
       highlighted: isHighlighted,
     );

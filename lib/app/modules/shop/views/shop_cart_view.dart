@@ -51,7 +51,9 @@ class ShopCartView extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Total: Rs ${controller.lineTotalForItem(item).toStringAsFixed(2)}',
+                      'total_with_amount'.trParams({
+                        'value': controller.lineTotalForItem(item).toStringAsFixed(2),
+                      }),
                       style: const TextStyle(fontSize: 12, color: AppColors.grey),
                     ),
                     if (controller.supportsQuantityMode(item)) ...[
@@ -94,7 +96,7 @@ class ShopCartView extends StatelessWidget {
                         IconButton(
                           onPressed: () => controller.removeFromCart(item),
                           icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                          tooltip: 'Remove',
+                          tooltip: 'remove'.tr,
                         ),
                       ],
                     ),
@@ -121,7 +123,11 @@ class ShopCartView extends StatelessWidget {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                    child: Text('Proceed to Checkout • Rs ${controller.grandTotal.toStringAsFixed(2)}'),
+                    child: Text(
+                      'proceed_to_checkout_amount'.trParams({
+                        'value': controller.grandTotal.toStringAsFixed(2),
+                      }),
+                    ),
                   ),
                 ),
               )),

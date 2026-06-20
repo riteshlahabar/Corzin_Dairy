@@ -25,10 +25,86 @@ class ManageAnimalController extends GetxController {
     return animals.where((item) {
       final matchesSearch = query.isEmpty || item.searchText.contains(query);
       final filter = selectedFilter.value;
-      final matchesFilter = filter == 'all' || item.lifecycleStatus == filter;
+      final matchesFilter = filter == 'all' || item.displayStatus == filter;
       final matchesSelectedAnimal = selectedAnimalId <= 0 || item.id == selectedAnimalId;
       return matchesSearch && matchesFilter && matchesSelectedAnimal;
     }).toList();
+  }
+
+  String translatedAnimalTypeName(String rawName, {bool plural = false}) {
+    final normalized = rawName.trim().toLowerCase();
+    if (normalized.isEmpty) return rawName;
+
+    if (_containsAny(normalized, const ['milking cow', 'milking cows']) ||
+        (normalized.contains('milking') && !normalized.contains('non'))) {
+      return plural ? 'milking_cows'.tr : 'milking_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const [
+          'non milking cow',
+          'non-milking cow',
+          'non milking cows',
+          'non-milking cows',
+          'dry cow',
+          'dry cows',
+        ]) ||
+        normalized.contains('dry')) {
+      return plural ? 'dry_cows'.tr : 'dry_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const ['heifer', 'heifers'])) {
+      return plural ? 'heifers'.tr : 'heifer'.tr;
+    }
+
+    if (_containsAny(normalized, const ['calf', 'calves'])) {
+      return plural ? 'calves'.tr : 'calf'.tr;
+    }
+
+    if (_containsAny(normalized, const ['bull', 'bulls'])) {
+      return plural ? 'bulls'.tr : 'bull'.tr;
+    }
+
+    if (_containsAny(normalized, const ['cow', 'cows'])) {
+      return plural ? 'cow'.tr : 'cow_single'.tr;
+    }
+
+    return rawName;
+  }
+
+  String translatedGender(String rawGender) {
+    final normalized = rawGender.trim().toLowerCase();
+    if (normalized == 'male') return 'male'.tr;
+    if (normalized == 'female') return 'female'.tr;
+    return rawGender;
+  }
+
+  String translatedAge(String rawAge) {
+    if (rawAge.trim().isEmpty) return rawAge;
+
+    final replacements = <String, String>{
+      'years': 'years'.tr,
+      'year': 'year'.tr,
+      'months': 'months'.tr,
+      'month': 'month'.tr,
+      'days': 'days'.tr,
+      'day': 'day'.tr,
+    };
+
+    var translated = rawAge;
+    replacements.forEach((source, target) {
+      translated = translated.replaceAllMapped(
+        RegExp('\\b$source\\b', caseSensitive: false),
+        (_) => target,
+      );
+    });
+    return translated;
+  }
+
+  bool _containsAny(String value, List<String> checks) {
+    for (final check in checks) {
+      if (value.contains(check)) return true;
+    }
+    return false;
   }
 
   @override
@@ -124,19 +200,19 @@ class ManageAnimalController extends GetxController {
       if (response.statusCode == 200 && data['status'] == true) {
         await fetchAnimals();
         Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? 'Animal status updated successfully',
+          'success'.tr,
+          data['message']?.toString() ?? 'animal_status_updated_successfully'.tr,
         );
         return true;
       }
 
       Get.snackbar(
-        'Error',
-        data['message']?.toString() ?? 'Failed to update animal status',
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_update_animal_status'.tr,
       );
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -148,7 +224,7 @@ class ManageAnimalController extends GetxController {
     required double sellingPrice,
   }) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
       return false;
     }
 
@@ -167,19 +243,19 @@ class ManageAnimalController extends GetxController {
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
         await fetchAnimals();
         Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? '${item.animalName.isEmpty ? 'Animal' : item.animalName} listed for sale',
+          'success'.tr,
+          data['message']?.toString() ?? 'animal_listed_for_sale'.tr,
         );
         return true;
       }
 
       Get.snackbar(
-        'Error',
-        data['message']?.toString() ?? 'Failed to list animal for sale',
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_list_animal_for_sale'.tr,
       );
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -188,7 +264,7 @@ class ManageAnimalController extends GetxController {
 
   Future<bool> cancelSellingAnimal(ManageAnimalItem item) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
       return false;
     }
 
@@ -204,19 +280,19 @@ class ManageAnimalController extends GetxController {
       if (response.statusCode == 200 && data['status'] == true) {
         await fetchAnimals();
         Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? '${item.animalName.isEmpty ? 'Animal' : item.animalName} removed from sale',
+          'success'.tr,
+          data['message']?.toString() ?? 'animal_removed_from_sale'.tr,
         );
         return true;
       }
 
       Get.snackbar(
-        'Error',
-        data['message']?.toString() ?? 'Failed to cancel animal selling',
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_cancel_animal_selling'.tr,
       );
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -265,9 +341,17 @@ class ManageAnimalItem {
     uniqueId,
     animalTypeName,
     lifecycleStatus,
+    if (isForSale) 'selling',
     gender,
     age,
   ].join(' ').toLowerCase();
+
+  String get displayStatus {
+    if (isForSale && lifecycleStatus == 'active') {
+      return 'selling';
+    }
+    return lifecycleStatus;
+  }
 
   factory ManageAnimalItem.fromJson(Map<String, dynamic> json) {
     return ManageAnimalItem(

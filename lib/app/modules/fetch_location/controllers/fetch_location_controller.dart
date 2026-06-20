@@ -82,13 +82,13 @@ class FetchLocationController extends GetxController {
         await _resolveFarmerIdByMobile();
       }
       if (farmerId <= 0) {
-        Get.snackbar('Error', 'Farmer profile not found. Please login again.');
+        Get.snackbar('error'.tr, 'farmer_profile_not_found_login_again'.tr);
         return;
       }
 
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        Get.snackbar('Location Off', 'Please enable location service and try again.');
+        Get.snackbar('location_off'.tr, 'enable_location_service_try_again'.tr);
         return;
       }
 
@@ -97,7 +97,7 @@ class FetchLocationController extends GetxController {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        Get.snackbar('Permission Required', 'Please allow location permission to continue.');
+        Get.snackbar('validation'.tr, 'allow_location_permission_continue'.tr);
         return;
       }
 
@@ -110,7 +110,7 @@ class FetchLocationController extends GetxController {
         longitudeValue: position.longitude,
       );
     } catch (error) {
-      Get.snackbar('Error', error.toString());
+      Get.snackbar('error'.tr, error.toString());
     } finally {
       isFetching.value = false;
     }
@@ -134,8 +134,8 @@ class FetchLocationController extends GetxController {
 
     final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
     if (response.statusCode != 200 || data['status'] != true || data['data'] == null) {
-      final msg = data is Map ? (data['message']?.toString() ?? 'Failed to save location.') : 'Failed to save location.';
-      Get.snackbar('Error', msg);
+      final msg = data is Map ? (data['message']?.toString() ?? 'failed_to_save_location'.tr) : 'failed_to_save_location'.tr;
+      Get.snackbar('error'.tr, msg);
       return;
     }
 
@@ -157,7 +157,7 @@ class FetchLocationController extends GetxController {
       currentLocationAddress: addressText,
     );
 
-    Get.snackbar('Success', data['message']?.toString() ?? 'Current location fetched successfully.');
+    Get.snackbar('success'.tr, data['message']?.toString() ?? 'current_location_fetched_successfully'.tr);
   }
 
   Future<void> _resolveFarmerIdByMobile() async {
@@ -181,4 +181,3 @@ class FetchLocationController extends GetxController {
     } catch (_) {}
   }
 }
-

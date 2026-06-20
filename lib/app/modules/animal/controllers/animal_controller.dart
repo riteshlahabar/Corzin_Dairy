@@ -9,8 +9,10 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
+import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/theme/colors.dart';
 import '../../../routes/app_pages.dart';
+import '../../home/controllers/home_controller.dart';
 
 class AnimalController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -45,7 +47,7 @@ class AnimalController extends GetxController {
   int farmerId = 0;
   bool isNewBornMode = false;
   String lockedAnimalTypeName = '';
-  String pageTitle = 'Add Animal';
+  String pageTitle = 'add_animal';
 
   @override
   void onInit() {
@@ -60,7 +62,7 @@ class AnimalController extends GetxController {
     if (args is Map) {
       isNewBornMode = args['prefillAnimalTypeName']?.toString().isNotEmpty == true;
       lockedAnimalTypeName = args['prefillAnimalTypeName']?.toString() ?? '';
-      pageTitle = args['title']?.toString() ?? 'Add Animal';
+      pageTitle = args['title']?.toString() ?? 'add_animal';
     }
   }
 
@@ -142,10 +144,10 @@ class AnimalController extends GetxController {
           }
         }
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to fetch animal types', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_fetch_animal_types'.tr, snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
     } finally {
       isPageLoading.value = false;
     }
@@ -319,7 +321,7 @@ class AnimalController extends GetxController {
   Future<void> submitAnimal() async {
     if (!formKey.currentState!.validate()) return;
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer ID not found. Please login again.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final duplicateMessage = _duplicateAnimalValidationMessage(
@@ -327,39 +329,39 @@ class AnimalController extends GetxController {
       tagNumber: tagNumberController.text,
     );
     if (duplicateMessage != null) {
-      Get.snackbar('Validation Error', duplicateMessage, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('validation'.tr, duplicateMessage, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (selectedAnimalType.value == null) {
-      Get.snackbar('Error', 'Please select animal type', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_animal_type'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (showMotherAnimalDropdown && selectedMotherAnimal.value == null) {
-      Get.snackbar('Error', 'Please select mother animal', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_mother_animal'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final birthDateText = birthDateController.text.trim();
     final ageInfo = _calculateAgeInfoFromText(birthDateText);
     if (ageInfo == null) {
-      Get.snackbar('Error', 'Please select valid birth date', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_valid_birth_date'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final weightText = weightController.text.trim();
     final weightValue = double.tryParse(weightText);
     if (weightText.isEmpty || weightValue == null || weightValue <= 0) {
-      Get.snackbar('Error', 'Please enter valid weight', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_enter_valid_weight'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     final defaultMilkText = defaultMilkPerSessionController.text.trim();
     if (showExpectedMilkYieldField) {
       final defaultMilkValue = double.tryParse(defaultMilkText);
       if (defaultMilkText.isEmpty || defaultMilkValue == null || defaultMilkValue < 0) {
-        Get.snackbar('Error', 'Please enter valid expected milk yield per shift', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, 'please_enter_valid_expected_milk_yield_per_shift'.tr, snackPosition: SnackPosition.BOTTOM);
         return;
       }
     }
     if (selectedImage.value == null) {
-      Get.snackbar('Error', 'Please upload animal image', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'upload_animal_image'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -410,12 +412,20 @@ class AnimalController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final String successMessage = (data['message']?.toString().trim().isNotEmpty ?? false)
             ? data['message'].toString().trim()
-            : 'Animal added successfully';
+            : 'animal_added_successfully'.tr;
         clearForm();
-        Get.offAllNamed(Routes.HOME);
+        await fetchMotherAnimals();
+        if (Get.isRegistered<HomeController>()) {
+          await Get.find<HomeController>().refreshDashboard(silent: true);
+        }
+        if (Get.isRegistered<BottomNavController>()) {
+          Get.find<BottomNavController>().closeDrawerPage();
+        } else {
+          Get.offAllNamed(Routes.HOME);
+        }
         Future.delayed(const Duration(milliseconds: 150), () {
           Get.snackbar(
-            'Success',
+            'success'.tr,
             successMessage,
             snackPosition: SnackPosition.BOTTOM,
           );
@@ -428,12 +438,12 @@ class AnimalController extends GetxController {
         } else if (data['message'] != null) {
           errorMessage = data['message'].toString();
         }
-        Get.snackbar('Validation Error', errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
+        Get.snackbar('validation'.tr, errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
       } else {
-        Get.snackbar('Error', data['message']?.toString() ?? 'Failed to save animal', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_animal'.tr, snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
     } finally {
       isSubmitting.value = false;
     }
@@ -463,7 +473,7 @@ class AnimalController extends GetxController {
       return 'Animal name already exists for this farmer.';
     }
     if (tagExists) {
-      return 'Tag number already exists for this farmer.';
+      return 'tag_number_already_exists_for_farmer'.tr;
     }
     return null;
   }

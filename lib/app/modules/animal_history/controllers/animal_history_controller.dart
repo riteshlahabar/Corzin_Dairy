@@ -30,6 +30,100 @@ class AnimalHistoryController extends GetxController {
     }).toList();
   }
 
+  List<AnimalHistoryItem> historyForView({bool onlyForSale = false}) {
+    if (!onlyForSale) {
+      return history;
+    }
+    return history.where((item) => item.isForSale).toList(growable: false);
+  }
+
+  int animalCountForType(int animalTypeId, {bool onlyForSale = false}) {
+    final items = historyForView(onlyForSale: onlyForSale);
+    if (animalTypeId == 0) {
+      return items.length;
+    }
+    return items.where((item) => item.animalTypeId == animalTypeId).length;
+  }
+
+  String translatedAnimalTypeName(String rawName, {bool plural = false}) {
+    final normalized = rawName.trim().toLowerCase();
+    if (normalized.isEmpty) return rawName;
+
+    if (_containsAny(normalized, const ['milking cow', 'milking cows']) ||
+        (normalized.contains('milking') && !normalized.contains('non'))) {
+      return plural ? 'milking_cows'.tr : 'milking_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const [
+          'non milking cow',
+          'non-milking cow',
+          'non milking cows',
+          'non-milking cows',
+          'dry cow',
+          'dry cows',
+        ]) ||
+        normalized.contains('dry')) {
+      return plural ? 'dry_cows'.tr : 'dry_cow'.tr;
+    }
+
+    if (_containsAny(normalized, const ['heifer', 'heifers'])) {
+      return plural ? 'heifers'.tr : 'heifer'.tr;
+    }
+
+    if (_containsAny(normalized, const ['calf', 'calves'])) {
+      return plural ? 'calves'.tr : 'calf'.tr;
+    }
+
+    if (_containsAny(normalized, const ['bull', 'bulls'])) {
+      return plural ? 'bulls'.tr : 'bull'.tr;
+    }
+
+    if (_containsAny(normalized, const ['cow', 'cows'])) {
+      return plural ? 'cow'.tr : 'cow_single'.tr;
+    }
+
+    if (_containsAny(normalized, const ['mother'])) {
+      return 'mother'.tr;
+    }
+
+    return rawName;
+  }
+
+  bool isMilkingAnimalTypeName(String rawName) {
+    final normalized = rawName.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return _containsAny(normalized, const ['milking cow', 'milking cows']) ||
+        (normalized.contains('milking') && !normalized.contains('non'));
+  }
+
+  String translatedLifecycleStatus(String rawStatus) {
+    final normalized = rawStatus.trim().toLowerCase();
+    if (normalized.isEmpty) return '-';
+
+    switch (normalized) {
+      case 'active':
+        return 'active'.tr;
+      case 'sold':
+        return 'sold'.tr;
+      case 'death':
+      case 'dead':
+        return 'death'.tr;
+      case 'inactive':
+        return 'status_inactive'.tr;
+      case 'selling':
+        return 'status_selling'.tr;
+      default:
+        return rawStatus.capitalizeFirst ?? rawStatus;
+    }
+  }
+
+  bool _containsAny(String value, List<String> checks) {
+    for (final check in checks) {
+      if (value.contains(check)) return true;
+    }
+    return false;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -93,7 +187,7 @@ class AnimalHistoryController extends GetxController {
     return _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
   }
 
-  Future<bool> updateAnimal({
+  Future<String?> updateAnimal({
     required AnimalHistoryItem item,
     required String animalName,
     required String tagNumber,
@@ -116,8 +210,8 @@ class AnimalHistoryController extends GetxController {
       tagNumber: tagNumber,
     );
     if (duplicateMessage != null) {
-      Get.snackbar('Validation Error', duplicateMessage);
-      return false;
+      Get.snackbar('validation'.tr, duplicateMessage);
+      return null;
     }
 
     try {
@@ -155,16 +249,15 @@ class AnimalHistoryController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200 && data['status'] == true) {
-        Get.snackbar('Success', data['message']?.toString() ?? 'Animal updated successfully');
         await fetchHistory();
-        return true;
+        return data['message']?.toString() ?? 'animal_updated_successfully'.tr;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to update animal');
-      return false;
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_update_animal'.tr);
+      return null;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
-      return false;
+      Get.snackbar('error'.tr, e.toString());
+      return null;
     } finally {
       isSubmitting.value = false;
     }
@@ -186,20 +279,20 @@ class AnimalHistoryController extends GetxController {
     final tagExists = others.any((item) => item.tagNumber.trim().toLowerCase() == normalizedTag);
 
     if (nameExists && tagExists) {
-      return 'Animal name and tag number already exist for this farmer.';
+      return 'animal_name_and_tag_already_exist_for_farmer'.tr;
     }
     if (nameExists) {
-      return 'Animal name already exists for this farmer.';
+      return 'animal_name_already_exists_for_farmer'.tr;
     }
     if (tagExists) {
-      return 'Tag number already exists for this farmer.';
+      return 'tag_number_already_exists_for_farmer'.tr;
     }
     return null;
   }
 
   Future<bool> sellAnimal(AnimalHistoryItem item, {double? sellingPrice}) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
       return false;
     }
 
@@ -217,15 +310,15 @@ class AnimalHistoryController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
-        Get.snackbar('Success', data['message']?.toString() ?? 'Animal listed for sale');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'animal_listed_for_sale'.tr);
         await fetchHistory();
         return true;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to list animal for sale');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_list_animal_for_sale'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
@@ -234,7 +327,7 @@ class AnimalHistoryController extends GetxController {
 
   Future<bool> cancelSellingAnimal(AnimalHistoryItem item) async {
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer not found. Please login again.');
+      Get.snackbar('error'.tr, 'farmer_not_found_login_again'.tr);
       return false;
     }
 
@@ -248,15 +341,15 @@ class AnimalHistoryController extends GetxController {
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
-        Get.snackbar('Success', data['message']?.toString() ?? 'Animal selling cancelled successfully');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'animal_removed_from_sale'.tr);
         await fetchHistory();
         return true;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to cancel animal selling');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_cancel_animal_selling'.tr);
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;

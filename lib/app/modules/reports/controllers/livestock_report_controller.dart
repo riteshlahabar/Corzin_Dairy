@@ -377,7 +377,7 @@ class LivestockReportController extends GetxController {
       final sections = _filterSectionsByType(await _buildDetailedSections());
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
-        Get.snackbar('Info', 'no_report_data'.tr);
+        Get.snackbar('info'.tr, 'no_report_data'.tr);
         return;
       }
 
@@ -415,7 +415,7 @@ class LivestockReportController extends GetxController {
       final sections = _filterSectionsByType(await _buildDetailedSections());
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
-        Get.snackbar('Info', 'no_report_data'.tr);
+        Get.snackbar('info'.tr, 'no_report_data'.tr);
         return;
       }
 
@@ -427,11 +427,11 @@ class LivestockReportController extends GetxController {
           build: (context) {
             final widgets = <pw.Widget>[
               pw.Text(
-                'Farmer Detailed Report',
+                'farmer_detailed_report'.tr,
                 style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
               ),
               pw.SizedBox(height: 4),
-              pw.Text('Range: ${fromDateController.text} to ${toDateController.text}'),
+              pw.Text('range_from_to'.trParams({'from': fromDateController.text, 'to': toDateController.text})),
               pw.SizedBox(height: 10),
             ];
 
@@ -827,7 +827,7 @@ class LivestockReportController extends GetxController {
       ]);
     }
 
-    return <ReportSectionData>[
+    final sections = <ReportSectionData>[
       ReportSectionData(
         title: sectionMilk,
         headers: const [
@@ -964,6 +964,11 @@ class LivestockReportController extends GetxController {
         rows: profitRows,
       ),
     ];
+
+    if (!_isPanScope) {
+      return sections;
+    }
+    return sections.map(_aggregateSectionForPan).toList();
   }
 
   Future<List<Map<String, dynamic>>> _fetchListFromApi(
@@ -993,7 +998,7 @@ class LivestockReportController extends GetxController {
   bool _matchesScope({required int animalId, required int panId}) {
     final selected = selectedTargetId.value;
     if (scope.value == 'pan') {
-      if (selected == null || selected <= 0) return true;
+      if (selected == null || selected <= 0) return panId > 0;
       return panId > 0 && panId == selected;
     }
     if (selected == null || selected <= 0) return true;
@@ -1073,6 +1078,374 @@ class LivestockReportController extends GetxController {
 
   String _csv(String value) => '"${value.replaceAll('"', '""')}"';
 
+  bool get _isPanScope => scope.value == 'pan';
+
+  ReportSectionData _aggregateSectionForPan(ReportSectionData section) {
+    switch (section.title) {
+      case sectionMilk:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Animals',
+            'Milk Shift',
+            'Milk Quantity',
+            'Fat',
+            'SNF',
+            'Dairy Name',
+            'Avg Rate',
+            'Total',
+          ],
+          rows: _aggregateMilkRows(section.rows),
+        );
+      case sectionFeeding:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Animals',
+            'Feeding Shift',
+            'Diet/Feed Name',
+            'Quantity',
+            'Avg Rate / Unit',
+            'Feeding Cost',
+          ],
+          rows: _aggregateFeedingRows(section.rows),
+        );
+      case sectionMedical:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Animals',
+            'Disease',
+            'Medicine Treatment',
+            'On Site Treatment',
+            'Dr Name',
+            'Fees',
+            'On Site Medicine Charge',
+            'Total',
+          ],
+          rows: _aggregateMedicalRows(section.rows),
+        );
+      case sectionLifecycle:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Life Cycal Type',
+            'Affected Animals',
+            'Animal Types',
+          ],
+          rows: _aggregateLifecycleRows(section.rows),
+        );
+      case sectionPregnancy:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Status',
+            'Affected Animals',
+            'Expected Calving Dates',
+            'Doctor Name',
+          ],
+          rows: _aggregatePregnancyRows(section.rows),
+        );
+      case sectionMastitis:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Affected Animals',
+            'Test Result',
+            'Treatment',
+            'Recovery Status',
+          ],
+          rows: _aggregateMastitisRows(section.rows),
+        );
+      case sectionDmi:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Affected Animals',
+            'DMI Type',
+            'Alert Status',
+            'Body Weight',
+            'Total Milk',
+            'Required DMI',
+            'Actual DMI',
+          ],
+          rows: _aggregateDmiRows(section.rows),
+        );
+      case sectionProfitLoss:
+        return ReportSectionData(
+          title: section.title,
+          headers: const [
+            'Date',
+            'Pen Name',
+            'Animals',
+            'Debit',
+            'Credit',
+            'Total',
+          ],
+          rows: _aggregateProfitRows(section.rows),
+        );
+      default:
+        return section;
+    }
+  }
+
+  List<List<String>> _aggregateMilkRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1], row[5], row[9]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            _rowValue(groupRows.first, 5),
+            _format2(_sumNumeric(groupRows, 6)),
+            _joinDistinctColumn(groupRows, 7),
+            _joinDistinctColumn(groupRows, 8),
+            _joinDistinctColumn(groupRows, 9),
+            _format2(_weightedAverage(groupRows, valueIndex: 10, weightIndex: 6)),
+            _format2(_sumNumeric(groupRows, 11)),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregateFeedingRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1], row[5], row[6]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            _rowValue(groupRows.first, 5),
+            _rowValue(groupRows.first, 6),
+            _format2(_sumNumeric(groupRows, 7)),
+            _format2(_weightedAverage(groupRows, valueIndex: 8, weightIndex: 7)),
+            _format2(_sumNumeric(groupRows, 9)),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregateMedicalRows(List<List<String>> rows) {
+    final grouped = _groupRows(
+      rows,
+      (row) => [row[0], row[1], row[5], row[6], row[7], row[8]],
+    );
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            _rowValue(groupRows.first, 5),
+            _rowValue(groupRows.first, 6),
+            _rowValue(groupRows.first, 7),
+            _rowValue(groupRows.first, 8),
+            _format2(_sumNumeric(groupRows, 9)),
+            _format2(_sumNumeric(groupRows, 10)),
+            _format2(_sumNumeric(groupRows, 11)),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregateLifecycleRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1], row[5]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _rowValue(groupRows.first, 5),
+            _uniqueAnimalCount(groupRows).toString(),
+            _joinDistinctColumn(groupRows, 8),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregatePregnancyRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1], row[10]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _rowValue(groupRows.first, 10),
+            _uniqueAnimalCount(groupRows).toString(),
+            _joinDistinctColumn(groupRows, 7),
+            _joinDistinctColumn(groupRows, 9),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregateMastitisRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1], row[5], row[6], row[7]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            _rowValue(groupRows.first, 5),
+            _rowValue(groupRows.first, 6),
+            _rowValue(groupRows.first, 7),
+          ],
+        )
+        .toList();
+  }
+
+  List<List<String>> _aggregateDmiRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1]]);
+    return grouped.values
+        .map((groupRows) {
+          final bodyWeight = _sumNumeric(groupRows, 6);
+          final totalMilk = _sumNumeric(groupRows, 7);
+          final requiredDmi = _sumNumeric(groupRows, 8);
+          final actualDmi = _sumNumeric(groupRows, 9);
+          final difference = actualDmi - requiredDmi;
+          final dmiTypes = groupRows
+              .map((row) => _rowValue(row, 5))
+              .where((value) => value.isNotEmpty && value != '-')
+              .toSet()
+              .toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+          final dmiType = dmiTypes.isEmpty
+              ? '-'
+              : (dmiTypes.length == 1 ? dmiTypes.first : dmiTypes.join(', '));
+          final alertStatus = difference.abs() <= 0.5
+              ? 'Balanced'
+              : (difference < 0 ? 'Low' : 'High');
+
+          return [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            dmiType,
+            alertStatus,
+            _format2(bodyWeight),
+            _format2(totalMilk),
+            _format2(requiredDmi),
+            _format2(actualDmi),
+          ];
+        })
+        .toList();
+  }
+
+  List<List<String>> _aggregateProfitRows(List<List<String>> rows) {
+    final grouped = _groupRows(rows, (row) => [row[0], row[1]]);
+    return grouped.values
+        .map(
+          (groupRows) => [
+            _rowValue(groupRows.first, 0),
+            _rowValue(groupRows.first, 1),
+            _uniqueAnimalCount(groupRows).toString(),
+            _format2(_sumNumeric(groupRows, 5)),
+            _format2(_sumNumeric(groupRows, 6)),
+            _format2(_sumNumeric(groupRows, 7)),
+          ],
+        )
+        .toList();
+  }
+
+  Map<String, List<List<String>>> _groupRows(
+    List<List<String>> rows,
+    List<String> Function(List<String> row) keyBuilder,
+  ) {
+    final grouped = <String, List<List<String>>>{};
+    for (final row in rows) {
+      final key = keyBuilder(row).join('|');
+      grouped.putIfAbsent(key, () => <List<String>>[]).add(row);
+    }
+    return grouped;
+  }
+
+  String _rowValue(List<String> row, int index) {
+    if (index < 0 || index >= row.length) return '-';
+    final value = row[index].trim();
+    return value.isEmpty ? '-' : value;
+  }
+
+  int _uniqueAnimalCount(List<List<String>> rows) {
+    final ids = <String>{};
+    for (final row in rows) {
+      final id = _rowValue(row, 4);
+      if (id != '-') {
+        ids.add(id);
+        continue;
+      }
+      final name = _rowValue(row, 2);
+      if (name != '-') {
+        ids.add(name);
+      }
+    }
+    return ids.length;
+  }
+
+  String _joinDistinctColumn(List<List<String>> rows, int index) {
+    final values = <String>[];
+    final seen = <String>{};
+    for (final row in rows) {
+      final value = _rowValue(row, index);
+      if (value == '-') continue;
+      final key = value.toLowerCase();
+      if (seen.add(key)) {
+        values.add(value);
+      }
+    }
+    if (values.isEmpty) return '-';
+    return values.join(', ');
+  }
+
+  double _sumNumeric(List<List<String>> rows, int index) {
+    var total = 0.0;
+    for (final row in rows) {
+      total += _asDouble(index < row.length ? row[index] : 0);
+    }
+    return total;
+  }
+
+  double _average(List<List<String>> rows, int index) {
+    if (rows.isEmpty) return 0;
+    return _sumNumeric(rows, index) / rows.length;
+  }
+
+  double _weightedAverage(
+    List<List<String>> rows, {
+    required int valueIndex,
+    required int weightIndex,
+  }) {
+    var totalWeight = 0.0;
+    var weightedValue = 0.0;
+    for (final row in rows) {
+      final weight = _asDouble(weightIndex < row.length ? row[weightIndex] : 0);
+      final value = _asDouble(valueIndex < row.length ? row[valueIndex] : 0);
+      if (weight <= 0) continue;
+      totalWeight += weight;
+      weightedValue += value * weight;
+    }
+    if (totalWeight <= 0) {
+      return _average(rows, valueIndex);
+    }
+    return weightedValue / totalWeight;
+  }
+
   Future<void> _exportFile({
     required String fileName,
     required String mimeType,
@@ -1089,14 +1462,14 @@ class LivestockReportController extends GetxController {
           },
         );
         if (savedPath == null || savedPath.trim().isEmpty) {
-          Get.snackbar('Info', 'folder_selection_cancelled'.tr);
+          Get.snackbar('info'.tr, 'folder_selection_cancelled'.tr);
           return;
         }
-        Get.snackbar('Success', '${'report_saved_to'.tr}: $savedPath');
+        Get.snackbar('success'.tr, '${'report_saved_to'.tr}: $savedPath');
         return;
       } on PlatformException catch (error) {
         if (error.code == 'CANCELLED') {
-          Get.snackbar('Info', 'folder_selection_cancelled'.tr);
+          Get.snackbar('info'.tr, 'folder_selection_cancelled'.tr);
         } else {
           Get.snackbar(
             'error'.tr,
@@ -1108,7 +1481,7 @@ class LivestockReportController extends GetxController {
     }
 
     final file = await _createReportBytesFile(fileName: fileName, bytes: bytes);
-    Get.snackbar('Success', '${'report_saved_to'.tr}: ${file.path}');
+    Get.snackbar('success'.tr, '${'report_saved_to'.tr}: ${file.path}');
   }
 
   Future<File> _createReportBytesFile({

@@ -110,11 +110,11 @@ class ProfileController extends GetxController {
   Future<void> saveProfile() async {
     if (isSaving.value) return;
     if (farmerId == 0) {
-      Get.snackbar('Error', 'Farmer profile not found');
+      Get.snackbar('error'.tr, 'farmer_profile_not_found_login_again'.tr);
       return;
     }
     if (firstNameController.text.trim().isEmpty) {
-      Get.snackbar('Error', 'First name is required');
+      Get.snackbar('error'.tr, 'enter_first_name'.tr);
       return;
     }
 
@@ -197,13 +197,13 @@ class ProfileController extends GetxController {
         isEditingFarmerInfo.value = false;
         isEditingLocation.value = false;
         selectedPhoto.value = null;
-        Get.snackbar('Success', data['message']?.toString() ?? 'Profile updated successfully');
+        Get.snackbar('success'.tr, data['message']?.toString() ?? 'profile_updated_successfully'.tr);
         return;
       }
 
-      Get.snackbar('Error', data['message']?.toString() ?? 'Failed to update profile');
+      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_update_profile'.tr);
     } catch (e) {
-      Get.snackbar('Error', 'Something went wrong while updating profile');
+      Get.snackbar('error'.tr, 'something_went_wrong_while_updating_profile'.tr);
     } finally {
       isSaving.value = false;
     }

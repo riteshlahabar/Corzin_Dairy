@@ -30,29 +30,63 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
   bool _isLoading = true;
   int _farmerId = 0;
   final List<_MilkHistoryItem> _history = <_MilkHistoryItem>[];
+  final TextEditingController _searchController = TextEditingController();
+  DateTime? _fromDate;
+  DateTime? _toDate;
 
   List<_MilkHistoryItem> get _visibleHistory {
+    final query = _searchController.text.trim().toLowerCase();
     final selectedAnimalId = widget.initialAnimalId ?? 0;
     final selectedName = widget.initialAnimalName.trim();
     final selectedTag = widget.initialTagNumber.trim();
-    if (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) {
-      return _history;
-    }
     return _history
         .where(
-          (item) => item.matchesAnimal(
-            animalId: selectedAnimalId,
-            animalName: selectedName,
-            tagNumber: selectedTag,
-          ),
+          (item) {
+            final matchesAnimalFilter =
+                (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) ||
+                item.matchesAnimal(
+                  animalId: selectedAnimalId,
+                  animalName: selectedName,
+                  tagNumber: selectedTag,
+                );
+            if (!matchesAnimalFilter) {
+              return false;
+            }
+
+            final itemDate = _dateOnly(item.sortDate);
+            if (_fromDate != null && itemDate.isBefore(_dateOnly(_fromDate!))) {
+              return false;
+            }
+            if (_toDate != null && itemDate.isAfter(_dateOnly(_toDate!))) {
+              return false;
+            }
+
+            if (query.isEmpty) {
+              return true;
+            }
+            return item.matchesSearch(query);
+          },
         )
         .toList();
   }
 
+  bool get _hasActiveFilters =>
+      _searchController.text.trim().isNotEmpty ||
+      _fromDate != null ||
+      _toDate != null;
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onFilterChanged);
     _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onFilterChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadHistory() async {
@@ -99,6 +133,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     final quantityController = TextEditingController(text: item.editQuantity);
     final selectedShift = item.editShift.obs;
     final isSaving = false.obs;
+    var sheetClosedAfterSuccess = false;
 
     Future<void> pickDate() async {
       DateTime initialDate = DateTime.now();
@@ -236,6 +271,7 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                         : {};
 
                                     if (response.statusCode == 200 && data['status'] == true) {
+                                      sheetClosedAfterSuccess = true;
                                       Get.back();
                                       Get.snackbar(
                                         'success'.tr,
@@ -259,7 +295,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                       snackPosition: SnackPosition.BOTTOM,
                                     );
                                   } finally {
-                                    isSaving.value = false;
+                                    if (!sheetClosedAfterSuccess) {
+                                      isSaving.value = false;
+                                    }
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
@@ -289,12 +327,6 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
       ),
       isScrollControlled: true,
     );
-
-    dateController.dispose();
-    fatController.dispose();
-    snfController.dispose();
-    rateController.dispose();
-    quantityController.dispose();
   }
 
   String _formatDateForApi(String value) {
@@ -306,14 +338,260 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     }
   }
 
+  void _onFilterChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+
+  Future<void> _pickFilterDate({required bool isFrom}) async {
+    final currentValue = isFrom ? _fromDate : _toDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: currentValue ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (isFrom) {
+        _fromDate = picked;
+        if (_toDate != null && _dateOnly(_toDate!).isBefore(_dateOnly(picked))) {
+          _toDate = picked;
+        }
+      } else {
+        _toDate = picked;
+        if (_fromDate != null && _dateOnly(_fromDate!).isAfter(_dateOnly(picked))) {
+          _fromDate = picked;
+        }
+      }
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _searchController.clear();
+      _fromDate = null;
+      _toDate = null;
+    });
+  }
+
+  String _formatFilterDate(DateTime? value, String fallback) {
+    if (value == null) return fallback;
+    return DateFormat('dd MMM yyyy').format(value);
+  }
+
+  String _formatQuantity(String value) {
+    final parsed = double.tryParse(value.trim());
+    if (parsed == null) {
+      return value.trim().isEmpty ? '-' : value;
+    }
+    if (parsed == parsed.toInt()) {
+      return parsed.toInt().toString();
+    }
+    return parsed.toStringAsFixed(1);
+  }
+
+  Widget _summaryTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterDateButton({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FBF8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatFilterDate(value, label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _shiftTile({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FAF7),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black.withValues(alpha: 0.62),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_formatQuantity(value)} L',
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAF7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.4,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleHistory = _visibleHistory;
+    final totalMilk = visibleHistory.fold<double>(
+      0,
+      (sum, item) => sum + item.totalMilkValue,
+    );
+    final rangeStart = visibleHistory.isEmpty ? null : visibleHistory.last.sortDate;
+    final rangeEnd = visibleHistory.isEmpty ? null : visibleHistory.first.sortDate;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, Color(0xFF4EA857)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         leading: IconButton(
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
@@ -329,78 +607,393 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
         onRefresh: _loadHistory,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : visibleHistory.isEmpty
-                ? Center(
-                    child: Text(
-                      'no_milk_history_found'.tr,
-                      style: TextStyle(fontSize: 15, color: Colors.black54),
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, Color(0xFF6BB56E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(26),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: visibleHistory.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, index) {
-                      final item = visibleHistory[index];
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF2F8F2),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 46,
+                              width: 46,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.local_drink_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'milk_record'.tr,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    rangeStart != null && rangeEnd != null
+                                        ? 'range_from_to'.trParams({
+                                            'from': DateFormat('dd MMM').format(rangeStart),
+                                            'to': DateFormat('dd MMM').format(rangeEnd),
+                                          })
+                                        : 'no_milk_history_found'.tr,
+                                    style: TextStyle(
+                                      fontSize: 12.8,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            _summaryTile(
+                              icon: Icons.receipt_long_rounded,
+                              label: 'milk_record'.tr,
+                              value: visibleHistory.length.toString(),
+                            ),
+                            const SizedBox(width: 10),
+                            _summaryTile(
+                              icon: Icons.water_drop_rounded,
+                              label: 'total_milk'.tr,
+                              value: '${totalMilk.toStringAsFixed(1)} L',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'search_by_animal_name_or_tag'.tr,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                            suffixIcon: _searchController.text.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () => _searchController.clear(),
+                                    icon: const Icon(Icons.close_rounded, size: 20),
+                                  ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FBF8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: AppColors.primary),
+                            ),
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _filterDateButton(
+                              label: 'from_date'.tr,
+                              value: _fromDate,
+                              onTap: () => _pickFilterDate(isFrom: true),
+                            ),
+                            const SizedBox(width: 10),
+                            _filterDateButton(
+                              label: 'to_date'.tr,
+                              value: _toDate,
+                              onTap: () => _pickFilterDate(isFrom: false),
+                            ),
+                          ],
+                        ),
+                        if (_hasActiveFilters) ...[
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: _clearFilters,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: Text('clear'.tr),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (visibleHistory.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 64,
+                            width: 64,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.search_off_rounded,
+                              size: 30,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'no_milk_history_found'.tr,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.black,
+                            ),
+                          ),
+                          if (_hasActiveFilters) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '${'from_date'.tr}: ${_formatFilterDate(_fromDate, '-')}   ${'to_date'.tr}: ${_formatFilterDate(_toDate, '-')}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.black.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  else
+                    ...visibleHistory.map(
+                      (item) => Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.045),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    item.animalDisplay,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                Container(
+                                  height: 48,
+                                  width: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    Icons.pets_rounded,
+                                    color: AppColors.primary,
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: () => _onEditTap(item),
-                                  icon: const Icon(Icons.edit_rounded),
-                                  color: AppColors.primary,
-                                  tooltip: 'edit_animal'.tr,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.animalName.trim().isEmpty ? '-' : item.animalName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 16.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          _infoChip(
+                                            Icons.confirmation_number_outlined,
+                                            '${'tag'.tr}: ${item.tagNumber.trim().isEmpty ? '-' : item.tagNumber}',
+                                          ),
+                                          _infoChip(
+                                            Icons.storefront_outlined,
+                                            item.dairyName.trim().isEmpty ? '-' : item.dairyName,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Text(
+                                        '${_formatQuantity(item.totalMilk)} L',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => _onEditTap(item),
+                                      icon: const Icon(Icons.edit_rounded),
+                                      color: AppColors.primary,
+                                      tooltip: 'edit_animal'.tr,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${'dairy_name'.tr}: ${item.dairyName}',
-                              style: const TextStyle(fontSize: 13.5),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${'date'.tr}: ${item.date}',
-                              style: const TextStyle(fontSize: 13.5),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${'morning'.tr}: ${item.morningMilk} L  |  ${'afternoon'.tr}: ${item.afternoonMilk} L  |  ${'evening'.tr}: ${item.eveningMilk} L',
-                              style: const TextStyle(fontSize: 13.2),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${'total'.tr}: ${item.totalMilk} L  |  ${'fat_upper'.tr}: ${item.fat}  |  ${'snf_upper'.tr}: ${item.snf}  |  ${'rate'.tr}: ${item.rate}',
-                              style: const TextStyle(
-                                fontSize: 13.2,
-                                fontWeight: FontWeight.w600,
+                            const SizedBox(height: 14),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7FAF7),
+                                borderRadius: BorderRadius.circular(16),
                               ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item.date,
+                                      style: const TextStyle(
+                                        fontSize: 13.2,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${'rate'.tr}: ${item.rate}',
+                                    style: TextStyle(
+                                      fontSize: 12.6,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                _shiftTile(
+                                  label: 'morning'.tr,
+                                  value: item.morningMilk,
+                                  icon: Icons.wb_sunny_outlined,
+                                ),
+                                const SizedBox(width: 10),
+                                _shiftTile(
+                                  label: 'afternoon'.tr,
+                                  value: item.afternoonMilk,
+                                  icon: Icons.light_mode_outlined,
+                                ),
+                                const SizedBox(width: 10),
+                                _shiftTile(
+                                  label: 'evening'.tr,
+                                  value: item.eveningMilk,
+                                  icon: Icons.nights_stay_outlined,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _infoChip(Icons.opacity_rounded, '${'fat_upper'.tr}: ${item.fat}'),
+                                _infoChip(Icons.science_outlined, '${'snf_upper'.tr}: ${item.snf}'),
+                                _infoChip(Icons.calculate_outlined, '${'total'.tr}: ${_formatQuantity(item.totalMilk)} L'),
+                              ],
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
@@ -453,6 +1046,8 @@ class _MilkHistoryItem {
     return '$animalName (Tag: $tagNumber)';
   }
 
+  double get totalMilkValue => double.tryParse(totalMilk) ?? 0;
+
   bool matchesAnimal({
     required int animalId,
     required String animalName,
@@ -469,6 +1064,19 @@ class _MilkHistoryItem {
       return currentTag == normalizedTag;
     }
     return normalizedName.isNotEmpty && currentName == normalizedName;
+  }
+
+  bool matchesSearch(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+
+    final haystack = <String>[
+      animalName,
+      tagNumber,
+      dairyName,
+      date,
+    ].join(' ').toLowerCase();
+    return haystack.contains(normalized);
   }
 
   String get editShift {

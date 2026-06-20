@@ -241,12 +241,12 @@ class HomeController extends GetxController {
     }
     final number = adminContactNumber.value.replaceAll(RegExp(r'[^0-9+]'), '');
     if (number.isEmpty) {
-      Get.snackbar('Error', 'Admin contact number is not available.');
+      Get.snackbar('error'.tr, 'admin_contact_number_not_available'.tr);
       return;
     }
     final uri = Uri(scheme: 'tel', path: number);
     if (!await launchUrl(uri)) {
-      Get.snackbar('Error', 'Unable to open dialer.');
+      Get.snackbar('error'.tr, 'unable_open_dialer'.tr);
     }
   }
 
@@ -292,18 +292,18 @@ class HomeController extends GetxController {
       if (response.statusCode == 200 && data['status'] == true) {
         await fetchAnimals();
         Get.snackbar(
-          'Success',
-          data['message']?.toString() ?? 'Animal lifecycle updated',
+          'success'.tr,
+          data['message']?.toString() ?? 'animal_lifecycle_updated'.tr,
         );
         return true;
       }
       Get.snackbar(
-        'Error',
-        data['message']?.toString() ?? 'Failed to update animal lifecycle',
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_update_animal_lifecycle'.tr,
       );
       return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isUpdatingLifecycle.value = false;
@@ -372,7 +372,9 @@ class HomeController extends GetxController {
           final paid = _asDouble(entry['paid_amount']);
           totalPayment += paid;
           if ((entry['date_key'] ?? '').toString() == todayKey) {
-            todayPayment = paid;
+            final todayPending = _asDouble(entry['today_balance']);
+            final todayAmount = _asDouble(entry['day_total_amount']);
+            todayPayment = todayPending > 0 ? todayPending : todayAmount;
           }
         }
         final pendingPayment = _asDouble(latest['balance_amount']);
@@ -387,6 +389,10 @@ class HomeController extends GetxController {
           dairyName: row['dairy_name']?.toString().trim().isNotEmpty == true
               ? row['dairy_name'].toString()
               : 'Dairy',
+          latestPaymentDate: _formatPaymentDate(
+            latest['paid_date'] ?? latest['date'] ?? latest['date_key'],
+          ),
+          latestPaymentAmount: _formatCurrency(_asDouble(latest['paid_amount'])),
           todayPayment: _formatCurrency(todayPayment),
           totalPayment: _formatCurrency(totalPayment),
           pendingPayment: _formatCurrency(pendingPayment),
@@ -701,6 +707,26 @@ class HomeController extends GetxController {
     });
   }
 
+  void showNextHeroBanner() {
+    final total = heroBannerCount;
+    if (total <= 1) return;
+    heroBannerIndex.value = (heroBannerIndex.value + 1) % total;
+    _restartHeroBannerTimer();
+  }
+
+  void showPreviousHeroBanner() {
+    final total = heroBannerCount;
+    if (total <= 1) return;
+    heroBannerIndex.value = (heroBannerIndex.value - 1 + total) % total;
+    _restartHeroBannerTimer();
+  }
+
+  void _restartHeroBannerTimer() {
+    _heroBannerTimer?.cancel();
+    _heroBannerTimer = null;
+    _syncHeroBannerTimer();
+  }
+
   Future<void> initialiseNotifications() async {
     try {
       final token = await _firebaseMessagingService.initialise();
@@ -894,7 +920,7 @@ class HomeController extends GetxController {
             ? customMessage!.trim()
             : 'Your account was logged in on another mobile.';
     Get.snackbar(
-      'Logged out',
+      'logged_out'.tr,
       logoutMessage,
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 4),
@@ -1011,8 +1037,28 @@ class HomeController extends GetxController {
         return;
       }
 
-      combined.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      notificationHistory.assignAll(combined.take(100).toList());
+      final deduped = <String, FarmerNotificationItem>{};
+      for (final item in combined) {
+        final key = _notificationIdentityKey(item);
+        final existing = deduped[key];
+        if (existing == null) {
+          deduped[key] = item;
+          continue;
+        }
+
+        final latest = item.createdAt.isAfter(existing.createdAt) ? item : existing;
+        final mergedRead = existing.isRead == true || item.isRead == true;
+        deduped[key] = latest.copyWith(
+          isRead: mergedRead,
+          notificationId: latest.notificationId ?? existing.notificationId ?? item.notificationId,
+          appointmentId: latest.appointmentId ?? existing.appointmentId ?? item.appointmentId,
+          type: latest.type.isNotEmpty ? latest.type : (existing.type.isNotEmpty ? existing.type : item.type),
+        );
+      }
+
+      final next = deduped.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      notificationHistory.assignAll(next.take(100).toList());
       await _persistNotificationHistory();
     } catch (_) {
       notificationHistory.clear();
@@ -1044,20 +1090,47 @@ class HomeController extends GetxController {
   }
 
   Future<void> markNotificationAsRead(FarmerNotificationItem item) async {
-    final index = notificationHistory.indexWhere(
-      (row) =>
-          row.createdAt == item.createdAt &&
-          row.title == item.title &&
-          row.body == item.body,
-    );
-    if (index == -1) return;
-
-    final current = notificationHistory[index];
-    if (current.isRead == true) return;
-
-    notificationHistory[index] = current.copyWith(isRead: true);
+    final targetKey = _notificationIdentityKey(item);
+    var changed = false;
+    for (var i = 0; i < notificationHistory.length; i++) {
+      final current = notificationHistory[i];
+      if (_notificationIdentityKey(current) != targetKey) continue;
+      if (current.isRead == true) continue;
+      notificationHistory[i] = current.copyWith(isRead: true);
+      changed = true;
+    }
+    if (!changed) return;
     notificationHistory.refresh();
     await _persistNotificationHistory();
+  }
+
+  String _notificationIdentityKey(FarmerNotificationItem item) {
+    final notificationId = item.notificationId;
+    if (notificationId != null && notificationId > 0) {
+      return 'nid_$notificationId';
+    }
+
+    final appointmentId = item.appointmentId;
+    final normalizedTitle = item.title.trim().toLowerCase();
+    final normalizedBody = item.body.trim().toLowerCase();
+    final normalizedType = item.type.trim().toLowerCase();
+
+    if (appointmentId != null && appointmentId > 0) {
+      return <String>[
+        'aid',
+        appointmentId.toString(),
+        normalizedType,
+        normalizedTitle,
+        normalizedBody,
+      ].join('_');
+    }
+
+    return <String>[
+      'msg',
+      normalizedType,
+      normalizedTitle,
+      normalizedBody,
+    ].join('_');
   }
 
   String _notificationStorageKey() {
@@ -1126,6 +1199,23 @@ class HomeController extends GetxController {
 
   String _formatQuantity(double value, String unit) {
     return '${_numberFormat.format(value)} $unit';
+  }
+
+  String _formatPaymentDate(dynamic raw) {
+    final text = raw?.toString().trim() ?? '';
+    if (text.isEmpty) return '-';
+    final parsed = DateTime.tryParse(text);
+    if (parsed != null) {
+      return DateFormat('dd/MM/yyyy').format(parsed.toLocal());
+    }
+    for (final pattern in const ['dd-MM-yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd']) {
+      try {
+        return DateFormat('dd/MM/yyyy').format(
+          DateFormat(pattern).parseStrict(text),
+        );
+      } catch (_) {}
+    }
+    return text;
   }
 
   String _formatFarmerName({
@@ -1242,6 +1332,8 @@ class AnimalTypeOption {
 
 class HomePaymentModel {
   final String dairyName;
+  final String latestPaymentDate;
+  final String latestPaymentAmount;
   final String todayPayment;
   final String totalPayment;
   final String pendingPayment;
@@ -1250,6 +1342,8 @@ class HomePaymentModel {
 
   const HomePaymentModel({
     required this.dairyName,
+    required this.latestPaymentDate,
+    required this.latestPaymentAmount,
     required this.todayPayment,
     required this.totalPayment,
     required this.pendingPayment,
@@ -1275,6 +1369,8 @@ class HomeSaleAnimalModel {
   final String aiDate;
   final String sellingPrice;
   final String dailyMilkProduction;
+  final String pregnancyStatus;
+  final String expectedCalvingDate;
   final String image;
   final String listedAt;
 
@@ -1295,9 +1391,19 @@ class HomeSaleAnimalModel {
     required this.aiDate,
     required this.sellingPrice,
     required this.dailyMilkProduction,
+    required this.pregnancyStatus,
+    required this.expectedCalvingDate,
     required this.image,
     required this.listedAt,
   });
+
+  bool get isPregnant {
+    final normalized = pregnancyStatus.trim().toLowerCase();
+    return normalized == 'pregnant' ||
+        normalized == 'yes' ||
+        normalized == '1' ||
+        normalized == 'true';
+  }
 
   factory HomeSaleAnimalModel.fromJson(Map<String, dynamic> json) {
     return HomeSaleAnimalModel(
@@ -1317,6 +1423,15 @@ class HomeSaleAnimalModel {
       aiDate: json['ai_date']?.toString() ?? '',
       sellingPrice: json['selling_price']?.toString() ?? '',
       dailyMilkProduction: json['daily_milk_production']?.toString() ?? '',
+      pregnancyStatus:
+          json['pregnancy_status']?.toString() ??
+          json['pregnancy_result']?.toString() ??
+          json['is_pregnant']?.toString() ??
+          '',
+      expectedCalvingDate:
+          json['expected_calving_date']?.toString() ??
+          json['calving_date']?.toString() ??
+          '',
       image: json['image']?.toString() ?? '',
       listedAt: json['listed_for_sale_at']?.toString() ?? '',
     );

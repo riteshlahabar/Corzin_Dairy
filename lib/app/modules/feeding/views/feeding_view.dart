@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/feeding_controller.dart';
+import 'diet_plan_view.dart';
 
 class FeedingView extends GetView<FeedingController> {
   const FeedingView({super.key});
@@ -67,6 +68,10 @@ class FeedingView extends GetView<FeedingController> {
   );
 
   void _goBack() {
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+      return;
+    }
     if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
       return;
     }
@@ -121,196 +126,6 @@ class FeedingView extends GetView<FeedingController> {
     ),
     child: Column(
       children: [
-        _label('select_animal'.tr, requiredField: true),
-        const SizedBox(height: 6),
-        Obx(
-          () => DropdownButtonFormField<FeedingAnimalModel>(
-            initialValue: controller.selectedAnimal.value,
-            isExpanded: true,
-            dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('choose_animal'.tr),
-            items: controller.animals
-                .map(
-                  (animal) => DropdownMenuItem(
-                    value: animal,
-                    child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: controller.selectAnimal,
-            validator: (value) {
-              if (value == null && controller.selectedPan.value == null) {
-                return 'select_animal_error'.tr;
-              }
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        _label('select_pan'.tr, requiredField: true),
-        const SizedBox(height: 6),
-        Obx(
-          () => DropdownButtonFormField<FeedingPanModel>(
-            initialValue: controller.selectedPan.value,
-            isExpanded: true,
-            dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('select_pan'.tr),
-            items: controller.pans
-                .map(
-                  (pan) => DropdownMenuItem(
-                    value: pan,
-                    child: Text(pan.name, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: controller.pans.isEmpty
-                ? null
-                : controller.selectPan,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _label('diet_plan'.tr, requiredField: true),
-        const SizedBox(height: 6),
-        Obx(
-          () {
-            final selectedId = controller.selectedDietPlanId.value;
-            final resolvedSelectedId = (selectedId != null &&
-                    controller.dietPlans.any((plan) => plan.id == selectedId))
-                ? selectedId
-                : null;
-
-            return DropdownButtonFormField<int>(
-              initialValue: resolvedSelectedId,
-              isExpanded: true,
-              dropdownColor: const Color(0xFFF4FAF4),
-              decoration: _decoration('select_diet_plan'.tr),
-              items: controller.dietPlans
-                  .map(
-                    (plan) => DropdownMenuItem<int>(
-                      value: plan.id,
-                      child: Text(plan.displayLabel, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(),
-              onChanged: controller.dietPlans.isEmpty
-                  ? null
-                  : controller.selectDietPlanById,
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('package_quantity'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  Obx(
-                    () => TextFormField(
-                      key: ValueKey('pkg_${controller.totalSubtypeQuantity.value.toStringAsFixed(2)}'),
-                      initialValue: controller.totalSubtypeQuantity.value.toStringAsFixed(2),
-                      readOnly: true,
-                      decoration: _decoration('0.00'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('feeding_quantity'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: controller.quantityController,
-                    focusNode: controller.quantityFocus,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _decoration('enter_quantity'.tr),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'enter_quantity_error'.tr;
-                      }
-                      final parsed = double.tryParse(value.trim());
-                      if (parsed == null || parsed <= 0) {
-                        return 'valid_quantity'.tr;
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Obx(
-          () => Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${'balance'.tr}: ${controller.balanceQuantity.value.toStringAsFixed(2)} ${controller.selectedUnit.value}',
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('rate_per_unit'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: controller.ratePerUnitController,
-                    focusNode: controller.ratePerUnitFocus,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _decoration('enter_rate_per_unit'.tr),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'enter_rate_per_unit_error'.tr;
-                      }
-                      final parsed = double.tryParse(value.trim());
-                      if (parsed == null || parsed < 0) {
-                        return 'valid_rate_per_unit'.tr;
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('feeding_cost'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  Obx(
-                    () => TextFormField(
-                      key: ValueKey(
-                        'feeding_cost_${controller.feedingCost.value.toStringAsFixed(2)}',
-                      ),
-                      initialValue: controller.feedingCost.value.toStringAsFixed(2),
-                      readOnly: true,
-                      decoration: _decoration('0.00'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -371,17 +186,222 @@ class FeedingView extends GetView<FeedingController> {
           ],
         ),
         const SizedBox(height: 12),
+        _label('select_animal'.tr, requiredField: true),
+        const SizedBox(height: 6),
+        Obx(
+          () => DropdownButtonFormField<FeedingAnimalModel>(
+            initialValue: controller.selectedAnimal.value,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('choose_animal'.tr),
+            items: controller.animals
+                .map(
+                  (animal) => DropdownMenuItem(
+                    value: animal,
+                    child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: controller.selectAnimal,
+            validator: (value) {
+              if (value == null && controller.selectedPan.value == null) {
+                return 'select_animal_error'.tr;
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        _label('select_pan'.tr, requiredField: true),
+        const SizedBox(height: 6),
+        Obx(
+          () => DropdownButtonFormField<FeedingPanModel>(
+            initialValue: controller.selectedPan.value,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('select_pan'.tr),
+            items: controller.pans
+                .map(
+                  (pan) => DropdownMenuItem(
+                    value: pan,
+                    child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: controller.pans.isEmpty
+                ? null
+                : controller.selectPan,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _dietPlanHeader(),
+        const SizedBox(height: 6),
+        Obx(
+          () {
+            final selectedId = controller.selectedDietPlanId.value;
+            final resolvedSelectedId = (selectedId != null &&
+                    controller.dietPlans.any((plan) => plan.id == selectedId))
+                ? selectedId
+                : null;
+
+            return DropdownButtonFormField<int>(
+              initialValue: resolvedSelectedId,
+              isExpanded: true,
+              dropdownColor: const Color(0xFFF4FAF4),
+              decoration: _decoration('select_diet_plan'.tr),
+                items: controller.dietPlans
+                    .map(
+                      (plan) => DropdownMenuItem<int>(
+                        value: plan.id,
+                        child: Text(
+                          controller.dietPlanDisplayLabel(plan),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              onChanged: controller.dietPlans.isEmpty
+                  ? null
+                  : controller.selectDietPlanById,
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _label('feeding_quantity'.tr, requiredField: true),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: controller.quantityController,
+              focusNode: controller.quantityFocus,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: _decoration('enter_quantity'.tr),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'enter_quantity_error'.tr;
+                }
+                final parsed = double.tryParse(value.trim());
+                if (parsed == null || parsed <= 0) {
+                  return 'valid_quantity'.tr;
+                }
+                final selectedPlan = controller.selectedDietPlan.value;
+                if (selectedPlan != null &&
+                    parsed - controller.packageQuantity.value > 0.000001) {
+                  return 'Feeding quantity cannot be greater than available diet quantity.';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label('rate_per_unit'.tr, requiredField: true),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: controller.ratePerUnitController,
+                    focusNode: controller.ratePerUnitFocus,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _decoration('enter_rate_per_unit'.tr),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'enter_rate_per_unit_error'.tr;
+                      }
+                      final parsed = double.tryParse(value.trim());
+                      if (parsed == null || parsed < 0) {
+                        return 'valid_rate_per_unit'.tr;
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label('feeding_cost'.tr, requiredField: true),
+                  const SizedBox(height: 6),
+                  Obx(
+                    () => TextFormField(
+                      key: ValueKey(
+                        'feeding_cost_${controller.feedingCost.value.toStringAsFixed(2)}',
+                      ),
+                      initialValue: controller.feedingCost.value.toStringAsFixed(2),
+                      readOnly: true,
+                      decoration: _decoration('0.00'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
         _label('notes'.tr),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller.notesController,
           maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
           decoration: _decoration('optional_notes'.tr),
         ),
       ],
     ),
   );
 
+  Widget _dietPlanHeader() => Row(
+    children: [
+      Expanded(child: _label('diet_plan'.tr, requiredField: true)),
+      Obx(() {
+        final selectedPlan = controller.selectedDietPlan.value;
+        final canEdit = selectedPlan != null;
+
+        return TextButton.icon(
+          onPressed: canEdit ? () => _openDietPlanEditor(selectedPlan) : null,
+          icon: Icon(
+            Icons.edit_rounded,
+            size: 16,
+            color: canEdit ? AppColors.primary : AppColors.grey.shade400,
+          ),
+          label: Text(
+            'edit'.tr,
+            style: TextStyle(
+              fontSize: 12.4,
+              fontWeight: FontWeight.w700,
+              color: canEdit ? AppColors.primary : AppColors.grey.shade400,
+            ),
+          ),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        );
+      }),
+    ],
+  );
+
+  Future<void> _openDietPlanEditor(FeedDietPlanModel plan) async {
+    final updated = await Get.to<bool>(
+      () => DietPlanView(
+        mode: DietPlanViewMode.edit,
+        initialPlan: plan,
+      ),
+    );
+    if (updated != true) return;
+
+    await controller.fetchDietPlans();
+    controller.selectDietPlanById(plan.id);
+  }
   Widget _button() => Obx(
     () => SizedBox(
       width: double.infinity,
@@ -471,15 +491,15 @@ class FeedingView extends GetView<FeedingController> {
     }
 
     if (controller.selectedAnimal.value == null && controller.selectedPan.value == null) {
-      Get.snackbar('Error', 'Please select an animal or PAN', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (controller.dietPlans.isNotEmpty && controller.selectedDietPlan.value == null) {
-      Get.snackbar('Error', 'Please select diet plan for selected animal/PAN.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('error'.tr, 'please_select_diet_plan_for_selected_animal_pan'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
     if (controller.selectedFeedingTime.value.trim().isEmpty || !controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value)) {
-      Get.snackbar('Info', 'No feeding time is available for selected date.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('info'.tr, 'no_feeding_time_available_selected_date'.tr, snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
@@ -498,3 +518,6 @@ class FeedingView extends GetView<FeedingController> {
     }
   }
 }
+
+
+

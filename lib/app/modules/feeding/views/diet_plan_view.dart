@@ -8,7 +8,7 @@ import '../controllers/feeding_controller.dart';
 
 enum DietPlanViewMode { add, list, edit }
 
-class DietPlanView extends StatelessWidget {
+class DietPlanView extends StatefulWidget {
   DietPlanView({
     super.key,
     this.mode = DietPlanViewMode.add,
@@ -22,8 +22,34 @@ class DietPlanView extends StatelessWidget {
   final String controllerTag;
 
   @override
+  State<DietPlanView> createState() => _DietPlanViewState();
+}
+
+class _DietPlanViewState extends State<DietPlanView> {
+  late final DietPlanController controller;
+
+  DietPlanViewMode get mode => widget.mode;
+  FeedDietPlanModel? get initialPlan => widget.initialPlan;
+  String get controllerTag => widget.controllerTag;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.isRegistered<DietPlanController>(tag: controllerTag)
+        ? Get.find<DietPlanController>(tag: controllerTag)
+        : Get.put(DietPlanController(), tag: controllerTag);
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<DietPlanController>(tag: controllerTag)) {
+      Get.delete<DietPlanController>(tag: controllerTag);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = Get.put(DietPlanController(), tag: controllerTag);
     final editPlan = _resolveEditPlan();
     if (mode == DietPlanViewMode.list) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,6 +75,10 @@ class DietPlanView extends StatelessWidget {
           onPressed: () {
             if (mode == DietPlanViewMode.edit) {
               controller.clearEditContext();
+            }
+            if (Get.key.currentState?.canPop() ?? false) {
+              Get.back();
+              return;
             }
             if (Get.isRegistered<BottomNavController>() &&
                 Get.find<BottomNavController>().closeDrawerPage()) {
@@ -230,6 +260,8 @@ class DietPlanView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            Obx(() => _liveDmiSummaryCard(controller)),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -240,6 +272,15 @@ class DietPlanView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    'daily_feeding_package'.tr,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   _fieldLabel('choose_animal'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<FeedingAnimalModel>(
@@ -280,17 +321,6 @@ class DietPlanView extends StatelessWidget {
                     onChanged: controller.onPanChanged,
                   ),
                   const SizedBox(height: 10),
-                  _fieldLabel('date'.tr, requiredField: true),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: controller.referenceDateController,
-                    readOnly: true,
-                    onTap: controller.pickReferenceDate,
-                    decoration: _decoration('select_date'.tr),
-                    validator: (value) =>
-                        value == null || value.trim().isEmpty ? 'select_date_error'.tr : null,
-                  ),
-                  const SizedBox(height: 10),
                   _fieldLabel('diet_plan'.tr, requiredField: true),
                   const SizedBox(height: 6),
                   TextFormField(
@@ -301,7 +331,7 @@ class DietPlanView extends StatelessWidget {
                     decoration: _decoration('Enter diet plan name'),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Diet plan name is required';
+                        return 'diet_plan_name_required'.tr;
                       }
                       return null;
                     },
@@ -342,8 +372,6 @@ class DietPlanView extends StatelessWidget {
                 ],
               );
             }),
-            const SizedBox(height: 8),
-            Obx(() => _liveDmiSummaryCard(controller)),
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
@@ -391,9 +419,16 @@ class DietPlanView extends StatelessWidget {
 
   Widget _liveDmiSummaryCard(DietPlanController controller) {
     final planned = controller.plannedDryMatterTotal;
+    final totalFeed = controller.feedBlocks.fold<double>(
+      0,
+      (sum, block) => sum + block.totalQuantity,
+    );
     final target = controller.targetDmi.value;
     final gap = controller.dmiGap.value;
     final isPositiveGap = gap >= 0;
+    final showTotalMilk =
+        !controller.isNonMilkingContext.value &&
+        (controller.selectedPan.value != null || controller.milkProduction.value > 0);
 
     return Container(
       width: double.infinity,
@@ -409,24 +444,42 @@ class DietPlanView extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
+                child: _summaryMetric(
                   '${'body_weight'.tr}: ${controller.bodyWeight.value.toStringAsFixed(2)} kg',
-                  style: const TextStyle(
-                    fontSize: 11.8,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2C6B36),
-                  ),
+                  color: const Color(0xFF2C6B36),
                 ),
               ),
-              Expanded(
-                child: Text(
-                  '${'total_milk'.tr}: ${controller.milkProduction.value.toStringAsFixed(2)} L',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 11.8,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2C6B36),
+              if (showTotalMilk) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _summaryMetric(
+                    '${'total_milk'.tr}: ${controller.milkProduction.value.toStringAsFixed(2)} L',
+                    color: const Color(0xFF2C6B36),
+                    textAlign: TextAlign.right,
                   ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _summaryMetric(
+                  '${'required_dmi'.tr}: ${target.toStringAsFixed(2)} kg',
+                  color: const Color(0xFF1565C0),
+                  fontSize: 12.4,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _summaryMetric(
+                  '${'dry_matter'.tr}: ${planned.toStringAsFixed(2)} kg',
+                  color: AppColors.primary,
+                  textAlign: TextAlign.right,
+                  fontSize: 12.4,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -435,41 +488,55 @@ class DietPlanView extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  '${'actual_dry_matter'.tr}: ${planned.toStringAsFixed(2)} kg',
-                  style: const TextStyle(
-                    fontSize: 12.4,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
+                child: _summaryMetric(
+                  '${'total_feeding'.tr}: ${totalFeed.toStringAsFixed(2)} kg',
+                  color: const Color(0xFF6A1B9A),
+                  fontSize: 12.4,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  '${'required_dmi'.tr}: ${target.toStringAsFixed(2)} kg',
+                child: _summaryMetric(
+                  '${'gap'.tr}: ${gap.toStringAsFixed(2)} kg',
+                  color: isPositiveGap
+                      ? const Color(0xFF2E7D32)
+                      : const Color(0xFFC62828),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 12.4,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1565C0),
-                  ),
+                  fontSize: 12.6,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${'gap'.tr}: ${gap.toStringAsFixed(2)} kg',
-              style: TextStyle(
-                fontSize: 12.6,
-                fontWeight: FontWeight.w800,
-                color: isPositiveGap ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _summaryMetric(
+    String text, {
+    required Color color,
+    TextAlign textAlign = TextAlign.left,
+    double fontSize = 11.8,
+    FontWeight fontWeight = FontWeight.w700,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: textAlign == TextAlign.right
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
+      child: Text(
+        text,
+        textAlign: textAlign,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: color,
+        ),
       ),
     );
   }
@@ -479,8 +546,25 @@ class DietPlanView extends StatelessWidget {
     required DietFeedBlock block,
     required int index,
   }) {
-    final availableFeedTypes = controller.availableFeedTypesForBlock(block);
+    final availableRaw = controller.availableFeedTypesForBlock(block);
+    final uniqueFeedTypes = <String, FeedTypeModel>{};
+    for (final type in availableRaw) {
+      final key = type.id > 0 ? 'id_${type.id}' : 'name_${type.name.trim().toLowerCase()}';
+      uniqueFeedTypes[key] = type;
+    }
+    final availableFeedTypes = uniqueFeedTypes.values.toList();
     final selectedType = block.selectedFeedType;
+    FeedTypeModel? resolvedSelectedType;
+    if (selectedType != null) {
+      for (final type in availableFeedTypes) {
+        if ((selectedType.id > 0 && type.id == selectedType.id) ||
+            (selectedType.id <= 0 &&
+                type.name.trim().toLowerCase() == selectedType.name.trim().toLowerCase())) {
+          resolvedSelectedType = type;
+          break;
+        }
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -519,7 +603,7 @@ class DietPlanView extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<FeedTypeModel>(
-            initialValue: selectedType,
+            initialValue: resolvedSelectedType,
             isExpanded: true,
             dropdownColor: const Color(0xFFF1FAF1),
             decoration: _decoration('select_feed_type'.tr),
@@ -533,11 +617,11 @@ class DietPlanView extends StatelessWidget {
                 .toList(),
             onChanged: (value) => controller.onFeedTypeChangedForBlock(block, value),
           ),
-          if (selectedType != null) ...[
+          if (resolvedSelectedType != null) ...[
             const SizedBox(height: 10),
             _fieldLabel('${'subtype_name'.tr} (${block.unit})', requiredField: true),
             const SizedBox(height: 8),
-            ...selectedType.subtypes.map(
+            ...resolvedSelectedType.subtypes.map(
               (subtype) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -616,78 +700,49 @@ class DietPlanView extends StatelessWidget {
 
   Widget _plansCard(DietPlanController controller) {
     return Obx(() {
-      final plans = controller.plans;
+      final plans = controller.filteredPlans;
       if (plans.isEmpty) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            children: [
-              Container(
-                height: 54,
-                width: 54,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.restaurant_menu_rounded, color: AppColors.primary),
+        return Column(
+          children: [
+            _planListHeader(controller, plans),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'no_diet_plan_found'.tr,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.black.withValues(alpha: 0.62),
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                children: [
+                  Container(
+                    height: 54,
+                    width: 54,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.restaurant_menu_rounded, color: AppColors.primary),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'no_diet_plan_found'.tr,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.black.withValues(alpha: 0.62),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       }
 
-      final totalBalance = plans.fold<double>(
-        0,
-        (sum, item) => sum + item.remainingQuantity,
-      );
-      final unit = plans.first.unit;
-
       return Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, Color(0xFF4EA857)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _summaryTile(
-                    icon: Icons.list_alt_rounded,
-                    label: 'diet_plan_list'.tr,
-                    value: plans.length.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _summaryTile(
-                    icon: Icons.scale_rounded,
-                    label: 'balance'.tr,
-                    value: '${totalBalance.toStringAsFixed(2)} $unit',
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _planListHeader(controller, plans),
           const SizedBox(height: 12),
           ...plans.asMap().entries.map(
             (entry) => _planCard(
@@ -699,6 +754,163 @@ class DietPlanView extends StatelessWidget {
         ],
       );
     });
+  }
+
+  Widget _planListHeader(
+    DietPlanController controller,
+    List<FeedDietPlanModel> plans,
+  ) {
+    final totalBalance = plans.fold<double>(
+      0,
+      (sum, item) => sum + item.remainingQuantity,
+    );
+    final totalPackageQuantity = plans.fold<double>(
+      0,
+      (sum, item) => sum + item.planQuantity,
+    );
+    final unit = plans.isEmpty ? 'Kg' : plans.first.unit;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, Color(0xFF4EA857)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.16),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'diet_plan_list'.tr,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'saved_diet_plans'.tr,
+                          style: TextStyle(
+                            fontSize: 12.4,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _summaryTile(
+                      icon: Icons.list_alt_rounded,
+                      label: 'diet_plan_list'.tr,
+                      value: plans.length.toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _summaryTile(
+                      icon: Icons.inventory_2_rounded,
+                      label: 'package_quantity'.tr,
+                      value: '${totalPackageQuantity.toStringAsFixed(2)} $unit',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _summaryTile(
+                      icon: Icons.scale_rounded,
+                      label: 'balance'.tr,
+                      value: '${totalBalance.toStringAsFixed(2)} $unit',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: controller.searchController,
+            onChanged: controller.updateSearchQuery,
+            decoration: InputDecoration(
+              hintText: 'search_diet_plan_animal_pan'.tr,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              suffixIcon: controller.searchQuery.value.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: controller.clearSearch,
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                    ),
+              filled: true,
+              fillColor: const Color(0xFFF8FBF8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _summaryTile({
@@ -762,29 +974,30 @@ class DietPlanView extends StatelessWidget {
     ][index % 4];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         children: [
           Container(
-            height: 4,
+            height: 5,
             decoration: BoxDecoration(
               color: stripe,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -822,12 +1035,17 @@ class DietPlanView extends StatelessWidget {
                       icon: Icons.edit_rounded,
                       color: AppColors.primary,
                       tooltip: 'edit'.tr,
-                      onTap: () => Get.to(
-                        () => DietPlanView(
-                          mode: DietPlanViewMode.edit,
-                          initialPlan: plan,
-                        ),
-                      ),
+                      onTap: () async {
+                        final updated = await Get.to<bool>(
+                          () => DietPlanView(
+                            mode: DietPlanViewMode.edit,
+                            initialPlan: plan,
+                          ),
+                        );
+                        if (updated == true) {
+                          await controller.fetchPlans();
+                        }
+                      },
                     ),
                     const SizedBox(width: 6),
                     _actionIcon(
@@ -844,6 +1062,12 @@ class DietPlanView extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     _infoBadge(
+                      icon: Icons.inventory_2_rounded,
+                      text: '${'package_quantity'.tr}: ${plan.planQuantity.toStringAsFixed(2)} ${plan.unit}',
+                      bgColor: const Color(0xFFFFF3E0),
+                      textColor: const Color(0xFFEF6C00),
+                    ),
+                    _infoBadge(
                       icon: Icons.science_rounded,
                       text:
                           '${'actual_dry_matter'.tr}: ${plan.planDryMatterQuantity.toStringAsFixed(2)} ${plan.unit}',
@@ -852,19 +1076,13 @@ class DietPlanView extends StatelessWidget {
                     ),
                     _infoBadge(
                       icon: Icons.show_chart_rounded,
-                      text: '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)}',
-                      bgColor: const Color(0xFFE3F2FD),
-                      textColor: const Color(0xFF0D47A1),
-                    ),
-                    _infoBadge(
-                      icon: Icons.scale_rounded,
-                      text: '${'balance'.tr}: ${plan.remainingQuantity.toStringAsFixed(2)} ${plan.unit}',
+                      text: '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)} ${plan.unit}',
                       bgColor: const Color(0xFFE3F2FD),
                       textColor: const Color(0xFF0D47A1),
                     ),
                     _infoBadge(
                       icon: plan.dmiGap >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                      text: '${'gap'.tr}: ${plan.dmiGap.toStringAsFixed(2)}',
+                      text: '${'gap'.tr}: ${plan.dmiGap.toStringAsFixed(2)} ${plan.unit}',
                       bgColor: plan.dmiGap >= 0 ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
                       textColor: plan.dmiGap >= 0 ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C),
                     ),
