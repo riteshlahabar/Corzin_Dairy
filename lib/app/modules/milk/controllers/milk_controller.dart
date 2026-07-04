@@ -221,6 +221,34 @@ class MilkController extends GetxController {
     return isCowMilkMatched ? 'Matched' : 'Mismatch';
   }
 
+  bool get canSubmitMilkForm {
+    if (isSubmitting.value) return false;
+    if (animals.isEmpty || dairies.isEmpty || availableShifts.isEmpty) return false;
+    if (selectedDairy.value == null) return false;
+    if (selectedAnimal.value == null && selectedPan.value == null) return false;
+    if (milkDateController.text.trim().isEmpty) return false;
+
+    final quantity = double.tryParse(quantityController.text.trim());
+    final fat = double.tryParse(fatController.text.trim());
+    final snf = double.tryParse(snfController.text.trim());
+    final rate = double.tryParse(rateController.text.trim());
+
+    if (quantity == null || quantity <= 0) return false;
+    if (fat == null || fat <= 0) return false;
+    if (snf == null || snf <= 0) return false;
+    if (rate == null || rate <= 0) return false;
+    if (selectedShift.value.trim().isEmpty || !availableShifts.contains(selectedShift.value)) {
+      return false;
+    }
+
+    if (selectedPan.value != null) {
+      if (panCowMilkEntries.isEmpty) return false;
+      if (!isCowMilkMatched) return false;
+    }
+
+    return true;
+  }
+
   void rebuildPanCowDistribution() {
     final oldEntries = List<PanCowMilkEntry>.from(panCowMilkEntries);
     panCowMilkEntries.clear();

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -13,6 +13,7 @@ class PanManagementController extends GetxController {
   final RxBool isSubmitting = false.obs;
 
   final TextEditingController panNameController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
 
   final RxList<PanAnimalItem> animals = <PanAnimalItem>[].obs;
   final RxList<PanGroupItem> pans = <PanGroupItem>[].obs;
@@ -20,6 +21,7 @@ class PanManagementController extends GetxController {
   final RxList<int> selectedAnimalIds = <int>[].obs;
   final RxList<String> selectedMilkShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
   final RxString selectedPanType = panTypeMilking.obs;
+  final RxString searchQuery = ''.obs;
   static const List<String> milkShiftOptions = <String>['Morning', 'Afternoon', 'Evening'];
   static const String panTypeMilking = 'milking';
   static const String panTypeNonMilking = 'non_milking';
@@ -33,6 +35,32 @@ class PanManagementController extends GetxController {
     return available
         .where((item) => item.matchesPanType(selectedPanType.value))
         .toList();
+  }
+
+  List<PanGroupItem> get filteredPans {
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) return pans.toList();
+
+    return pans.where((pan) {
+      final matchesPanName = pan.name.toLowerCase().contains(query);
+      final matchesPanId = pan.id.toString().contains(query);
+      final matchesAnimal = pan.animals.any((animal) {
+        return animal.animalName.toLowerCase().contains(query) ||
+            animal.tagNumber.toLowerCase().contains(query) ||
+            animal.id.toString().contains(query);
+      });
+
+      return matchesPanName || matchesPanId || matchesAnimal;
+    }).toList();
+  }
+
+  void updateSearchQuery(String value) {
+    searchQuery.value = value;
+  }
+
+  void clearSearch() {
+    searchController.clear();
+    searchQuery.value = '';
   }
 
   List<PanAnimalItem> editableAnimalsForPan(PanGroupItem pan) {
@@ -515,6 +543,7 @@ class PanManagementController extends GetxController {
   @override
   void onClose() {
     panNameController.dispose();
+    searchController.dispose();
     super.onClose();
   }
 }
@@ -663,3 +692,7 @@ class PanGroupItem {
     return parsed.isEmpty ? allowed : parsed;
   }
 }
+
+
+
+

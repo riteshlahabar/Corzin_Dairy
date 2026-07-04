@@ -7,15 +7,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
 
-enum HealthSection { dmi, mastitis }
+enum HealthSection { dmi, mastitis, vaccination }
 
 class HealthController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isSubmitting = false.obs;
   final Rx<HealthSection> selectedSection = HealthSection.dmi.obs;
   final RxList<HealthAnimalItem> animals = <HealthAnimalItem>[].obs;
+  final RxList<HealthVaccineItem> vaccines = <HealthVaccineItem>[].obs;
   final RxList<MedicalRecordItem> medicalRecords = <MedicalRecordItem>[].obs;
   final RxList<MastitisRecordItem> mastitisRecords = <MastitisRecordItem>[].obs;
+  final RxList<VaccinationRecordItem> vaccinationRecords = <VaccinationRecordItem>[].obs;
   final RxList<DmiRecordItem> dmiRecords = <DmiRecordItem>[].obs;
   final RxString dmiSearchQuery = ''.obs;
   final RxString dmiAnimalTypeFilter = 'all'.obs;
@@ -25,6 +27,9 @@ class HealthController extends GetxController {
   final RxString mastitisResultFilter = 'positive'.obs;
   final Rxn<DateTime> mastitisFromDate = Rxn<DateTime>();
   final Rxn<DateTime> mastitisToDate = Rxn<DateTime>();
+  final RxString vaccinationSearchQuery = ''.obs;
+  final Rx<DateTime> vaccinationFromDate = DateTime.now().obs;
+  final Rx<DateTime> vaccinationToDate = DateTime.now().obs;
   String lastSubmitMessage = '';
 
   int farmerId = 0;
@@ -40,8 +45,10 @@ class HealthController extends GetxController {
     farmerId = prefs.getInt('farmer_id') ?? 0;
     await Future.wait([
       fetchAnimals(),
+      fetchVaccines(),
       fetchMedicalRecords(),
       fetchMastitisRecords(),
+      fetchVaccinationRecords(),
       fetchDmiRecords(),
     ]);
   }
@@ -55,6 +62,9 @@ class HealthController extends GetxController {
     switch (selectedSection.value) {
       case HealthSection.mastitis:
         await fetchMastitisRecords();
+        break;
+      case HealthSection.vaccination:
+        await fetchVaccinationRecords();
         break;
       case HealthSection.dmi:
         await fetchDmiRecords();
@@ -111,6 +121,30 @@ class HealthController extends GetxController {
     }
   }
 
+  Future<void> fetchVaccines() async {
+    try {
+      final response = await http.get(
+        Uri.parse(Api.healthVaccines),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        final List list = data['data'] ?? [];
+        final seenIds = <int>{};
+        vaccines.assignAll(
+          list
+              .map((item) => HealthVaccineItem.fromJson(item))
+              .where((item) => item.id > 0 && seenIds.add(item.id))
+              .toList(),
+        );
+      } else {
+        vaccines.clear();
+      }
+    } catch (_) {
+      vaccines.clear();
+    }
+  }
+
   Future<void> fetchMastitisRecords() async {
     if (farmerId == 0) return;
     try {
@@ -130,6 +164,34 @@ class HealthController extends GetxController {
       }
     } catch (_) {
       mastitisRecords.clear();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchVaccinationRecords() async {
+    if (farmerId == 0) {
+      vaccinationRecords.clear();
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+      final response = await http.get(
+        Uri.parse('${Api.healthVaccination}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        final List list = data['data'] ?? [];
+        vaccinationRecords.assignAll(
+          list.map((item) => VaccinationRecordItem.fromJson(item)).toList(),
+        );
+      } else {
+        vaccinationRecords.clear();
+      }
+    } catch (_) {
+      vaccinationRecords.clear();
     } finally {
       isLoading.value = false;
     }
@@ -207,6 +269,29 @@ class HealthController extends GetxController {
       },
       successMessage: 'Mastitis record saved successfully',
       onSuccess: fetchMastitisRecords,
+      showSuccessSnackbar: false,
+    );
+  }
+
+  Future<bool> saveVaccination({
+    required int animalId,
+    required int vaccineId,
+    required String doses,
+    required DateTime vaccinationDate,
+    String notes = '',
+  }) async {
+    return _submit(
+      endpoint: Api.healthVaccination,
+      payload: {
+        'farmer_id': farmerId.toString(),
+        'animal_id': animalId.toString(),
+        'vaccine_id': vaccineId.toString(),
+        'doses': doses,
+        'vaccination_date': DateFormat('yyyy-MM-dd').format(vaccinationDate),
+        'notes': notes,
+      },
+      successMessage: 'Vaccination record saved successfully',
+      onSuccess: fetchVaccinationRecords,
       showSuccessSnackbar: false,
     );
   }
@@ -445,6 +530,64 @@ class HealthController extends GetxController {
         .toList();
   }
 
+  List<VaccinationRecordItem> get filteredVaccinationRecords {
+    final query = vaccinationSearchQuery.value.trim().toLowerCase();
+    final from = DateTime(
+      vaccinationFromDate.value.year,
+      vaccinationFromDate.value.month,
+      vaccinationFromDate.value.day,
+    );
+    final to = DateTime(
+      vaccinationToDate.value.year,
+      vaccinationToDate.value.month,
+      vaccinationToDate.value.day,
+    );
+
+    return vaccinationRecords.where((item) {
+      final parsedDate = _parseDmiDate(item.date);
+      if (parsedDate != null) {
+        final rowDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+        if (rowDate.isBefore(from) || rowDate.isAfter(to)) {
+          return false;
+        }
+      }
+
+      if (query.isEmpty) {
+        return true;
+      }
+
+      return item.searchText.contains(query);
+    }).toList();
+  }
+
+  List<VaccinationGroupItem> get filteredVaccinationGroups {
+    final grouped = <int, List<VaccinationRecordItem>>{};
+
+    for (final item in filteredVaccinationRecords) {
+      final key = item.animalId > 0 ? item.animalId : item.id;
+      grouped.putIfAbsent(key, () => <VaccinationRecordItem>[]).add(item);
+    }
+
+    final groups = grouped.values
+        .map((rows) {
+          rows.sort((a, b) {
+            final dateCompare = _parseMastitisDate(b.date).compareTo(_parseMastitisDate(a.date));
+            if (dateCompare != 0) return dateCompare;
+            return b.id.compareTo(a.id);
+          });
+          return VaccinationGroupItem(records: rows);
+        })
+        .toList();
+
+    groups.sort((a, b) {
+      final dateCompare = _parseMastitisDate(b.latestDate).compareTo(_parseMastitisDate(a.latestDate));
+      if (dateCompare != 0) return dateCompare;
+      return a.animalName.toLowerCase().compareTo(b.animalName.toLowerCase());
+    });
+
+    return groups;
+  }
+
   List<DmiRecordItem> get filteredDmiRecords {
     final query = dmiSearchQuery.value.trim().toLowerCase();
     final selectedType = dmiAnimalTypeFilter.value.trim().toLowerCase();
@@ -632,6 +775,21 @@ class HealthController extends GetxController {
     dmiFromDate.value = nextFrom;
     dmiToDate.value = nextTo;
     await fetchDmiRecords();
+  }
+
+  Future<void> setVaccinationDateRange({DateTime? from, DateTime? to}) async {
+    var nextFrom = from ?? vaccinationFromDate.value;
+    var nextTo = to ?? vaccinationToDate.value;
+
+    nextFrom = DateTime(nextFrom.year, nextFrom.month, nextFrom.day);
+    nextTo = DateTime(nextTo.year, nextTo.month, nextTo.day);
+
+    if (nextFrom.isAfter(nextTo)) {
+      nextTo = nextFrom;
+    }
+
+    vaccinationFromDate.value = nextFrom;
+    vaccinationToDate.value = nextTo;
   }
 
   DateTime? _parseDmiDate(String value) {
@@ -846,6 +1004,26 @@ class MedicalRecordItem {
       date: json['date']?.toString() ?? '',
       disease: json['disease']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
+    );
+  }
+}
+
+class HealthVaccineItem {
+  final int id;
+  final String name;
+  final String description;
+
+  HealthVaccineItem({
+    required this.id,
+    required this.name,
+    required this.description,
+  });
+
+  factory HealthVaccineItem.fromJson(Map<String, dynamic> json) {
+    return HealthVaccineItem(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
     );
   }
 }
@@ -1197,5 +1375,115 @@ class DmiRecordItem {
         text.contains('heifer') ||
         text.contains('calf') ||
         text.contains('bull');
+  }
+}
+
+class VaccinationRecordItem {
+  final int id;
+  final int animalId;
+  final String animalName;
+  final String tagNumber;
+  final String animalTypeName;
+  final int panId;
+  final String panName;
+  final int vaccineId;
+  final String vaccineName;
+  final String doses;
+  final String date;
+  final String notes;
+
+  VaccinationRecordItem({
+    required this.id,
+    required this.animalId,
+    required this.animalName,
+    required this.tagNumber,
+    required this.animalTypeName,
+    required this.panId,
+    required this.panName,
+    required this.vaccineId,
+    required this.vaccineName,
+    required this.doses,
+    required this.date,
+    required this.notes,
+  });
+
+  factory VaccinationRecordItem.fromJson(Map<String, dynamic> json) {
+    return VaccinationRecordItem(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      animalId: int.tryParse(json['animal_id']?.toString() ?? '0') ?? 0,
+      animalName: json['animal_name']?.toString() ?? '',
+      tagNumber: json['tag_number']?.toString() ?? '',
+      animalTypeName: json['animal_type_name']?.toString() ?? '',
+      panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
+      panName: json['pan_name']?.toString() ?? '',
+      vaccineId: int.tryParse(json['vaccine_id']?.toString() ?? '0') ?? 0,
+      vaccineName: json['vaccine_name']?.toString() ?? '',
+      doses: json['doses']?.toString() ?? '',
+      date: json['date']?.toString() ?? '',
+      notes: json['notes']?.toString() ?? '',
+    );
+  }
+
+  String get displayTitle =>
+      '${animalName.trim().isEmpty ? 'animal'.tr : animalName} - ${'tag'.tr} ${tagNumber.trim().isEmpty ? '-' : tagNumber}';
+
+  String get searchText {
+    return [
+      animalName,
+      tagNumber,
+      animalTypeName,
+      panName,
+      vaccineName,
+      doses,
+      date,
+      notes,
+    ].join(' ').toLowerCase();
+  }
+}
+
+class VaccinationGroupItem {
+  final List<VaccinationRecordItem> records;
+
+  VaccinationGroupItem({required this.records});
+
+  VaccinationRecordItem get latest {
+    final rows = [...records];
+    rows.sort((a, b) {
+      final dateCompare = _dateSort(b.date, a.date);
+      if (dateCompare != 0) return dateCompare;
+      return b.id.compareTo(a.id);
+    });
+    return rows.first;
+  }
+
+  int get animalId => latest.animalId;
+  String get animalName => latest.animalName;
+  String get tagNumber => latest.tagNumber;
+  String get animalTypeName => latest.animalTypeName;
+  String get panName => latest.panName;
+  String get latestDate => latest.date;
+
+  String get displayTitle =>
+      '${animalName.trim().isEmpty ? 'animal'.tr : animalName} - ${'tag'.tr} ${tagNumber.trim().isEmpty ? '-' : tagNumber}';
+
+  String get displaySubtitle => animalTypeName.trim().isEmpty ? '-' : animalTypeName;
+
+  static int _dateSort(String a, String b) {
+    DateTime parse(String value) {
+      final text = value.trim();
+      if (text.isEmpty) return DateTime.fromMillisecondsSinceEpoch(0);
+
+      try {
+        return DateFormat('dd/MM/yyyy').parseStrict(text);
+      } catch (_) {
+        try {
+          return DateFormat('yyyy-MM-dd').parseStrict(text);
+        } catch (_) {
+          return DateTime.fromMillisecondsSinceEpoch(0);
+        }
+      }
+    }
+
+    return parse(a).compareTo(parse(b));
   }
 }

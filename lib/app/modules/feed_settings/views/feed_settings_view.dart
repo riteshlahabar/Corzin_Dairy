@@ -31,12 +31,11 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
         ),
       ),
       floatingActionButton: mode == FeedSettingsViewMode.list
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
               onPressed: _openAddSubtypeScreen,
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_rounded),
-              label: Text('add_feed_sub_type'.tr),
+              child: const Icon(Icons.add_rounded),
             )
           : null,
       body: mode == FeedSettingsViewMode.add
@@ -201,18 +200,20 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            tooltip: 'edit_subtype'.tr,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _openEditSubtypeDialog(type, subtype),
-                            icon: const Icon(Icons.edit_rounded, size: 18, color: AppColors.primary),
-                          ),
-                          IconButton(
-                            tooltip: 'delete_subtype'.tr,
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _confirmDeleteSubtype(type, subtype),
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                          ),
+                          if (subtype.isEditable) ...[
+                            IconButton(
+                              tooltip: 'edit_subtype'.tr,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _openEditSubtypeDialog(type, subtype),
+                              icon: const Icon(Icons.edit_rounded, size: 18, color: AppColors.primary),
+                            ),
+                            IconButton(
+                              tooltip: 'delete_subtype'.tr,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _confirmDeleteSubtype(type, subtype),
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -704,3 +705,5 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
     );
   }
 }
+
+

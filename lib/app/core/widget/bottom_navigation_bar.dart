@@ -14,6 +14,7 @@ import '../../modules/health/views/health_view.dart';
 import '../../modules/home/controllers/home_controller.dart';
 import '../../modules/home/views/home_view.dart';
 import '../../modules/milk/views/milk_history_view.dart';
+import '../../modules/milk/controllers/milk_controller.dart';
 import '../../modules/pan/views/pan_management_view.dart';
 import '../../modules/payment/controllers/payment_controller.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
@@ -261,6 +262,9 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     }
     if (routeName == Routes.ANIMAL && Get.isRegistered<AnimalController>()) {
       Get.delete<AnimalController>(force: true);
+    }
+    if (routeName == Routes.MILK && Get.isRegistered<MilkController>()) {
+      Get.delete<MilkController>(force: true);
     }
     final route = AppPages.routes.firstWhereOrNull(
       (item) => item.name == routeName,
@@ -825,6 +829,19 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                               const HealthView(
                                 key: ValueKey('health-mastitis'),
                                 initialSection: HealthSection.mastitis,
+                              ),
+                            );
+                          },
+                        ),
+                        _drawerSubTile(
+                          title: 'vaccination'.tr,
+                          icon: Icons.vaccines_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const HealthView(
+                                key: ValueKey('health-vaccination'),
+                                initialSection: HealthSection.vaccination,
                               ),
                             );
                           },

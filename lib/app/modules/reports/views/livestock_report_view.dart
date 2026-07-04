@@ -181,11 +181,11 @@ class _LivestockReportViewState extends State<LivestockReportView> {
               ),
               DropdownMenuItem(
                 value: LivestockReportController.reportTypeMastitis,
-                child: Text('${'mastitis'.tr} Report'),
+                child: Text('mastitis_report'.tr),
               ),
               DropdownMenuItem(
                 value: LivestockReportController.reportTypeDmi,
-                child: Text('${'dmi'.tr} Report'),
+                child: Text('dmi_report'.tr),
               ),
               DropdownMenuItem(
                 value: LivestockReportController.reportTypeProfitLoss,

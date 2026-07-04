@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/login_controller.dart';
@@ -68,11 +69,16 @@ class LoginView extends GetView<LoginController> {
 
                       TextField(
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         onChanged: (value) {
                           controller.mobile.value = value;
                         },
                         decoration: InputDecoration(
                           hintText: "Enter mobile number",
+                          counterText: "",
                           prefixIcon: const Icon(Icons.phone),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -120,3 +126,4 @@ class LoginView extends GetView<LoginController> {
     );
   }
 }
+

@@ -1,5 +1,5 @@
 class Api {
-  static const String baseUrl = "https://corzindm.turnkeyinfotech.live/api";
+  static const String baseUrl = "https://admin.corzinindia.com/api";
 
   static const String login = "$baseUrl/auth/login";
   static const String checkUser = "$baseUrl/auth/check-user";
@@ -11,6 +11,7 @@ class Api {
   static const String farmerLocation = "$baseUrl/farmer/location";
   static const String farmerSettings = "$baseUrl/farmer/settings";
   static const String farmerList = "$baseUrl/farmer";
+  static const String appTranslations = "$baseUrl/app/translations";
 
   static const String addAnimal = "$baseUrl/animal/store";
   static const String animalList = "$baseUrl/animal/list";
@@ -55,6 +56,8 @@ class Api {
   static const String pregnancyDelete = "$baseUrl/pregnancy/delete";
 
   static const String healthMedical = "$baseUrl/health/medical";
+  static const String healthVaccines = "$baseUrl/health/vaccines";
+  static const String healthVaccination = "$baseUrl/health/vaccination";
   static const String healthMastitis = "$baseUrl/health/mastitis";
   static const String healthMastitisUpdate = "$baseUrl/health/mastitis/update";
   static const String healthMastitisTreatment = "$baseUrl/health/mastitis/treatment";

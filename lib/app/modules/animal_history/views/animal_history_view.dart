@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../routes/app_pages.dart';
+import '../../animal/views/animal_view.dart';
 import '../../feeding/views/feeding_history_view.dart';
 import '../../manage_animal/controllers/manage_animal_controller.dart';
 import '../../milk/views/milk_history_view.dart';
@@ -19,6 +20,21 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
+      floatingActionButton: onlyForSale
+          ? null
+          : FloatingActionButton(
+              backgroundColor: AppColors.primary,
+              onPressed: () {
+                if (Get.isRegistered<BottomNavController>()) {
+                  Get.find<BottomNavController>().openNestedDrawerPage(
+                    AnimalView(),
+                  );
+                  return;
+                }
+                Get.to(() => AnimalView());
+              },
+              child: const Icon(Icons.add_rounded, color: Colors.white),
+            ),
       body: SafeArea(
         top: false,
         bottom: false,
@@ -258,10 +274,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               _detailTile('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
               if (controller.isMilkingAnimalTypeName(item.animalTypeName))
                 _detailTile(
-                  'default_milk_per_milking'.tr,
-                  item.defaultMilkPerSession.trim().isEmpty
-                      ? '-'
-                      : '${item.defaultMilkPerSession} L',
+                  'milk_per_day'.tr,
+                  _milkPerDayText(item),
                   Icons.local_drink_outlined,
                 ),
               _detailTile('breed'.tr, item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
@@ -390,6 +404,18 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
     final display = value.trim();
     if (display.isEmpty || display == 'null') return '-';
     return 'Rs $display';
+  }
+
+  String _milkPerDayText(AnimalHistoryItem item) {
+    final perShift = double.tryParse(item.defaultMilkPerSession.trim());
+    if (perShift == null || perShift <= 0) {
+      return '-';
+    }
+
+    final shiftCount = item.panMilkShifts.isEmpty ? 1 : item.panMilkShifts.length;
+    final total = perShift * shiftCount;
+    final display = total % 1 == 0 ? total.toStringAsFixed(0) : total.toStringAsFixed(2);
+    return '$display L';
   }
 
   Widget _actionButton({
@@ -711,3 +737,4 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   }
 
 }
+

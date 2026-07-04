@@ -224,13 +224,26 @@ class FeedTypeSettingModel {
 class FeedSubtypeSettingModel {
   final int id;
   final String name;
+  final int farmerId;
+  final bool isFarmerSubtype;
+  final bool isEditable;
 
-  FeedSubtypeSettingModel({required this.id, required this.name});
+  FeedSubtypeSettingModel({
+    required this.id,
+    required this.name,
+    required this.farmerId,
+    required this.isFarmerSubtype,
+    required this.isEditable,
+  });
 
   factory FeedSubtypeSettingModel.fromJson(Map<String, dynamic> json) {
     return FeedSubtypeSettingModel(
       id: int.tryParse((json['id'] ?? '').toString()) ?? 0,
       name: json['name']?.toString() ?? '',
+      farmerId: int.tryParse((json['farmer_id'] ?? '').toString()) ?? 0,
+      isFarmerSubtype: json['is_farmer_subtype'] == true,
+      isEditable: json['is_editable'] == true,
     );
   }
 }
+

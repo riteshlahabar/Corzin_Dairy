@@ -83,7 +83,7 @@ class FetchLocationView extends GetView<FetchLocationController> {
                       const SizedBox(height: 8),
                       Text(
                         hasCoords
-                            ? 'Latitude: ${fetchLocationController.latitude.value}\nLongitude: ${fetchLocationController.longitude.value}'
+                            ? '${'latitude'.tr}: ${fetchLocationController.latitude.value}\n${'longitude'.tr}: ${fetchLocationController.longitude.value}'
                             : 'coordinates_not_fetched_yet'.tr,
                         style: const TextStyle(fontSize: 13.5),
                       ),

@@ -95,6 +95,23 @@ class _DietPlanViewState extends State<DietPlanView> {
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
+      floatingActionButton: mode == DietPlanViewMode.list
+          ? FloatingActionButton(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              onPressed: () {
+                Get.to(
+                  () => DietPlanView(
+                    mode: DietPlanViewMode.add,
+                    controllerTag:
+                        'diet_plan_add_${DateTime.now().microsecondsSinceEpoch}',
+                  ),
+                );
+              },
+              child: const Icon(Icons.add_rounded, size: 28),
+            )
+          : null,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
@@ -651,6 +668,7 @@ class _DietPlanViewState extends State<DietPlanView> {
                       width: 86,
                       child: TextField(
                         controller: block.subtypeQtyControllers[subtype.id],
+                        onTap: () => _selectAllText(block.subtypeQtyControllers[subtype.id]),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: _decoration('qty'.tr).copyWith(
                           hintText: 'qty'.tr,
@@ -663,6 +681,7 @@ class _DietPlanViewState extends State<DietPlanView> {
                       width: 86,
                       child: TextField(
                         controller: block.subtypeDmPercentControllers[subtype.id],
+                        onTap: () => _selectAllText(block.subtypeDmPercentControllers[subtype.id]),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: _decoration('dm_percent'.tr).copyWith(
                           hintText: 'dm_percent'.tr,
@@ -754,6 +773,17 @@ class _DietPlanViewState extends State<DietPlanView> {
         ],
       );
     });
+  }
+
+  void _selectAllText(TextEditingController? textController) {
+    final controller = textController;
+    if (controller == null) return;
+    final text = controller.text;
+    if (text.isEmpty) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: text.length,
+    );
   }
 
   Widget _planListHeader(

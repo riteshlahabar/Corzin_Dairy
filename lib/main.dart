@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app/core/services/dynamic_translation_service.dart';
 import 'app/core/services/firebase_messaging_service.dart';
 import 'app/core/services/local_notification_service.dart';
 import 'app/core/services/session_service.dart';
-import 'app/core/translations/translations.dart';
+import 'app/core/translations/runtime_translations.dart';
 import 'app/routes/app_pages.dart';
 
 @pragma('vm:entry-point')
@@ -54,6 +55,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final localeCode = prefs.getString('app_language') ?? 'en';
 
+  await DynamicTranslationService.initialize();
   runApp(MyApp(localeCode: localeCode));
 }
 
@@ -65,7 +67,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      translations: MyTranslations(),
+      translations: RuntimeTranslations(),
       locale: Locale(localeCode),
       fallbackLocale: const Locale('en'),
       debugShowCheckedModeBanner: false,

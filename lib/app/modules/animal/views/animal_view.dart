@@ -141,7 +141,7 @@ class AnimalView extends GetView<AnimalController> {
           const SizedBox(height: 16),
           _fieldLabel('tag_number_label'.tr, requiredField: true), const SizedBox(height: 8), TextFormField(controller: controller.tagNumberController, focusNode: controller.tagNumberFocus, textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_tag_number'.tr), validator: (value) => value == null || value.trim().isEmpty ? 'please_enter_tag_number'.tr : null),
           const SizedBox(height: 16),
-          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('lactation_number'.tr), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_lactation_no'.tr))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('ai_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.aiDateController, builder: (_, value, _) => TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('dd/MM/yyyy').copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearAiDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear'))))]))]),
+          Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('lactation_number'.tr), const SizedBox(height: 8), TextFormField(controller: controller.lactationNumberController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textInputAction: TextInputAction.next, decoration: _inputDecoration('enter_lactation_no'.tr))])), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_fieldLabel('ai_date'.tr), const SizedBox(height: 8), ValueListenableBuilder<TextEditingValue>(valueListenable: controller.aiDateController, builder: (_, value, _) => TextFormField(controller: controller.aiDateController, readOnly: true, onTap: controller.pickAiDate, decoration: _inputDecoration('date_hint_ddmmyy'.tr).copyWith(suffixIcon: value.text.trim().isEmpty ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary) : IconButton(onPressed: controller.clearAiDate, icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary), tooltip: 'Clear'))))]))]),
           const SizedBox(height: 16),
           _fieldLabel('breed_name'.tr), const SizedBox(height: 8), TextFormField(controller: controller.breedNameController, textInputAction: TextInputAction.next, textCapitalization: TextCapitalization.words, decoration: _inputDecoration('enter_breed_name'.tr)),
           const SizedBox(height: 18),
@@ -154,7 +154,7 @@ class AnimalView extends GetView<AnimalController> {
               controller: controller.birthDateController,
               readOnly: true,
               onTap: controller.pickBirthDate,
-              decoration: _inputDecoration('dd/MM/yyyy').copyWith(
+              decoration: _inputDecoration('date_hint_ddmmyy'.tr).copyWith(
                 suffixIcon: value.text.trim().isEmpty
                     ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)
                     : IconButton(
@@ -203,7 +203,7 @@ class AnimalView extends GetView<AnimalController> {
               controller: controller.purchaseDateController,
               readOnly: true,
               onTap: controller.pickPurchaseDate,
-              decoration: _inputDecoration('dd/MM/yyyy').copyWith(
+              decoration: _inputDecoration('date_hint_ddmmyy'.tr).copyWith(
                 suffixIcon: value.text.trim().isEmpty
                     ? const Icon(Icons.calendar_today_rounded, size: 20, color: AppColors.primary)
                     : IconButton(
@@ -397,5 +397,6 @@ class AnimalView extends GetView<AnimalController> {
     return InputDecoration(hintText: hint, hintStyle: TextStyle(color: AppColors.grey.shade500, fontSize: 14), isDense: true, filled: true, fillColor: const Color(0xFFF8FBF8), contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), suffixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)), errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.red)), focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.red)));
   }
 }
+
 
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
@@ -46,6 +46,21 @@ class _PanManagementViewState extends State<PanManagementView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
+      floatingActionButton: widget.mode == PanManagementMode.manage
+          ? FloatingActionButton(
+              backgroundColor: AppColors.primary,
+              onPressed: () {
+                if (Get.isRegistered<BottomNavController>()) {
+                  Get.find<BottomNavController>().openNestedDrawerPage(
+                    const PanManagementView(),
+                  );
+                  return;
+                }
+                Get.to(() => const PanManagementView());
+              },
+              child: const Icon(Icons.add_rounded, color: Colors.white),
+            )
+          : null,
       body: SafeArea(
         top: false,
         child: Column(
@@ -377,12 +392,62 @@ class _PanManagementViewState extends State<PanManagementView>
         );
       }
 
-      return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        itemCount: controller.pans.length,
-        itemBuilder: (context, index) {
-          final pan = controller.pans[index];
-          return Container(
+      final filteredPans = controller.filteredPans;
+
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: TextField(
+              controller: controller.searchController,
+              onChanged: controller.updateSearchQuery,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: 'search_pen_animal_tag_id'.tr,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                prefixIconConstraints: const BoxConstraints(minWidth: 38),
+                suffixIcon: controller.searchQuery.value.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          controller.clearSearch();
+                          FocusScope.of(context).unfocus();
+                        },
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: filteredPans.isEmpty
+                ? Center(
+                    child: Text(
+                      'no_matching_pens_found'.tr,
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: filteredPans.length,
+                    itemBuilder: (context, index) {
+                      final pan = filteredPans[index];
+                      return Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -533,7 +598,10 @@ class _PanManagementViewState extends State<PanManagementView>
               ],
             ),
           );
-        },
+                    },
+                  ),
+          ),
+        ],
       );
     });
   }
@@ -1192,3 +1260,6 @@ class _PanManagementViewState extends State<PanManagementView>
     }
   }
 }
+
+
+

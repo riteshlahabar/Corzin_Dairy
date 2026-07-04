@@ -421,10 +421,49 @@ class MilkView extends GetView<MilkController> {
   }
 
   Widget _buildSubmitButton() {
-    return Obx(() {
-      final panMismatch = controller.selectedPan.value != null && !controller.isCowMilkMatched;
-      return SizedBox(width: double.infinity, height: 58, child: ElevatedButton(onPressed: controller.isSubmitting.value || controller.isScheduleLoading.value || controller.animals.isEmpty || controller.dairies.isEmpty || controller.availableShifts.isEmpty || panMismatch ? null : _onSubmitTap, style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: (controller.isSubmitting.value || controller.isScheduleLoading.value) ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.check_circle_outline_rounded, color: Colors.white), const SizedBox(width: 8), Text('save_milk_entry'.tr, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))])));
-    });
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        controller.milkDateController,
+        controller.quantityController,
+        controller.fatController,
+        controller.snfController,
+        controller.rateController,
+      ]),
+      builder: (_, _) {
+        return Obx(() {
+          return SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: ElevatedButton(
+              onPressed: controller.canSubmitMilkForm ? _onSubmitTap : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+              child: controller.isSubmitting.value
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          'save_milk_entry'.tr,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+            ),
+          );
+        });
+      },
+    );
   }
 
   void _onSubmitTap() {

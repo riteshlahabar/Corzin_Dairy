@@ -371,6 +371,7 @@ class AnimalHistoryItem {
   final int animalTypeId;
   final String animalTypeName;
   final String panName;
+  final List<String> panMilkShifts;
   final String motherAnimalName;
   final String motherTagNumber;
   final String lactationNumber;
@@ -396,6 +397,7 @@ class AnimalHistoryItem {
     required this.animalTypeId,
     required this.animalTypeName,
     required this.panName,
+    required this.panMilkShifts,
     required this.motherAnimalName,
     required this.motherTagNumber,
     required this.lactationNumber,
@@ -429,6 +431,7 @@ class AnimalHistoryItem {
         tagNumber,
         animalTypeName,
         panName,
+        panMilkShifts.join(' '),
         motherAnimalName,
         motherTagNumber,
         lactationNumber,
@@ -453,6 +456,10 @@ class AnimalHistoryItem {
       animalTypeId: int.tryParse(json['animal_type_id'].toString()) ?? 0,
       animalTypeName: json['animal_type_name']?.toString() ?? '',
       panName: json['pan_name']?.toString() ?? '',
+      panMilkShifts: ((json['pan_milk_shifts'] as List?) ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(growable: false),
       motherAnimalName: json['mother_animal_name']?.toString() ?? '',
       motherTagNumber: json['mother_tag_number']?.toString() ?? '',
       lactationNumber: json['lactation_number']?.toString() ?? '',

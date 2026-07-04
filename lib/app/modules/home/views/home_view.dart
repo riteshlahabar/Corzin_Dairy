@@ -658,7 +658,7 @@ class HomeView extends GetView<HomeController> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${'milk_production'.tr}: ${_saleMilkText(animal.dailyMilkProduction)}',
+                    '${'milk_per_day'.tr}: ${_saleMilkText(animal.dailyMilkProduction)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 11, fontWeight: FontWeight.w600),

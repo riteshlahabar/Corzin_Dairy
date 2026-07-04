@@ -138,7 +138,7 @@ class UpgradeView extends GetView<UpgradeController> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Unlock premium features',
+                              'premium_upgrade_heading'.tr,
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.96),
                                 fontSize: 17,
@@ -158,8 +158,8 @@ class UpgradeView extends GetView<UpgradeController> {
                                 color: _brightGreen.withValues(alpha: 0.42),
                               ),
                             ),
-                            child: const Text(
-                              'PRO',
+                            child: Text(
+                              'pro_tag'.tr,
                               style: TextStyle(
                                 color: _brightGreen,
                                 fontSize: 11,
@@ -173,9 +173,9 @@ class UpgradeView extends GetView<UpgradeController> {
                       if (features.isNotEmpty)
                         ...features.map((feature) => _premiumBenefit(feature.tr))
                       else ...[
-                        _premiumBenefit('Access advanced features'),
-                        _premiumBenefit('Get priority support'),
-                        _premiumBenefit('Unlock all premium tools'),
+                        _premiumBenefit('access_advanced_features'.tr),
+                        _premiumBenefit('get_priority_support'.tr),
+                        _premiumBenefit('unlock_all_premium_tools'.tr),
                       ],
                     ],
                   ),
@@ -329,9 +329,9 @@ class UpgradeView extends GetView<UpgradeController> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Choose your plan',
+                  'choose_plan'.tr,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -348,8 +348,8 @@ class UpgradeView extends GetView<UpgradeController> {
                     color: Colors.white.withValues(alpha: 0.24),
                   ),
                 ),
-                child: const Text(
-                  'PREMIUM',
+                child: Text(
+                  'premium_tag'.tr.toUpperCase(),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -497,8 +497,8 @@ class UpgradeView extends GetView<UpgradeController> {
                       ),
                     ],
                   ),
-                  child: const Text(
-                    '20% OFF',
+                  child: Text(
+                    'discount_20_off'.tr,
                     style: TextStyle(
                       color: _deepGreen,
                       fontSize: 8.5,
@@ -549,7 +549,7 @@ class UpgradeView extends GetView<UpgradeController> {
                   ),
                 ),
                 child: Text(
-                  selected ? 'Selected' : 'Tap to choose',
+                  selected ? 'selected'.tr : 'tap_to_choose'.tr,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: selected
@@ -940,7 +940,7 @@ class UpgradeView extends GetView<UpgradeController> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'Continue with ${plan.price}',
+                          'continue_with_plan'.trParams({'price': plan.price}),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -1034,16 +1034,16 @@ class UpgradeView extends GetView<UpgradeController> {
     if (name.contains('12 month') ||
         name.contains('12month') ||
         name.contains('year')) {
-      return 'Yearly';
+      return 'yearly'.tr;
     }
     if (name.contains('6 month') || name.contains('6month')) {
-      return 'Half-Yearly';
+      return 'half_yearly'.tr;
     }
     if (name.contains('month')) {
-      return 'Monthly';
+      return 'monthly'.tr;
     }
     if (plan.amount <= 0) {
-      return 'Free Trial';
+      return 'free_trial'.tr;
     }
     return plan.name.tr;
   }
@@ -1054,18 +1054,18 @@ class UpgradeView extends GetView<UpgradeController> {
     if (name.contains('12 month') ||
         name.contains('12month') ||
         name.contains('year')) {
-      return 'Billed annually';
+      return 'billed_annually'.tr;
     }
     if (name.contains('6 month') || name.contains('6month')) {
-      return 'Billed every 6 months';
+      return 'billed_every_6_months'.tr;
     }
     if (name.contains('month')) {
-      return 'Billed monthly';
+      return 'billed_monthly'.tr;
     }
     if (plan.amount <= 0) {
-      return 'Play after trial';
+      return 'play_after_trial'.tr;
     }
-    return plan.highlighted ? 'Best value plan' : 'Flexible farm plan';
+    return plan.highlighted ? 'best_value_plan'.tr : 'flexible_farm_plan'.tr;
   }
 
   void _goBack() {

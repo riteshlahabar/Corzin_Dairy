@@ -221,7 +221,7 @@ class BuyAnimalView extends GetView<HomeController> {
               _chip('unique_id'.tr, _textOrDash(item.uniqueId)),
               _chip('age'.tr, _textOrDash(item.age)),
               _chip('lactation_number'.tr, _textOrDash(item.lactationNumber)),
-              _chip('milk_production'.tr, _milkText(item.dailyMilkProduction)),
+              _chip('milk_per_day'.tr, _milkText(item.dailyMilkProduction)),
               _chip(
                 'pregnant'.tr,
                 item.isPregnant ? 'yes'.tr : 'no'.tr,
