@@ -273,26 +273,36 @@ class FeedingView extends GetView<FeedingController> {
             _label('feeding_quantity'.tr, requiredField: true),
             const SizedBox(height: 6),
             TextFormField(
-              controller: controller.quantityController,
-              focusNode: controller.quantityFocus,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: _decoration('enter_quantity'.tr),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'enter_quantity_error'.tr;
-                }
-                final parsed = double.tryParse(value.trim());
-                if (parsed == null || parsed <= 0) {
-                  return 'valid_quantity'.tr;
-                }
-                final selectedPlan = controller.selectedDietPlan.value;
-                if (selectedPlan != null &&
-                    parsed - controller.packageQuantity.value > 0.000001) {
-                  return 'Feeding quantity cannot be greater than available diet quantity.';
-                }
-                return null;
-              },
-            ),
+  controller: controller.quantityController,
+  focusNode: controller.quantityFocus,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: _decoration('enter_quantity'.tr),
+  validator: (value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'enter_quantity_error'.tr;
+    }
+    final parsed = double.tryParse(value.trim());
+    if (parsed == null || parsed <= 0) {
+      return 'valid_quantity'.tr;
+    }
+    final selectedPlan = controller.selectedDietPlan.value;
+    if (selectedPlan != null &&
+        parsed - controller.packageQuantity.value > 0.000001) {
+      return 'Feeding quantity cannot be greater than available diet quantity.';
+    }
+    return null;
+  },
+),
+const SizedBox(height: 6),
+Text(
+  'feeding_quantity_half_shift_note'.tr,
+  style: TextStyle(
+    fontSize: 11.8,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    color: AppColors.grey.shade600,
+  ),
+),
           ],
         ),
         const SizedBox(height: 12),

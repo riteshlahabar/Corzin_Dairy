@@ -251,6 +251,9 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
 
   Future<void> logout() async {
     await SessionService.logout();
+    if (Get.isRegistered<HomeController>()) {
+      Get.delete<HomeController>(force: true);
+    }
     Get.offAllNamed(Routes.SPLASH);
   }
 
@@ -373,9 +376,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
         : '';
     Get.snackbar(
       'upgrade_plan'.tr,
-      message.trim().isEmpty
-          ? 'plan_expired_contact_admin'.tr
-          : message,
+      message.trim().isEmpty ? 'plan_expired_contact_admin'.tr : message,
     );
   }
 }
@@ -403,6 +404,16 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     return Get.put<T>(builder(), permanent: permanent);
   }
 
+  T _findOrPut<T extends GetxController>(
+    T Function() builder, {
+    bool permanent = false,
+  }) {
+    if (Get.isRegistered<T>()) {
+      return Get.find<T>();
+    }
+    return Get.put<T>(builder(), permanent: permanent);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -412,7 +423,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     );
     controller.currentIndex.value = widget.initialIndex;
     controller.resetTabHistory();
-    _resetAndPut<HomeController>(() => HomeController(), permanent: true);
+    _findOrPut<HomeController>(() => HomeController(), permanent: true);
     _resetAndPut<DoctorController>(() => DoctorController(), permanent: true);
     _resetAndPut<ShopController>(() => ShopController(), permanent: true);
     _resetAndPut<ProfileController>(() => ProfileController(), permanent: true);
@@ -465,19 +476,23 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
           final drawerPage = controller.activeDrawerPage.value;
           final planLocked = Get.find<HomeController>().isPlanLocked.value;
           final currentIndex = controller.currentIndex.value;
-          _pageCache.putIfAbsent(currentIndex, () => _buildPageForIndex(currentIndex));
+          _pageCache.putIfAbsent(
+            currentIndex,
+            () => _buildPageForIndex(currentIndex),
+          );
           return Stack(
             children: [
               planLocked
                   ? const UpgradeView()
                   : drawerPage ??
-                  IndexedStack(
-                    index: currentIndex,
-                    children: List<Widget>.generate(
-                      5,
-                      (index) => _pageCache[index] ?? const SizedBox.shrink(),
-                    ),
-                  ),
+                        IndexedStack(
+                          index: currentIndex,
+                          children: List<Widget>.generate(
+                            5,
+                            (index) =>
+                                _pageCache[index] ?? const SizedBox.shrink(),
+                          ),
+                        ),
               if (drawerPage != null || planLocked)
                 Positioned(
                   top: MediaQuery.of(context).viewPadding.top + 8,
@@ -487,11 +502,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                     onTap: controller.openRootDrawer,
                     child: const Padding(
                       padding: EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.menu,
-                        color: AppColors.white,
-                        size: 24,
-                      ),
+                      child: Icon(Icons.menu, color: AppColors.white, size: 24),
                     ),
                   ),
                 ),
@@ -501,7 +512,8 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         bottomNavigationBar: keyboardVisible
             ? null
             : Obx(() {
-                final planLocked = Get.find<HomeController>().isPlanLocked.value;
+                final planLocked =
+                    Get.find<HomeController>().isPlanLocked.value;
                 if (planLocked) {
                   return const SizedBox.shrink();
                 }
@@ -547,7 +559,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.18),
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.18,
+                                      ),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
@@ -669,7 +683,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           icon: Icons.add_box_outlined,
                           onTap: () {
                             Get.back();
-                            controller.openDrawerPage(const PanManagementView());
+                            controller.openDrawerPage(
+                              const PanManagementView(),
+                            );
                           },
                         ),
                         _drawerSubTile(
@@ -725,7 +741,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                           icon: Icons.format_list_bulleted_rounded,
                           onTap: () {
                             Get.back();
-                            controller.openDrawerRoute(Routes.FEED_SETTINGS_LIST);
+                            controller.openDrawerRoute(
+                              Routes.FEED_SETTINGS_LIST,
+                            );
                           },
                         ),
                         _drawerSubTile(
@@ -1071,10 +1089,7 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       visualDensity: const VisualDensity(vertical: -2),
       contentPadding: const EdgeInsets.only(left: 22, right: 8),
       leading: Icon(icon, size: 18, color: AppColors.primary),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 13.5),
-      ),
+      title: Text(title, style: const TextStyle(fontSize: 13.5)),
       onTap: onTap,
     );
   }

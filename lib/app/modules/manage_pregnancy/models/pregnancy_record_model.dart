@@ -7,6 +7,7 @@ class PregnancyRecordModel {
   final String tagNumber;
   final String image;
   final String animalTypeName;
+  final String breedName;
   final int pregnancyNo;
   final int serviceNo;
   final String heatDate;
@@ -21,6 +22,8 @@ class PregnancyRecordModel {
   final String expectedCalvingDate;
   final String dryOffDate;
   final String calvingDate;
+  final String abortDate;
+final String abortReason;
   final String status;
   final int calfAnimalId;
   final String calfAnimalName;
@@ -37,6 +40,7 @@ class PregnancyRecordModel {
     required this.tagNumber,
     required this.image,
     required this.animalTypeName,
+    required this.breedName,
     required this.pregnancyNo,
     required this.serviceNo,
     required this.heatDate,
@@ -51,6 +55,8 @@ class PregnancyRecordModel {
     required this.expectedCalvingDate,
     required this.dryOffDate,
     required this.calvingDate,
+    required this.abortDate,
+required this.abortReason,
     required this.status,
     required this.calfAnimalId,
     required this.calfAnimalName,
@@ -69,6 +75,7 @@ class PregnancyRecordModel {
       tagNumber: json['tag_number']?.toString() ?? '',
       image: json['image']?.toString() ?? '',
       animalTypeName: json['animal_type_name']?.toString() ?? '',
+      breedName: json['breed_name']?.toString() ?? '',
       pregnancyNo: _asInt(json['pregnancy_no'], fallback: 1),
       serviceNo: _asInt(json['service_no'], fallback: 1),
       heatDate: json['heat_date']?.toString() ?? '',
@@ -84,6 +91,8 @@ class PregnancyRecordModel {
       expectedCalvingDate: json['expected_calving_date']?.toString() ?? '',
       dryOffDate: json['dry_off_date']?.toString() ?? '',
       calvingDate: json['calving_date']?.toString() ?? '',
+      abortDate: json['abort_date']?.toString() ?? '',
+abortReason: json['abort_reason']?.toString() ?? '',
       status: json['status']?.toString() ?? 'served',
       calfAnimalId: _asInt(json['calf_animal_id']),
       calfAnimalName: json['calf_animal_name']?.toString() ?? '',
@@ -115,6 +124,9 @@ class PregnancyRecordModel {
         expectedCalvingDate,
         pregnancyResult,
         status,
+        breedName,
+abortDate,
+abortReason,
         doctorName,
         bullName,
         semenNo,
@@ -131,8 +143,9 @@ class PregnancyAnimalOption {
   final String name;
   final String tagNumber;
   final String animalTypeName;
+  final String breedName;
   final String gender;
-  final int lactationNumber;
+  final int lactationNumber;  
 
   const PregnancyAnimalOption({
     required this.id,
@@ -141,6 +154,7 @@ class PregnancyAnimalOption {
     required this.animalTypeName,
     required this.gender,
     required this.lactationNumber,
+    required this.breedName,
   });
 
   factory PregnancyAnimalOption.fromJson(Map<String, dynamic> json) {
@@ -152,6 +166,7 @@ class PregnancyAnimalOption {
       gender: json['gender']?.toString() ?? '',
       lactationNumber:
           int.tryParse(json['lactation_number']?.toString() ?? '') ?? 0,
+      breedName: json['breed_name']?.toString() ?? '',
     );
   }
 

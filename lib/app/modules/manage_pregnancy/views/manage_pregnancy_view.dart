@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
-import '../../../routes/app_pages.dart';
 import '../controllers/manage_pregnancy_controller.dart';
 import '../models/pregnancy_record_model.dart';
 
@@ -249,7 +248,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                 children: [
                   _detailTile(
                     'ai_date'.tr,
-                    _dash(record.aiDate),
+                    _displayDate(record.aiDate),
                     Icons.event_rounded,
                     width: tileWidth,
                   ),
@@ -258,15 +257,15 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                         ? 'pregnancy_check_date'.tr
                         : 'pregnancy_check_due'.tr,
                     _isPregnancyChecked(record)
-                        ? _dash(record.pregnancyCheckDate)
-                        : _dash(record.pregnancyCheckDueDate),
+                        ? _displayDate(record.pregnancyCheckDate)
+                        : _displayDate(record.pregnancyCheckDueDate),
                     Icons.fact_check_rounded,
                     width: tileWidth,
                   ),
                   if (record.status == 'pregnant') ...[
                     _detailTile(
                       'expected_calving'.tr,
-                      _dash(record.expectedCalvingDate),
+                      _displayDate(record.expectedCalvingDate),
                       Icons.child_care_rounded,
                       width: tileWidth,
                     ),
@@ -276,6 +275,34 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                           ? '-'
                           : '${record.remainingDays} ${'days'.tr}',
                       Icons.timelapse_rounded,
+                      width: tileWidth,
+                    ),
+                  ],
+                  if (record.status == 'calved') ...[
+                    _detailTile(
+                      'delivery_date'.tr,
+                      _displayDate(record.calvingDate),
+                      Icons.child_care_rounded,
+                      width: tileWidth,
+                    ),
+                    _detailTile(
+                      'breed_name'.tr,
+                      _dash(record.breedName),
+                      Icons.pets_rounded,
+                      width: tileWidth,
+                    ),
+                  ],
+                  if (record.status == 'aborted') ...[
+                    _detailTile(
+                      'abort_date'.tr,
+                      _displayDate(record.abortDate),
+                      Icons.event_busy_rounded,
+                      width: tileWidth,
+                    ),
+                    _detailTile(
+                      'abort_reason'.tr,
+                      _dash(record.abortReason),
+                      Icons.notes_rounded,
                       width: tileWidth,
                     ),
                   ],
@@ -290,34 +317,59 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               style: TextStyle(fontSize: 12, color: AppColors.grey.shade700),
             ),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _statusActionButton(
-                  label: 'pregnant'.tr,
-                  color: AppColors.primary,
-                  isSelected: record.status == 'pregnant',
-                  onTap: () => _openPregnancyCheckSheet(
-                    record,
-                    nextStatus: 'pregnant',
+          if (record.status != 'calved' && record.status != 'aborted') ...[
+            const SizedBox(height: 12),
+            if (record.status == 'pregnant')
+              Row(
+                children: [
+                  Expanded(
+                    child: _statusActionButton(
+                      label: 'delivery'.tr,
+                      color: AppColors.primary,
+                      isSelected: false,
+                      onTap: () => _openDeliverySheet(record),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _statusActionButton(
-                  label: 'non_pregnant'.tr,
-                  color: const Color(0xFFE67E22),
-                  isSelected: record.status == 'not_pregnant',
-                  onTap: () => _openPregnancyCheckSheet(
-                    record,
-                    nextStatus: 'not_pregnant',
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _statusActionButton(
+                      label: 'abort'.tr,
+                      color: Colors.red.shade600,
+                      isSelected: false,
+                      onTap: () => _openAbortSheet(record),
+                    ),
                   ),
-                ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: _statusActionButton(
+                      label: 'pregnant'.tr,
+                      color: AppColors.primary,
+                      isSelected: record.status == 'pregnant',
+                      onTap: () => _openPregnancyCheckSheet(
+                        record,
+                        nextStatus: 'pregnant',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _statusActionButton(
+                      label: 'non_pregnant'.tr,
+                      color: const Color(0xFFE67E22),
+                      isSelected: record.status == 'not_pregnant',
+                      onTap: () => _openPregnancyCheckSheet(
+                        record,
+                        nextStatus: 'not_pregnant',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [
@@ -354,7 +406,11 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
@@ -397,7 +453,10 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                   value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -423,8 +482,13 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
           backgroundColor: color,
           foregroundColor: Colors.white,
           elevation: 0,
-          textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+          textStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
         ),
       ),
     );
@@ -444,7 +508,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
   }) {
     final checkDateController = TextEditingController(
       text: record.pregnancyCheckDate.trim().isNotEmpty
-          ? record.pregnancyCheckDate.trim()
+          ? _displayDate(record.pregnancyCheckDate)
           : _formatDate(DateTime.now()),
     );
     Get.bottomSheet(
@@ -478,9 +542,8 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                       icon: Icons.calendar_month_rounded,
                     ),
                     onTap: () async {
-                      final initial = DateTime.tryParse(
-                            checkDateController.text.trim(),
-                          ) ??
+                      final initial =
+                          _parseDate(checkDateController.text.trim()) ??
                           DateTime.now();
                       final picked = await showDatePicker(
                         context: context,
@@ -514,8 +577,8 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
                         onPressed: controller.isSubmitting.value
                             ? null
                             : () async {
-                                final checkDate =
-                                    checkDateController.text.trim();
+                                final checkDate = checkDateController.text
+                                    .trim();
                                 if (checkDate.isEmpty) {
                                   Get.snackbar(
                                     'validation'.tr,
@@ -567,6 +630,289 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
     );
   }
 
+  void _openDeliverySheet(PregnancyRecordModel record) {
+    final deliveryDateController = TextEditingController(
+      text: record.calvingDate.trim().isNotEmpty
+    ? _displayDate(record.calvingDate)
+    : _formatDate(DateTime.now()),
+    );
+
+    final breedNameController = TextEditingController(
+      text: _initialBreedName(record),
+    );
+
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              return Wrap(
+                runSpacing: 12,
+                children: [
+                  Text(
+                    'confirm_delivery'.tr,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: deliveryDateController,
+                    readOnly: true,
+                    decoration: _inputDecoration(
+                      'delivery_date'.tr,
+                      icon: Icons.calendar_month_rounded,
+                    ),
+                    onTap: () async {
+                      final value = await _pickDate(
+                        context,
+                        deliveryDateController.text.trim(),
+                      );
+                      if (value != null) {
+                        setSheetState(
+                          () => deliveryDateController.text = value,
+                        );
+                      }
+                    },
+                  ),
+                  TextFormField(
+                    controller: breedNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _inputDecoration(
+                      'breed_name'.tr,
+                      icon: Icons.pets_rounded,
+                    ),
+                  ),
+                  Obx(
+                    () => SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: controller.isSubmitting.value
+                            ? null
+                            : () async {
+                                final deliveryDate = deliveryDateController.text
+                                    .trim();
+
+                                if (deliveryDate.isEmpty) {
+                                  Get.snackbar(
+                                    'validation'.tr,
+                                    'please_select_delivery_date'.tr,
+                                  );
+                                  return;
+                                }
+
+                                final navigator = Navigator.of(context);
+
+                                final ok = await controller.updateStatus(
+                                  record,
+                                  status: 'calved',
+                                  pregnancyCheckDate: record.pregnancyCheckDate,
+                                  calvingDate: deliveryDate,
+                                  breedName: breedNameController.text.trim(),
+                                );
+
+                                if (ok && navigator.canPop()) {
+                                  navigator.pop();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: controller.isSubmitting.value
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text('save_delivery'.tr),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _openAbortSheet(PregnancyRecordModel record) {
+    final abortDateController = TextEditingController(
+      text: record.abortDate.trim().isNotEmpty
+    ? _displayDate(record.abortDate)
+    : _formatDate(DateTime.now()),
+    );
+
+    final abortReasonController = TextEditingController(
+      text: record.abortReason.trim().isNotEmpty
+          ? record.abortReason.trim()
+          : record.notes.trim(),
+    );
+
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              return Wrap(
+                runSpacing: 12,
+                children: [
+                  Text(
+                    'confirm_abort'.tr,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: abortDateController,
+                    readOnly: true,
+                    decoration: _inputDecoration(
+                      'abort_date'.tr,
+                      icon: Icons.calendar_month_rounded,
+                    ),
+                    onTap: () async {
+                      final value = await _pickDate(
+                        context,
+                        abortDateController.text.trim(),
+                      );
+                      if (value != null) {
+                        setSheetState(() => abortDateController.text = value);
+                      }
+                    },
+                  ),
+                  TextFormField(
+                    controller: abortReasonController,
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: _inputDecoration(
+                      'abort_reason'.tr,
+                      icon: Icons.notes_rounded,
+                    ),
+                  ),
+                  Obx(
+                    () => SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: controller.isSubmitting.value
+                            ? null
+                            : () async {
+                                final abortDate = abortDateController.text
+                                    .trim();
+
+                                if (abortDate.isEmpty) {
+                                  Get.snackbar(
+                                    'validation'.tr,
+                                    'please_select_abort_date'.tr,
+                                  );
+                                  return;
+                                }
+
+                                final navigator = Navigator.of(context);
+
+                                final ok = await controller.updateStatus(
+                                  record,
+                                  status: 'aborted',
+                                  pregnancyCheckDate: record.pregnancyCheckDate,
+                                  abortDate: abortDate,
+                                  abortReason: abortReasonController.text
+                                      .trim(),
+                                );
+
+                                if (ok && navigator.canPop()) {
+                                  navigator.pop();
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: controller.isSubmitting.value
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text('save_abort'.tr),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  String _initialBreedName(PregnancyRecordModel record) {
+    if (record.breedName.trim().isNotEmpty) {
+      return record.breedName.trim();
+    }
+
+    final animal = controller.allAnimals.firstWhereOrNull(
+      (item) => item.id == record.animalId,
+    );
+
+    return animal?.breedName.trim() ?? '';
+  }
+
+  Future<String?> _pickDate(BuildContext context, String initialValue) async {
+   final initial = _parseDate(initialValue) ?? DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              surface: Color(0xFFF4FAF4),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    return picked == null ? null : _formatDate(picked);
+  }
+
   Widget _statusActionButton({
     required String label,
     required Color color,
@@ -583,8 +929,13 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               : Colors.white,
           foregroundColor: color,
           side: BorderSide(color: color.withValues(alpha: 0.45)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-          textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         child: Text(label),
       ),
@@ -611,17 +962,11 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
             icon: Icons.pets_rounded,
           ),
           items: [
-            DropdownMenuItem<int?>(
-              value: null,
-              child: Text('all'.tr),
-            ),
+            DropdownMenuItem<int?>(value: null, child: Text('all'.tr)),
             ...controller.animals.map(
               (animal) => DropdownMenuItem<int?>(
                 value: animal.id,
-                child: Text(
-                  animal.label,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: Text(animal.label, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -646,10 +991,7 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
   Widget _fallbackAnimalAvatar() {
     return Container(
       color: AppColors.primary.withValues(alpha: 0.10),
-      child: const Icon(
-        Icons.pets_rounded,
-        color: AppColors.primary,
-      ),
+      child: const Icon(Icons.pets_rounded, color: AppColors.primary),
     );
   }
 
@@ -694,7 +1036,9 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
               ),
               const SizedBox(height: 8),
               Text(
-                'delete_pregnancy_record_confirm'.trParams({'name': record.cowLabel}),
+                'delete_pregnancy_record_confirm'.trParams({
+                  'name': record.cowLabel,
+                }),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13.5,
@@ -763,7 +1107,9 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
       hintText: hint,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      prefixIcon: icon == null ? null : Icon(icon, size: 20, color: AppColors.primary),
+      prefixIcon: icon == null
+          ? null
+          : Icon(icon, size: 20, color: AppColors.primary),
       prefixIconConstraints: const BoxConstraints(minWidth: 38),
       filled: true,
       fillColor: Colors.white,
@@ -794,13 +1140,53 @@ class ManagePregnancyView extends GetView<ManagePregnancyController> {
   }
 
   bool _isPregnancyChecked(PregnancyRecordModel record) {
-    return record.status == 'pregnant' || record.status == 'not_pregnant';
+    return record.status == 'pregnant' ||
+        record.status == 'not_pregnant' ||
+        record.status == 'calved' ||
+        record.status == 'aborted';
   }
 
   String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day-$month-${date.year}';
+}
+
+  DateTime? _parseDate(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    try {
+      if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(text)) {
+        final parts = text.split('-');
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+
+      if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(text)) {
+        final parts = text.split('/');
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) {
+        return DateTime.tryParse(text);
+      }
+    } catch (_) {}
+
+    return DateTime.tryParse(text);
+  }
+
+  String _displayDate(String value) {
+    final parsed = _parseDate(value);
+    if (parsed == null) return '-';
+    return _formatDate(parsed);
   }
 
   String _dash(String value) => value.trim().isEmpty ? '-' : value;
@@ -845,12 +1231,12 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
       serviceNo = record.serviceNo;
       calfAnimalId = record.calfAnimalId;
       serviceType = record.serviceType;
-      heatDate.text = record.heatDate;
-      aiDate.text = record.aiDate;
+      heatDate.text = _displayDate(record.heatDate);
+      aiDate.text = _displayDate(record.aiDate);
       bullName.text = record.bullName;
       semenNo.text = record.semenNo;
       doctorName.text = record.doctorName;
-      checkDueDate.text = record.pregnancyCheckDueDate;
+      checkDueDate.text = _displayDate(record.pregnancyCheckDueDate);
       notes.text = record.notes;
     }
     _syncLactationNumber();
@@ -960,7 +1346,10 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
                       dropdownColor: const Color(0xFFF4FAF4),
                       items: [
                         const DropdownMenuItem(value: 'ai', child: Text('AI')),
-                        DropdownMenuItem(value: 'natural', child: Text('natural'.tr)),
+                        DropdownMenuItem(
+                          value: 'natural',
+                          child: Text('natural'.tr),
+                        ),
                       ],
                       onChanged: (value) =>
                           setState(() => serviceType = value ?? 'ai'),
@@ -1062,11 +1451,10 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
               ),
       ),
       validator: requiredField
-          ? (value) =>
-              value == null || value.trim().isEmpty ? 'Required' : null
+          ? (value) => value == null || value.trim().isEmpty ? 'Required' : null
           : null,
       onTap: () async {
-        final initial = DateTime.tryParse(textController.text) ?? DateTime.now();
+        final initial = _parseDate(textController.text) ?? DateTime.now();
         final picked = await showDatePicker(
           context: context,
           initialDate: initial,
@@ -1139,15 +1527,9 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
         ? (pregnancyNo: pregnancyNo, serviceNo: serviceNo)
         : controller.nextNumbers(animalId);
 
-    final normalizedResult = isEdit
-        ? existing.pregnancyResult
-        : 'pending';
-    final normalizedStatus = isEdit
-        ? existing.status
-        : 'pregnancy_check_due';
-    final normalizedIsCurrent = isEdit
-        ? existing.isCurrent
-        : true;
+    final normalizedResult = isEdit ? existing.pregnancyResult : 'pending';
+    final normalizedStatus = isEdit ? existing.status : 'pregnancy_check_due';
+    final normalizedIsCurrent = isEdit ? existing.isCurrent : true;
     final lactationNumber =
         int.tryParse(lactationNumberController.text.trim()) ?? 0;
 
@@ -1176,27 +1558,62 @@ class _PregnancyFormSheetState extends State<_PregnancyFormSheet> {
     );
     if (!ok) return;
 
-    _goToHomeAfterSave();
+    _stayOnManagePregnancyAfterSave();
   }
 
-  void _goToHomeAfterSave() {
+  void _stayOnManagePregnancyAfterSave() {
     if (Get.isBottomSheetOpen == true) {
       Navigator.of(context, rootNavigator: true).pop();
     }
+
+    controller.selectedStatus.value = 'pregnancy_check_due';
+    controller.searchController.clear();
+
     if (Get.isRegistered<BottomNavController>()) {
-      final nav = Get.find<BottomNavController>();
-      nav.activeDrawerPage.value = null;
-      nav.changeTab(0);
-      nav.resetTabHistory();
-      nav.runSilentSyncNow();
-      return;
+      Get.find<BottomNavController>().runSilentSyncNow();
     }
-    Get.offAllNamed(Routes.HOME);
   }
 
   String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day-$month-${date.year}';
+  }
+
+  DateTime? _parseDate(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    try {
+      if (RegExp(r'^\d{2}-\d{2}-\d{4}$').hasMatch(text)) {
+        final parts = text.split('-');
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+
+      if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(text)) {
+        final parts = text.split('/');
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) {
+        return DateTime.tryParse(text);
+      }
+    } catch (_) {}
+
+    return DateTime.tryParse(text);
+  }
+
+  String _displayDate(String value) {
+    final parsed = _parseDate(value);
+    if (parsed == null) return '';
+    return _formatDate(parsed);
   }
 }

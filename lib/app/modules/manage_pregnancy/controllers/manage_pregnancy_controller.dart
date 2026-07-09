@@ -15,7 +15,8 @@ class ManagePregnancyController extends GetxController {
   final RxBool isSubmitting = false.obs;
   final RxList<PregnancyRecordModel> records = <PregnancyRecordModel>[].obs;
   final RxList<PregnancyAnimalOption> animals = <PregnancyAnimalOption>[].obs;
-  final RxList<PregnancyAnimalOption> allAnimals = <PregnancyAnimalOption>[].obs;
+  final RxList<PregnancyAnimalOption> allAnimals =
+      <PregnancyAnimalOption>[].obs;
   final RxString selectedStatus = 'pregnancy_check_due'.obs;
   final RxnInt selectedAnimalId = RxnInt();
   final RxString searchQuery = ''.obs;
@@ -26,6 +27,8 @@ class ManagePregnancyController extends GetxController {
   static const List<String> statuses = [
     'pregnancy_check_due',
     'pregnant',
+    'calved',
+    'aborted',
     'not_pregnant',
     'all',
   ];
@@ -36,7 +39,8 @@ class ManagePregnancyController extends GetxController {
     final query = searchQuery.value.trim().toLowerCase();
     return records.where((item) {
       final matchesStatus = status == 'all' || item.status == status;
-      final matchesAnimal = animalId == null || animalId <= 0 || item.animalId == animalId;
+      final matchesAnimal =
+          animalId == null || animalId <= 0 || item.animalId == animalId;
       final matchesSearch = query.isEmpty || item.searchText.contains(query);
       return matchesStatus && matchesAnimal && matchesSearch;
     }).toList();
@@ -72,7 +76,7 @@ class ManagePregnancyController extends GetxController {
             .map(
               (item) => PregnancyAnimalOption.fromJson(
                 Map<String, dynamic>.from(item),
-                ),
+              ),
             )
             .toList();
         allAnimals.assignAll(parsed);
@@ -162,18 +166,18 @@ class ManagePregnancyController extends GetxController {
             'lactation_number': lactationNumber.toString(),
           'pregnancy_no': pregnancyNo.toString(),
           'service_no': serviceNo.toString(),
-          'heat_date': heatDate,
-          'ai_date': aiDate,
+          'heat_date': _apiDate(heatDate),
+'ai_date': _apiDate(aiDate),
           'service_type': serviceType,
           'bull_name': bullName,
           'semen_no': semenNo,
           'doctor_name': doctorName,
-          'pregnancy_check_due_date': pregnancyCheckDueDate,
-          'pregnancy_check_date': pregnancyCheckDate,
+          'pregnancy_check_due_date': _apiDate(pregnancyCheckDueDate),
+'pregnancy_check_date': _apiDate(pregnancyCheckDate),
           'pregnancy_result': pregnancyResult,
-          'expected_calving_date': expectedCalvingDate,
-          'dry_off_date': dryOffDate,
-          'calving_date': calvingDate,
+          'expected_calving_date': _apiDate(expectedCalvingDate),
+'dry_off_date': _apiDate(dryOffDate),
+'calving_date': _apiDate(calvingDate),
           'status': status,
           'calf_animal_id': calfAnimalId > 0 ? calfAnimalId.toString() : '',
           'notes': notes,
@@ -190,7 +194,10 @@ class ManagePregnancyController extends GetxController {
         await fetchRecords();
         return true;
       }
-      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_save'.tr));
+      Get.snackbar(
+        'error'.tr,
+        _extractMessage(data, fallback: 'unable_to_save'.tr),
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -204,6 +211,10 @@ class ManagePregnancyController extends GetxController {
     PregnancyRecordModel record, {
     required String status,
     required String pregnancyCheckDate,
+    String calvingDate = '',
+    String breedName = '',
+    String abortDate = '',
+    String abortReason = '',
   }) async {
     try {
       isSubmitting.value = true;
@@ -214,7 +225,11 @@ class ManagePregnancyController extends GetxController {
           'status': status,
           'pregnancy_result': resultForStatus(status, record.pregnancyResult),
           if (pregnancyCheckDate.trim().isNotEmpty)
-            'pregnancy_check_date': pregnancyCheckDate.trim(),
+  'pregnancy_check_date': _apiDate(pregnancyCheckDate),
+          if (calvingDate.trim().isNotEmpty) 'calving_date': calvingDate.trim(),
+          if (breedName.trim().isNotEmpty) 'breed_name': breedName.trim(),
+          if (abortDate.trim().isNotEmpty) 'abort_date': abortDate.trim(),
+          if (abortReason.trim().isNotEmpty) 'abort_reason': abortReason.trim(),
         },
       );
       final data = _decode(response.body);
@@ -227,7 +242,10 @@ class ManagePregnancyController extends GetxController {
         await fetchRecords();
         return true;
       }
-      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_update'.tr));
+      Get.snackbar(
+        'error'.tr,
+        _extractMessage(data, fallback: 'unable_to_update'.tr),
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -254,7 +272,10 @@ class ManagePregnancyController extends GetxController {
         await fetchRecords();
         return true;
       }
-      Get.snackbar('error'.tr, _extractMessage(data, fallback: 'unable_to_delete'.tr));
+      Get.snackbar(
+        'error'.tr,
+        _extractMessage(data, fallback: 'unable_to_delete'.tr),
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -265,16 +286,15 @@ class ManagePregnancyController extends GetxController {
   }
 
   ({int pregnancyNo, int serviceNo}) nextNumbers(int animalId) {
-    final animalRecords = records
-        .where((item) => item.animalId == animalId)
-        .toList()
-      ..sort((a, b) {
-        final pregnancyCompare = b.pregnancyNo.compareTo(a.pregnancyNo);
-        if (pregnancyCompare != 0) return pregnancyCompare;
-        final serviceCompare = b.serviceNo.compareTo(a.serviceNo);
-        if (serviceCompare != 0) return serviceCompare;
-        return b.id.compareTo(a.id);
-      });
+    final animalRecords =
+        records.where((item) => item.animalId == animalId).toList()
+          ..sort((a, b) {
+            final pregnancyCompare = b.pregnancyNo.compareTo(a.pregnancyNo);
+            if (pregnancyCompare != 0) return pregnancyCompare;
+            final serviceCompare = b.serviceNo.compareTo(a.serviceNo);
+            if (serviceCompare != 0) return serviceCompare;
+            return b.id.compareTo(a.id);
+          });
     if (animalRecords.isEmpty) {
       return (pregnancyNo: 1, serviceNo: 1);
     }
@@ -286,7 +306,9 @@ class ManagePregnancyController extends GetxController {
   }
 
   String resultForStatus(String status, String fallback) {
-    if (status == 'pregnant' || status == 'calved') return 'pregnant';
+    if (status == 'pregnant' || status == 'calved' || status == 'aborted') {
+      return 'pregnant';
+    }
     if (status == 'not_pregnant' || status == 'repeat_heat') {
       return 'not_pregnant';
     }
@@ -301,31 +323,84 @@ class ManagePregnancyController extends GetxController {
         return 'pregnancy_check_due'.tr;
       case 'pregnant':
         return 'pregnant'.tr;
+      case 'calved':
+        return 'delivery'.tr;
+      case 'aborted':
+        return 'abort'.tr;
       case 'not_pregnant':
         return 'non_pregnant'.tr;
       default:
         return status
             .split('_')
-            .map((part) => part.isEmpty
-                ? part
-                : '${part[0].toUpperCase()}${part.substring(1)}')
+            .map(
+              (part) => part.isEmpty
+                  ? part
+                  : '${part[0].toUpperCase()}${part.substring(1)}',
+            )
             .join(' ');
     }
   }
 
   String addDays(String date, int days) {
-    final parsed = DateTime.tryParse(date);
-    if (parsed == null) return '';
-    return _formatDate(parsed.add(Duration(days: days)));
-  }
+  final parsed = _parseDate(date);
+  if (parsed == null) return '';
+  return _formatDate(parsed.add(Duration(days: days)));
+}
 
   String todayString() => _formatDate(DateTime.now());
 
-  String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
+ String _formatDate(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day-$month-${date.year}';
+}
+
+DateTime? _parseDate(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return null;
+
+  final formats = [
+    RegExp(r'^\d{2}-\d{2}-\d{4}$'),
+    RegExp(r'^\d{2}/\d{2}/\d{4}$'),
+    RegExp(r'^\d{4}-\d{2}-\d{2}$'),
+  ];
+
+  try {
+    if (formats[0].hasMatch(text)) {
+      final parts = text.split('-');
+      return DateTime(
+        int.parse(parts[2]),
+        int.parse(parts[1]),
+        int.parse(parts[0]),
+      );
+    }
+
+    if (formats[1].hasMatch(text)) {
+      final parts = text.split('/');
+      return DateTime(
+        int.parse(parts[2]),
+        int.parse(parts[1]),
+        int.parse(parts[0]),
+      );
+    }
+
+    if (formats[2].hasMatch(text)) {
+      return DateTime.tryParse(text);
+    }
+  } catch (_) {}
+
+  return DateTime.tryParse(text);
+}
+
+String _apiDate(String value) {
+  final parsed = _parseDate(value);
+  if (parsed == null) return '';
+
+  final month = parsed.month.toString().padLeft(2, '0');
+  final day = parsed.day.toString().padLeft(2, '0');
+
+  return '${parsed.year}-$month-$day';
+}
 
   Future<void> _notifyDueBeforeTwoDays(
     List<PregnancyRecordModel> loadedRecords,
@@ -381,16 +456,21 @@ class ManagePregnancyController extends GetxController {
     final codeOk = response.statusCode >= 200 && response.statusCode < 300;
     final status = data['status'];
     final success = data['success'];
-    final statusOk = status == true ||
+    final statusOk =
+        status == true ||
         status == 1 ||
         status?.toString().toLowerCase() == 'true';
-    final successOk = success == true ||
+    final successOk =
+        success == true ||
         success == 1 ||
         success?.toString().toLowerCase() == 'true';
     return codeOk && (statusOk || successOk || data.isEmpty);
   }
 
-  String _extractMessage(Map<String, dynamic> data, {required String fallback}) {
+  String _extractMessage(
+    Map<String, dynamic> data, {
+    required String fallback,
+  }) {
     final message = data['message'];
     if (message == null) return fallback;
     if (message is String && message.trim().isNotEmpty) return message.trim();
@@ -402,14 +482,17 @@ class ManagePregnancyController extends GetxController {
       final text = first.toString().trim();
       return text.isEmpty ? fallback : text;
     }
-    return message.toString().trim().isEmpty ? fallback : message.toString().trim();
+    return message.toString().trim().isEmpty
+        ? fallback
+        : message.toString().trim();
   }
 
   bool _isPregnancyEligibleCow(PregnancyAnimalOption animal) {
     final gender = animal.gender.trim().toLowerCase();
     final type = animal.animalTypeName.trim().toLowerCase();
 
-    final isFemale = gender == 'female' ||
+    final isFemale =
+        gender == 'female' ||
         gender == 'f' ||
         gender == 'cow' ||
         gender == 'heifer';

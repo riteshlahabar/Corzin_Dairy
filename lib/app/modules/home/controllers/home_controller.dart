@@ -54,7 +54,11 @@ class HomeController extends GetxController {
       <FarmerNotificationItem>[].obs;
   final FirebaseMessagingService _firebaseMessagingService =
       FirebaseMessagingService();
-
+  StreamSubscription<String>? _tokenRefreshSubscription;
+  StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
+  StreamSubscription<RemoteMessage>? _messageOpenedAppSubscription;
+  String _lastSyncedFcmToken = '';
+  String _fcmTokenSyncInFlight = '';
   int farmerId = 0;
   Timer? _planBlinkTimer;
   Timer? _planDaysTimer;
@@ -356,7 +360,9 @@ class HomeController extends GetxController {
             ? item
             : Map<String, dynamic>.from(item as Map);
 
-        final history = row['history'] is List ? row['history'] as List : <dynamic>[];
+        final history = row['history'] is List
+            ? row['history'] as List
+            : <dynamic>[];
         final parsedHistory = history
             .whereType<Map>()
             .map((entry) => Map<String, dynamic>.from(entry))
@@ -392,7 +398,9 @@ class HomeController extends GetxController {
           latestPaymentDate: _formatPaymentDate(
             latest['paid_date'] ?? latest['date'] ?? latest['date_key'],
           ),
-          latestPaymentAmount: _formatCurrency(_asDouble(latest['paid_amount'])),
+          latestPaymentAmount: _formatCurrency(
+            _asDouble(latest['paid_amount']),
+          ),
           todayPayment: _formatCurrency(todayPayment),
           totalPayment: _formatCurrency(totalPayment),
           pendingPayment: _formatCurrency(pendingPayment),
@@ -489,7 +497,8 @@ class HomeController extends GetxController {
       final currentSubscription = data['current_subscription'] is Map
           ? Map<String, dynamic>.from(data['current_subscription'] as Map)
           : <String, dynamic>{};
-      final currentPlanId = int.tryParse(
+      final currentPlanId =
+          int.tryParse(
             currentSubscription['farmer_plan_id']?.toString() ?? '',
           ) ??
           0;
@@ -511,8 +520,14 @@ class HomeController extends GetxController {
             );
 
       int durationDays =
-          int.tryParse((currentSubscription['duration_days'] ?? plan['duration_days'])?.toString() ?? '') ?? 0;
-      final planName = currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
+          int.tryParse(
+            (currentSubscription['duration_days'] ?? plan['duration_days'])
+                    ?.toString() ??
+                '',
+          ) ??
+          0;
+      final planName =
+          currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
           ? currentSubscription['plan_name'].toString()
           : plan['name']?.toString().trim().isNotEmpty == true
           ? plan['name'].toString()
@@ -523,17 +538,19 @@ class HomeController extends GetxController {
       if (isFreePlan && durationDays <= 0) {
         durationDays = 30;
       }
-      final amount = currentSubscription['price_label']?.toString().trim().isNotEmpty == true
+      final amount =
+          currentSubscription['price_label']?.toString().trim().isNotEmpty ==
+              true
           ? currentSubscription['price_label'].toString()
           : plan['price_label']?.toString().trim().isNotEmpty == true
           ? plan['price_label'].toString()
-          : _formatCurrency(_asDouble(currentSubscription['price'] ?? plan['price']));
+          : _formatCurrency(
+              _asDouble(currentSubscription['price'] ?? plan['price']),
+            );
       final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
       final now = DateTime.now();
       final startAt =
-          _readDate(currentSubscription, const [
-            'start_date',
-          ]) ??
+          _readDate(currentSubscription, const ['start_date']) ??
           _readDate(plan, const [
             'start_date',
             'package_start_date',
@@ -543,9 +560,7 @@ class HomeController extends GetxController {
           backendStartAt ??
           now;
       final renewAt =
-          _readDate(currentSubscription, const [
-            'due_date',
-          ]) ??
+          _readDate(currentSubscription, const ['due_date']) ??
           _readDate(plan, const [
             'renew_date',
             'renewal_date',
@@ -556,9 +571,11 @@ class HomeController extends GetxController {
           startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
       _planRenewAt = renewAt;
       final daysLeft = _daysLeftFromNow(renewAt);
-      final lockedFromApi = data['access_locked'] == true ||
+      final lockedFromApi =
+          data['access_locked'] == true ||
           currentSubscription['is_active'] == false ||
-          currentSubscription['status']?.toString().toLowerCase() == 'expired' ||
+          currentSubscription['status']?.toString().toLowerCase() ==
+              'expired' ||
           daysLeft <= 0;
 
       currentPlan.value = FarmerPlanModel(
@@ -731,21 +748,26 @@ class HomeController extends GetxController {
     try {
       final token = await _firebaseMessagingService.initialise();
       if (token != null && token.isNotEmpty) {
-        await _updateFarmerFcmToken(token);
+        await _syncFarmerFcmTokenIfNeeded(token);
       }
 
-      _firebaseMessagingService.tokenRefreshStream().listen((token) async {
-        if (token.isNotEmpty) {
-          await _updateFarmerFcmToken(token);
-        }
-      });
+      await _tokenRefreshSubscription?.cancel();
+      _tokenRefreshSubscription = _firebaseMessagingService
+          .tokenRefreshStream()
+          .listen((token) async {
+            if (token.isNotEmpty) {
+              await _syncFarmerFcmTokenIfNeeded(token);
+            }
+          });
 
-      _firebaseMessagingService.foregroundMessageStream().listen(
-        _handleRemoteMessage,
-      );
-      _firebaseMessagingService.messageOpenedAppStream().listen(
-        _handleRemoteMessage,
-      );
+      await _foregroundMessageSubscription?.cancel();
+      _foregroundMessageSubscription = _firebaseMessagingService
+          .foregroundMessageStream()
+          .listen(_handleRemoteMessage);
+      await _messageOpenedAppSubscription?.cancel();
+      _messageOpenedAppSubscription = _firebaseMessagingService
+          .messageOpenedAppStream()
+          .listen(_handleRemoteMessage);
 
       final initialMessage = await _firebaseMessagingService
           .getInitialMessage();
@@ -755,12 +777,38 @@ class HomeController extends GetxController {
     } catch (_) {}
   }
 
-  Future<void> _updateFarmerFcmToken(String token) async {
+  Future<void> _syncFarmerFcmTokenIfNeeded(String token) async {
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      return;
+    }
+    if (_lastSyncedFcmToken == normalizedToken ||
+        _fcmTokenSyncInFlight == normalizedToken) {
+      debugPrint(
+        '[FCM][Farmer] duplicate token sync skipped for farmerId=$farmerId',
+      );
+      return;
+    }
+
+    _fcmTokenSyncInFlight = normalizedToken;
+    try {
+      final synced = await _updateFarmerFcmToken(normalizedToken);
+      if (synced) {
+        _lastSyncedFcmToken = normalizedToken;
+      }
+    } finally {
+      if (_fcmTokenSyncInFlight == normalizedToken) {
+        _fcmTokenSyncInFlight = '';
+      }
+    }
+  }
+
+  Future<bool> _updateFarmerFcmToken(String token) async {
     if (farmerId <= 0) {
       await loadBaseData();
     }
     if (farmerId <= 0) {
-      return;
+      return false;
     }
 
     final deviceId = await SessionService.getOrCreateDeviceId();
@@ -781,18 +829,19 @@ class HomeController extends GetxController {
       final payload = _safeDecodeBody(response.body);
       if (payload['force_logout'] == true) {
         await _forceLogoutFromAnotherDevice();
-        return;
+        return false;
       }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       debugPrint(
         '[FCM][Farmer] token update failed status=${response.statusCode} body=${response.body}',
       );
-      return;
+      return false;
     }
     debugPrint(
       '[FCM][Farmer] token updated successfully for farmerId=$farmerId',
     );
+    return true;
   }
 
   Future<void> _loadFarmerIdFromProfileApi(
@@ -915,16 +964,20 @@ class HomeController extends GetxController {
 
   Future<void> _forceLogoutFromAnotherDevice({String? customMessage}) async {
     await SessionService.forceLogoutFromAnotherDevice();
-    final logoutMessage =
-        customMessage?.trim().isNotEmpty == true
-            ? customMessage!.trim()
-            : 'Your account was logged in on another mobile.';
+    _lastSyncedFcmToken = '';
+    _fcmTokenSyncInFlight = '';
+    final logoutMessage = customMessage?.trim().isNotEmpty == true
+        ? customMessage!.trim()
+        : 'Your account was logged in on another mobile.';
     Get.snackbar(
       'logged_out'.tr,
       logoutMessage,
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 4),
     );
+    if (Get.isRegistered<HomeController>()) {
+      Get.delete<HomeController>(force: true);
+    }
     Get.offAllNamed(Routes.LOGIN);
   }
 
@@ -1046,13 +1099,23 @@ class HomeController extends GetxController {
           continue;
         }
 
-        final latest = item.createdAt.isAfter(existing.createdAt) ? item : existing;
+        final latest = item.createdAt.isAfter(existing.createdAt)
+            ? item
+            : existing;
         final mergedRead = existing.isRead == true || item.isRead == true;
         deduped[key] = latest.copyWith(
           isRead: mergedRead,
-          notificationId: latest.notificationId ?? existing.notificationId ?? item.notificationId,
-          appointmentId: latest.appointmentId ?? existing.appointmentId ?? item.appointmentId,
-          type: latest.type.isNotEmpty ? latest.type : (existing.type.isNotEmpty ? existing.type : item.type),
+          notificationId:
+              latest.notificationId ??
+              existing.notificationId ??
+              item.notificationId,
+          appointmentId:
+              latest.appointmentId ??
+              existing.appointmentId ??
+              item.appointmentId,
+          type: latest.type.isNotEmpty
+              ? latest.type
+              : (existing.type.isNotEmpty ? existing.type : item.type),
         );
       }
 
@@ -1210,9 +1273,9 @@ class HomeController extends GetxController {
     }
     for (final pattern in const ['dd-MM-yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd']) {
       try {
-        return DateFormat('dd/MM/yyyy').format(
-          DateFormat(pattern).parseStrict(text),
-        );
+        return DateFormat(
+          'dd/MM/yyyy',
+        ).format(DateFormat(pattern).parseStrict(text));
       } catch (_) {}
     }
     return text;
@@ -1246,6 +1309,9 @@ class HomeController extends GetxController {
     _planBlinkTimer?.cancel();
     _planDaysTimer?.cancel();
     _heroBannerTimer?.cancel();
+    _tokenRefreshSubscription?.cancel();
+    _foregroundMessageSubscription?.cancel();
+    _messageOpenedAppSubscription?.cancel();
     super.onClose();
   }
 }
