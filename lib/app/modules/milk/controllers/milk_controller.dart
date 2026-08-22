@@ -37,6 +37,8 @@ class MilkController extends GetxController {
   final Rxn<MilkDairyModel> selectedDairy = Rxn<MilkDairyModel>();
   final RxString selectedShift = 'Morning'.obs;
   final RxList<String> availableShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
+  final Rx<DateTime> entryCalendarMonth = DateTime(DateTime.now().year, DateTime.now().month).obs;
+  final RxMap<String, int> monthEntryCounts = <String, int>{}.obs;
   final RxDouble cowMilkTotal = 0.0.obs;
   final RxDouble cowMilkDifference = 0.0.obs;
   final RxBool isScheduleLoading = false.obs;
@@ -612,19 +614,72 @@ class MilkController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode != 200 || data['status'] != true) {
         _milkRows = <Map<String, dynamic>>[];
+        _refreshMonthEntryCounts();
         updateAvailableShifts();
         return;
       }
 
       final List list = data['data'] ?? [];
       _milkRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      _refreshMonthEntryCounts();
       updateAvailableShifts();
     } catch (_) {
       _milkRows = <Map<String, dynamic>>[];
+      _refreshMonthEntryCounts();
       updateAvailableShifts();
     } finally {
       isScheduleLoading.value = false;
     }
+  }
+
+  int entryCountForDay(DateTime day) {
+    final key = DateFormat('yyyy-MM-dd').format(day);
+    return monthEntryCounts[key] ?? 0;
+  }
+
+  void moveEntryCalendarMonth(int offset) {
+    final current = entryCalendarMonth.value;
+    final next = DateTime(current.year, current.month + offset);
+    final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    if (next.isAfter(currentMonth)) return;
+    entryCalendarMonth.value = next;
+  }
+
+  bool get canMoveEntryCalendarForward {
+    final current = entryCalendarMonth.value;
+    final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    return current.year < currentMonth.year || current.month < currentMonth.month;
+  }
+
+  void _refreshMonthEntryCounts() {
+    final shiftsByDate = <String, Set<String>>{};
+
+    for (final row in _milkRows) {
+      final date = _parseApiDate(row['date']);
+      if (date == null) continue;
+
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      final shifts = shiftsByDate.putIfAbsent(key, () => <String>{});
+
+      if (_isShiftValuePresent(row['morning_milk'])) {
+        shifts.add('Morning');
+      }
+      if (_isShiftValuePresent(row['afternoon_milk'])) {
+        shifts.add('Afternoon');
+      }
+      if (_isShiftValuePresent(row['evening_milk'])) {
+        shifts.add('Evening');
+      }
+
+      final rowShift = _normalizeShiftName(row['shift'] ?? row['milk_shift']);
+      if (rowShift.isNotEmpty) {
+        shifts.add(rowShift);
+      }
+    }
+
+    monthEntryCounts.assignAll(
+      shiftsByDate.map((key, value) => MapEntry(key, value.length)),
+    );
   }
 
   void updateAvailableShifts() {
@@ -720,6 +775,14 @@ class MilkController extends GetxController {
   bool _isShiftValuePresent(dynamic value) {
     final parsed = double.tryParse((value ?? '').toString().trim()) ?? 0;
     return parsed > 0;
+  }
+
+  String _normalizeShiftName(dynamic value) {
+    final text = (value ?? '').toString().trim().toLowerCase();
+    if (text.contains('morning')) return 'Morning';
+    if (text.contains('afternoon')) return 'Afternoon';
+    if (text.contains('evening')) return 'Evening';
+    return '';
   }
 
   int? _extractDairyIdFromResult(dynamic result) {
@@ -914,4 +977,3 @@ class MilkDairyModel {
     );
   }
 }
-

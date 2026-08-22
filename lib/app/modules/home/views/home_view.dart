@@ -689,6 +689,50 @@ class HomeView extends GetView<HomeController> {
       final plan = controller.currentPlan.value;
       final shouldBlink = controller.shouldBlinkPlan;
       final blinkOn = controller.planBlinkOn.value;
+      if (!shouldBlink) {
+        return _graphInsightCard();
+      }
+      return Column(
+        children: [
+          SizedBox(
+            height: 164,
+            child: PageView(
+              onPageChanged: (index) => controller.insightCardIndex.value = index,
+              children: [
+                _graphInsightCard(),
+                _planWarningCard(plan: plan, shouldBlink: shouldBlink, blinkOn: blinkOn),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(2, (index) {
+              final selected = controller.insightCardIndex.value == index;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 5,
+                width: selected ? 15 : 5,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primary
+                      : AppColors.primary.withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              );
+            }),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _planWarningCard({
+    required FarmerPlanModel plan,
+    required bool shouldBlink,
+    required bool blinkOn,
+  }) {
       final gradientColors = shouldBlink
           ? (blinkOn
               ? const [Color(0xFFD32F2F), Color(0xFFEF5350)]
@@ -800,7 +844,280 @@ class HomeView extends GetView<HomeController> {
           ],
         ),
       );
-    });
+  }
+
+  Widget _graphInsightCard() {
+    final points = controller.productionGraphPoints;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF7),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE0EADF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 26,
+                width: 26,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.bar_chart_rounded, color: AppColors.primary, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'production_graph'.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+              Text(
+                'last_5_days'.tr,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.grey.shade700,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 84,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 66,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: controller.productionGraphAxisTicks.reversed
+                              .map((tick) => _axisLabel(controller.productionGraphValueText(tick)))
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 66,
+                        padding: const EdgeInsets.fromLTRB(7, 0, 3, 0),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: AppColors.grey.shade300),
+                            bottom: BorderSide(color: AppColors.grey.shade300),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: points.map(_groupedDateBars).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        height: 14,
+                        child: Row(
+                          children: points
+                              .map(
+                                (point) => Expanded(
+                                  child: Text(
+                                    point.dateLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 9.2,
+                                      color: AppColors.grey.shade700,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 7),
+          _graphLegend(),
+        ],
+      ),
+    );
+  }
+
+  Widget _axisLabel(String label) {
+    return SizedBox(
+      width: 32,
+      height: 9,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Text(
+          label,
+          maxLines: 1,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            fontSize: 8.5,
+            color: AppColors.grey.shade600,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _groupedDateBars(HomeProductionGraphPoint point) {
+    return Expanded(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _chartBar(
+            ratio: controller.productionGraphRatio(point.milk),
+            value: controller.productionGraphValueText(point.milk),
+            color: const Color(0xFFF56C9B),
+          ),
+          const SizedBox(width: 2),
+          _chartBar(
+            ratio: controller.productionGraphRatio(point.feeding),
+            value: controller.productionGraphValueText(point.feeding),
+            color: const Color(0xFF2EAD4B),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chartBar({
+    required double ratio,
+    required String value,
+    required Color color,
+  }) {
+    final clampedRatio = ratio.isNaN ? 0.0 : ratio.clamp(0.0, 1.0).toDouble();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const labelHeight = 12.0;
+        final chartHeight = (constraints.maxHeight - labelHeight)
+            .clamp(1.0, constraints.maxHeight)
+            .toDouble();
+        final height = clampedRatio <= 0
+            ? 0.0
+            : (chartHeight * clampedRatio).clamp(4.0, chartHeight).toDouble();
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            width: 23,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SizedBox(
+                  height: 8,
+                  width: 23,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 7.4,
+                        color: color,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Container(
+                  width: 8,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _graphLegend() {
+    return Row(
+      children: [
+        _legendPill(const Color(0xFFF56C9B), 'milk'.tr),
+        const SizedBox(width: 8),
+        _legendPill(const Color(0xFF2EAD4B), 'feeding'.tr),
+      ],
+    );
+  }
+
+  Widget _legendPill(Color color, String label) {
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 8,
+            width: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                color: AppColors.grey.shade800,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _planMetric({

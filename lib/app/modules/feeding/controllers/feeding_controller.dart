@@ -38,6 +38,8 @@ class FeedingController extends GetxController {
   final RxString selectedUnit = 'Kg'.obs;
   final RxString selectedFeedingTime = 'Morning'.obs;
   final RxList<String> availableFeedingTimes = <String>['Morning'].obs;
+  final Rx<DateTime> entryCalendarMonth = DateTime(DateTime.now().year, DateTime.now().month).obs;
+  final RxMap<String, int> monthEntryCounts = <String, int>{}.obs;
   final RxDouble packageQuantity = 0.0.obs;
   final RxDouble totalSubtypeQuantity = 0.0.obs;
   final RxDouble balanceQuantity = 0.0.obs;
@@ -49,8 +51,9 @@ class FeedingController extends GetxController {
   final Map<int, TextEditingController> subtypeQuantityControllers = {};
 
   int farmerId = 0;
+  int _dietPlanRequestSerial = 0;
   List<Map<String, dynamic>> _feedingRows = <Map<String, dynamic>>[];
-  static const List<String> _allFeedingTimes = <String>['Morning', 'Afternoon', 'Evening'];
+  static const List<String> _allFeedingTimes = <String>['Morning', 'Evening'];
 
   @override
   void onInit() {
@@ -160,24 +163,43 @@ class FeedingController extends GetxController {
   Future<void> fetchDietPlans() async {
     if (farmerId == 0) return;
 
+    final requestedAnimalId = selectedAnimal.value?.id ?? 0;
+    final requestedPanId = requestedAnimalId == 0
+        ? (selectedPan.value?.id ?? 0)
+        : 0;
+    final requestedFeedTypeId = selectedFeedType.value?.id ?? 0;
+    final requestId = ++_dietPlanRequestSerial;
     final query = <String, String>{};
-    if (selectedAnimal.value != null) {
-      query['animal_id'] = selectedAnimal.value!.id.toString();
-    } else if (selectedPan.value != null && selectedPan.value!.id > 0) {
-      query['pan_id'] = selectedPan.value!.id.toString();
+    if (requestedAnimalId > 0) {
+      query['animal_id'] = requestedAnimalId.toString();
+    } else if (requestedPanId > 0) {
+      query['pan_id'] = requestedPanId.toString();
     }
-    if (selectedFeedType.value != null) {
-      query['feed_type_id'] = selectedFeedType.value!.id.toString();
+    if (requestedFeedTypeId > 0) {
+      query['feed_type_id'] = requestedFeedTypeId.toString();
     }
 
     try {
       final uri = Uri.parse('${Api.feedingDietPlans}/$farmerId')
           .replace(queryParameters: query.isEmpty ? null : query);
       final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      if (requestId != _dietPlanRequestSerial) {
+        return;
+      }
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
-        final parsed = list.map((item) => FeedDietPlanModel.fromJson(item)).toList();
+        final parsed = list
+            .map((item) => FeedDietPlanModel.fromJson(item))
+            .where(
+              (plan) => _matchesDietPlanSelection(
+                plan,
+                animalId: requestedAnimalId,
+                panId: requestedPanId,
+                feedTypeId: requestedFeedTypeId,
+              ),
+            )
+            .toList();
         final uniqueById = <int, FeedDietPlanModel>{};
         for (final plan in parsed) {
           if (plan.id <= 0) continue;
@@ -188,9 +210,15 @@ class FeedingController extends GetxController {
         dietPlans.clear();
       }
     } catch (_) {
+      if (requestId != _dietPlanRequestSerial) {
+        return;
+      }
       dietPlans.clear();
     }
 
+    if (requestId != _dietPlanRequestSerial) {
+      return;
+    }
     final current = selectedDietPlan.value;
     if (current != null) {
       final matched = dietPlans.firstWhereOrNull((plan) => plan.id == current.id);
@@ -255,6 +283,7 @@ class FeedingController extends GetxController {
     if (value != null) {
       selectedPan.value = null;
     }
+    dietPlans.clear();
     selectedDietPlan.value = null;
     selectedDietPlanId.value = null;
     dietPlanDays.value = 0;
@@ -268,6 +297,7 @@ class FeedingController extends GetxController {
     if (value != null) {
       selectedAnimal.value = null;
     }
+    dietPlans.clear();
     selectedDietPlan.value = null;
     selectedDietPlanId.value = null;
     dietPlanDays.value = 0;
@@ -325,6 +355,26 @@ class FeedingController extends GetxController {
         : (plan.feedType.trim().isEmpty ? 'Diet Plan' : plan.feedType.trim());
     final availableToday = _availablePackageQuantityForPlan(plan);
     return '$title | ${availableToday.toStringAsFixed(2)} ${plan.unit}';
+  }
+
+  String feedingQuantityHalfShiftNote() {
+    final plan = selectedDietPlan.value;
+    if (plan == null || plan.planQuantity <= 0) {
+      return 'feeding_quantity_half_shift_note'.tr;
+    }
+
+    final halfDailyQuantity = plan.planQuantity / 2;
+    final quantity = _formatDistributedValue(halfDailyQuantity);
+    final unit = _compactQuantityUnit(plan.unit);
+
+    return 'Enter half ($quantity$unit) of the daily diet quantity for this shift.';
+  }
+
+  String _compactQuantityUnit(String value) {
+    final unit = value.trim();
+    if (unit.isEmpty) return '';
+    if (unit.toLowerCase() == 'kg') return 'kg';
+    return unit;
   }
 
   void _applyDietPlanToSubtypeInputs(FeedDietPlanModel plan) {
@@ -702,28 +752,74 @@ class FeedingController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode != 200 || data['status'] != true) {
         _feedingRows = <Map<String, dynamic>>[];
+        _refreshMonthEntryCounts();
         updateAvailableFeedingTimes();
         return;
       }
 
       final List list = data['data'] ?? [];
       _feedingRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      _refreshMonthEntryCounts();
       updateAvailableFeedingTimes();
     } catch (_) {
       _feedingRows = <Map<String, dynamic>>[];
+      _refreshMonthEntryCounts();
       updateAvailableFeedingTimes();
     } finally {
       isScheduleLoading.value = false;
     }
   }
 
+  int entryCountForDay(DateTime day) {
+    final key = DateFormat('yyyy-MM-dd').format(day);
+    return monthEntryCounts[key] ?? 0;
+  }
+
+  void moveEntryCalendarMonth(int offset) {
+    final current = entryCalendarMonth.value;
+    final next = DateTime(current.year, current.month + offset);
+    final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    if (next.isAfter(currentMonth)) return;
+    entryCalendarMonth.value = next;
+  }
+
+  bool get canMoveEntryCalendarForward {
+    final current = entryCalendarMonth.value;
+    final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    return current.year < currentMonth.year || current.month < currentMonth.month;
+  }
+
+  void _refreshMonthEntryCounts() {
+    final shiftsByDate = <String, Set<String>>{};
+
+    for (final row in _feedingRows) {
+      final date = _parseApiDate(row['date']);
+      if (date == null) continue;
+
+      final shift = _normalizedFeedingShift(row['feeding_time']);
+      if (shift.isEmpty) continue;
+
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      shiftsByDate.putIfAbsent(key, () => <String>{}).add(shift);
+    }
+
+    monthEntryCounts.assignAll(
+      shiftsByDate.map((key, value) => MapEntry(key, value.length)),
+    );
+  }
+
   void updateAvailableFeedingTimes() {
     final date = _selectedFeedingDate() ?? DateTime.now();
     final rows = _rowsForSelectedTarget(date);
+    final hasMorning =
+        rows.any((row) => _isFeedingTime(row['feeding_time'], 'Morning'));
+    final hasAfternoon =
+        rows.any((row) => _isFeedingTime(row['feeding_time'], 'Afternoon'));
+    final hasEvening =
+        rows.any((row) => _isFeedingTime(row['feeding_time'], 'Evening'));
     final done = <String, bool>{
-      'Morning': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Morning')),
-      'Afternoon': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Afternoon')),
-      'Evening': rows.any((row) => _isFeedingTime(row['feeding_time'], 'Evening')),
+      'Morning': hasMorning || hasAfternoon,
+      'Evening': hasEvening,
     };
 
     if (!done.values.any((value) => value)) {
@@ -805,6 +901,13 @@ class FeedingController extends GetxController {
 
   bool _isFeedingTime(dynamic value, String expected) {
     return (value ?? '').toString().trim().toLowerCase() == expected.toLowerCase();
+  }
+
+  String _normalizedFeedingShift(dynamic value) {
+    final text = (value ?? '').toString().trim().toLowerCase();
+    if (text.contains('evening')) return 'Evening';
+    if (text.contains('morning') || text.contains('afternoon')) return 'Morning';
+    return '';
   }
 
   String _formatDate(String value) {
@@ -945,12 +1048,36 @@ class FeedingController extends GetxController {
 
   double _fromCents(int cents) => double.parse((cents / 100).toStringAsFixed(2));
 
+  bool _matchesDietPlanSelection(
+    FeedDietPlanModel plan, {
+    required int animalId,
+    required int panId,
+    required int feedTypeId,
+  }) {
+    if (panId > 0 && plan.panId != panId) {
+      return false;
+    }
+    if (animalId > 0) {
+      if (plan.animalId != animalId) {
+        return false;
+      }
+      if (plan.panId > 0) {
+        return false;
+      }
+    }
+    if (feedTypeId > 0 && plan.feedTypeId != feedTypeId) {
+      return false;
+    }
+    return true;
+  }
+
   void onFeedTypeChanged(
     FeedTypeModel? value, {
     bool clearSelectedDietPlan = true,
   }) {
     selectedFeedType.value = value;
     if (clearSelectedDietPlan) {
+      dietPlans.clear();
       selectedDietPlan.value = null;
       selectedDietPlanId.value = null;
       dietPlanDays.value = 0;
@@ -1471,4 +1598,3 @@ class FeedDietSubtypeDetail {
     );
   }
 }
-

@@ -826,6 +826,19 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                       title: 'health'.tr,
                       children: [
                         _drawerSubTile(
+                          title: 'reagent'.tr,
+                          icon: Icons.science_outlined,
+                          onTap: () {
+                            Get.back();
+                            controller.openDrawerPage(
+                              const HealthView(
+                                key: ValueKey('health-reagent'),
+                                initialSection: HealthSection.reagent,
+                              ),
+                            );
+                          },
+                        ),
+                        _drawerSubTile(
                           title: 'dmi'.tr,
                           icon: Icons.monitor_weight_outlined,
                           onTap: () {

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
@@ -122,10 +122,7 @@ class _PanManagementViewState extends State<PanManagementView>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Icon(
-          icon,
-          color: onTap == null ? Colors.white54 : Colors.white,
-        ),
+        child: Icon(icon, color: onTap == null ? Colors.white54 : Colors.white),
       ),
     );
   }
@@ -203,12 +200,16 @@ class _PanManagementViewState extends State<PanManagementView>
                   children: [
                     Text(
                       'pan_type'.tr,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     _panTypeSelector(
                       label: 'milking_pan'.tr,
-                      selected: controller.selectedPanType.value ==
+                      selected:
+                          controller.selectedPanType.value ==
                           PanManagementController.panTypeMilking,
                       onTap: () => controller.setPanType(
                         PanManagementController.panTypeMilking,
@@ -216,7 +217,8 @@ class _PanManagementViewState extends State<PanManagementView>
                     ),
                     _panTypeSelector(
                       label: 'non_milking_pan'.tr,
-                      selected: controller.selectedPanType.value ==
+                      selected:
+                          controller.selectedPanType.value ==
                           PanManagementController.panTypeNonMilking,
                       onTap: () => controller.setPanType(
                         PanManagementController.panTypeNonMilking,
@@ -228,14 +230,14 @@ class _PanManagementViewState extends State<PanManagementView>
             ),
 
             if (controller.isMilkingPan)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: _milkShiftSelector(
-                selected: controller.selectedMilkShifts,
-                onToggle: controller.toggleMilkShift,
-                requiredField: true,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: _milkShiftSelector(
+                  selected: controller.selectedMilkShifts,
+                  onToggle: controller.toggleMilkShift,
+                  requiredField: true,
+                ),
               ),
-            ),
 
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
@@ -405,7 +407,10 @@ class _PanManagementViewState extends State<PanManagementView>
               decoration: InputDecoration(
                 hintText: 'search_pen_animal_tag_id'.tr,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 prefixIcon: const Icon(Icons.search_rounded, size: 20),
                 prefixIconConstraints: const BoxConstraints(minWidth: 38),
                 suffixIcon: controller.searchQuery.value.trim().isEmpty
@@ -448,156 +453,170 @@ class _PanManagementViewState extends State<PanManagementView>
                     itemBuilder: (context, index) {
                       final pan = filteredPans[index];
                       return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pan.name,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    Text(
-                      '${pan.animals.length} ${'animals'.tr}',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (pan.panType == PanManagementController.panTypeMilking) ...[
-                  _milkShiftChips(pan.milkShifts),
-                  const SizedBox(height: 10),
-                ],
-                if (pan.animals.isEmpty)
-                  Text(
-                    'no_animals_in_pan'.tr,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Colors.grey.shade700,
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: pan.animals
-                        .map(
-                          (animal) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    pan.name,
+                                    style: const TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${pan.animals.length} ${'animals'.tr}',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(20),
+                            const SizedBox(height: 10),
+                            if (pan.panType ==
+                                PanManagementController.panTypeMilking) ...[
+                              _milkShiftChips(pan.milkShifts),
+                              const SizedBox(height: 10),
+                            ],
+                            if (pan.animals.isEmpty)
+                              Text(
+                                'no_animals_in_pan'.tr,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.grey.shade700,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: pan.animals
+                                    .map(
+                                      (animal) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.08,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${animal.animalName.isEmpty ? '-' : animal.animalName} (${animal.tagNumber.isEmpty ? '-' : animal.tagNumber})',
+                                          style: const TextStyle(
+                                            fontSize: 12.2,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _openEditPanSheet(pan),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text('edit_pan'.tr),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _openTransferSheet(pan),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.compare_arrows_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      'transfer'.tr,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              '${animal.animalName.isEmpty ? '-' : animal.animalName} (${animal.tagNumber.isEmpty ? '-' : animal.tagNumber})',
-                              style: const TextStyle(
-                                fontSize: 12.2,
-                                fontWeight: FontWeight.w600,
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: controller.isSubmitting.value
+                                    ? null
+                                    : () => _confirmDeletePan(pan),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  side: BorderSide(color: Colors.red.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                icon: Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                  color: Colors.red.shade700,
+                                ),
+                                label: Text(
+                                  'delete_pan'.tr,
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _openEditPanSheet(pan),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          ],
                         ),
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: Text('edit_pan'.tr),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _openTransferSheet(pan),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.compare_arrows_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        label: Text(
-                          'transfer'.tr,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: controller.isSubmitting.value
-                        ? null
-                        : () => _confirmDeletePan(pan),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: BorderSide(color: Colors.red.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      size: 18,
-                      color: Colors.red.shade700,
-                    ),
-                    label: Text(
-                      'delete_pan'.tr,
-                      style: TextStyle(
-                        color: Colors.red.shade700,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
+                      );
                     },
                   ),
           ),
@@ -662,7 +681,9 @@ class _PanManagementViewState extends State<PanManagementView>
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.22)),
+                        borderSide: BorderSide(
+                          color: Colors.green.withValues(alpha: 0.22),
+                        ),
                       ),
                       focusedBorder: const OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -670,11 +691,15 @@ class _PanManagementViewState extends State<PanManagementView>
                       ),
                     ),
                   ),
-                  if (pan.panType == PanManagementController.panTypeMilking) ...[
+                  if (pan.panType ==
+                      PanManagementController.panTypeMilking) ...[
                     const SizedBox(height: 12),
                     Text(
                       'milk_shifts'.tr,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -797,9 +822,7 @@ class _PanManagementViewState extends State<PanManagementView>
       builder: (dialogContext) {
         return AlertDialog(
           title: Text('delete_pan'.tr),
-          content: Text(
-            'delete_pan_confirm'.trParams({'name': pan.name}),
-          ),
+          content: Text('delete_pan_confirm'.trParams({'name': pan.name})),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -807,10 +830,7 @@ class _PanManagementViewState extends State<PanManagementView>
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                'delete'.tr,
-                style: TextStyle(color: Colors.red),
-              ),
+              child: Text('delete'.tr, style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -822,26 +842,25 @@ class _PanManagementViewState extends State<PanManagementView>
   }
 
   Future<void> _openTransferSheet(PanGroupItem sourcePan) async {
-    final sourceAnimals = sourcePan.animals
-        .where((animal) => animal.matchesPanType(sourcePan.panType))
-        .toList();
+    final sourceAnimals = sourcePan.animals.toList();
 
     if (sourceAnimals.isEmpty) {
       Get.snackbar('info'.tr, 'no_animals_available_for_transfer'.tr);
       return;
     }
 
-    List<PanGroupItem> destinationPansForAnimal(PanAnimalItem animal) {
+    List<PanGroupItem> destinationPansForTransfer() {
       return controller.pans.where((item) {
         if (item.id == sourcePan.id) return false;
-        return animal.matchesPanType(item.panType);
+        return true;
       }).toList();
     }
 
     int? selectedAnimalId = sourceAnimals.first.id;
-    final initialDestinationPans = destinationPansForAnimal(sourceAnimals.first);
-    int? selectedToPanId =
-        initialDestinationPans.isNotEmpty ? initialDestinationPans.first.id : null;
+    final initialDestinationPans = destinationPansForTransfer();
+    int? selectedToPanId = initialDestinationPans.isNotEmpty
+        ? initialDestinationPans.first.id
+        : null;
     int? selectedAnimalTypeId;
 
     await showModalBottomSheet<void>(
@@ -882,15 +901,18 @@ class _PanManagementViewState extends State<PanManagementView>
                         }
                       }
 
-                      final destinationPans =
-                          destinationPansForAnimal(selectedAnimal);
+                      final destinationPans = destinationPansForTransfer();
                       final availableAnimalTypes = controller.animalTypes
-                          .where((type) => type.id != selectedAnimal.animalTypeId)
+                          .where(
+                            (type) => type.id != selectedAnimal.animalTypeId,
+                          )
                           .toList();
-                      if (!destinationPans
-                          .any((item) => item.id == selectedToPanId)) {
-                        selectedToPanId =
-                            destinationPans.isNotEmpty ? destinationPans.first.id : null;
+                      if (!destinationPans.any(
+                        (item) => item.id == selectedToPanId,
+                      )) {
+                        selectedToPanId = destinationPans.isNotEmpty
+                            ? destinationPans.first.id
+                            : null;
                       }
 
                       return Column(
@@ -925,16 +947,13 @@ class _PanManagementViewState extends State<PanManagementView>
                                   selectedToPanId = null;
                                   return;
                                 }
-                                final selected = sourceAnimals.firstWhere(
-                                  (animal) => animal.id == value,
-                                );
-                                final allowed =
-                                    destinationPansForAnimal(selected);
+                                final allowed = destinationPansForTransfer();
                                 if (!allowed.any(
                                   (item) => item.id == selectedToPanId,
                                 )) {
-                                  selectedToPanId =
-                                      allowed.isNotEmpty ? allowed.first.id : null;
+                                  selectedToPanId = allowed.isNotEmpty
+                                      ? allowed.first.id
+                                      : null;
                                 }
                               });
                             },
@@ -950,8 +969,7 @@ class _PanManagementViewState extends State<PanManagementView>
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF7FCF7),
                                 borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: Text('no_compatible_destination_pan'.tr),
                             )
@@ -1004,9 +1022,12 @@ class _PanManagementViewState extends State<PanManagementView>
                                 value: null,
                                 child: Text(
                                   'keep_current_animal_type'.trParams({
-                                    'type': selectedAnimal.animalTypeName.isEmpty
+                                    'type':
+                                        selectedAnimal.animalTypeName.isEmpty
                                         ? '-'
-                                        : controller.translatedAnimalTypeName(selectedAnimal.animalTypeName),
+                                        : controller.translatedAnimalTypeName(
+                                            selectedAnimal.animalTypeName,
+                                          ),
                                   }),
                                 ),
                               ),
@@ -1014,7 +1035,9 @@ class _PanManagementViewState extends State<PanManagementView>
                                 (type) => DropdownMenuItem<int?>(
                                   value: type.id,
                                   child: Text(
-                                    controller.translatedAnimalTypeName(type.name),
+                                    controller.translatedAnimalTypeName(
+                                      type.name,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1208,7 +1231,10 @@ class _PanManagementViewState extends State<PanManagementView>
         ),
         children: [
           TextSpan(text: title),
-          const TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
+          const TextSpan(
+            text: ' *',
+            style: TextStyle(color: AppColors.primary),
+          ),
         ],
       ),
     );
@@ -1260,6 +1286,3 @@ class _PanManagementViewState extends State<PanManagementView>
     }
   }
 }
-
-
-

@@ -1,0 +1,140 @@
+*** Begin Patch
+*** Update File: lib/app/modules/feeding/controllers/feeding_controller.dart
+@@
+   final RxMap<int, bool> subtypeSelected = <int, bool>{}.obs;
+   final Map<int, TextEditingController> subtypeQuantityControllers = {};
+ 
+   int farmerId = 0;
++  int _dietPlanRequestSerial = 0;
+   List<Map<String, dynamic>> _feedingRows = <Map<String, dynamic>>[];
+   static const List<String> _allFeedingTimes = <String>['Morning', 'Afternoon', 'Evening'];
+@@
+   Future<void> fetchDietPlans() async {
+     if (farmerId == 0) return;
+ 
++    final requestedAnimalId = selectedAnimal.value?.id ?? 0;
++    final requestedPanId = requestedAnimalId == 0
++        ? (selectedPan.value?.id ?? 0)
++        : 0;
++    final requestedFeedTypeId = selectedFeedType.value?.id ?? 0;
++    final requestId = ++_dietPlanRequestSerial;
+     final query = <String, String>{};
+-    if (selectedAnimal.value != null) {
+-      query['animal_id'] = selectedAnimal.value!.id.toString();
+-    } else if (selectedPan.value != null && selectedPan.value!.id > 0) {
+-      query['pan_id'] = selectedPan.value!.id.toString();
++    if (requestedAnimalId > 0) {
++      query['animal_id'] = requestedAnimalId.toString();
++    } else if (requestedPanId > 0) {
++      query['pan_id'] = requestedPanId.toString();
+     }
+-    if (selectedFeedType.value != null) {
+-      query['feed_type_id'] = selectedFeedType.value!.id.toString();
++    if (requestedFeedTypeId > 0) {
++      query['feed_type_id'] = requestedFeedTypeId.toString();
+     }
+ 
+     try {
+       final uri = Uri.parse('${Api.feedingDietPlans}/$farmerId')
+           .replace(queryParameters: query.isEmpty ? null : query);
+       final response = await http.get(uri, headers: {'Accept': 'application/json'});
++      if (requestId != _dietPlanRequestSerial) {
++        return;
++      }
+       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+       if (response.statusCode == 200 && data['status'] == true) {
+         final List list = data['data'] ?? [];
+-        final parsed = list.map((item) => FeedDietPlanModel.fromJson(item)).toList();
++        final parsed = list
++            .map((item) => FeedDietPlanModel.fromJson(item))
++            .where(
++              (plan) => _matchesDietPlanSelection(
++                plan,
++                animalId: requestedAnimalId,
++                panId: requestedPanId,
++                feedTypeId: requestedFeedTypeId,
++              ),
++            )
++            .toList();
+         final uniqueById = <int, FeedDietPlanModel>{};
+         for (final plan in parsed) {
+           if (plan.id <= 0) continue;
+           uniqueById[plan.id] = plan;
+         }
+         dietPlans.assignAll(uniqueById.values.toList());
+       } else {
+         dietPlans.clear();
+       }
+     } catch (_) {
++      if (requestId != _dietPlanRequestSerial) {
++        return;
++      }
+       dietPlans.clear();
+     }
+ 
++    if (requestId != _dietPlanRequestSerial) {
++      return;
++    }
+     final current = selectedDietPlan.value;
+     if (current != null) {
+       final matched = dietPlans.firstWhereOrNull((plan) => plan.id == current.id);
+@@
+   void selectAnimal(FeedingAnimalModel? value) {
+     selectedAnimal.value = value;
+     if (value != null) {
+       selectedPan.value = null;
+     }
++    dietPlans.clear();
+     selectedDietPlan.value = null;
+     selectedDietPlanId.value = null;
+     dietPlanDays.value = 0;
+@@
+   void selectPan(FeedingPanModel? value) {
+     selectedPan.value = value;
+     if (value != null) {
+       selectedAnimal.value = null;
+     }
++    dietPlans.clear();
+     selectedDietPlan.value = null;
+     selectedDietPlanId.value = null;
+     dietPlanDays.value = 0;
+@@
+ 
+   int _toCents(double value) => (value * 100).round();
+ 
+   double _fromCents(int cents) => double.parse((cents / 100).toStringAsFixed(2));
++
++  bool _matchesDietPlanSelection(
++    FeedDietPlanModel plan, {
++    required int animalId,
++    required int panId,
++    required int feedTypeId,
++  }) {
++    if (panId > 0 && plan.panId != panId) {
++      return false;
++    }
++    if (animalId > 0) {
++      if (plan.animalId != animalId) {
++        return false;
++      }
++      if (plan.panId > 0) {
++        return false;
++      }
++    }
++    if (feedTypeId > 0 && plan.feedTypeId != feedTypeId) {
++      return false;
++    }
++    return true;
++  }
+ 
+   void onFeedTypeChanged(
+     FeedTypeModel? value, {
+     bool clearSelectedDietPlan = true,
+   }) {
+     selectedFeedType.value = value;
+     if (clearSelectedDietPlan) {
++      dietPlans.clear();
+       selectedDietPlan.value = null;
+       selectedDietPlanId.value = null;
+       dietPlanDays.value = 0;
+*** End Patch

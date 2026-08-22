@@ -26,12 +26,17 @@ class HomeController extends GetxController {
   final RxList<HomeAdminBannerModel> farmerBanners =
       <HomeAdminBannerModel>[].obs;
   final RxInt heroBannerIndex = 0.obs;
+  final RxInt insightCardIndex = 0.obs;
+  final RxList<HomeProductionGraphPoint> productionGraphPoints =
+      <HomeProductionGraphPoint>[].obs;
   final RxList<AnimalTypeOption> animalTypes = <AnimalTypeOption>[].obs;
   final RxMap<String, String> stats = <String, String>{
     'today_milk': '0 L',
     'today_feeding': '0 Kg',
     'total_milk': '0 L',
     'total_feeding': '0 Kg',
+    'today_dmi': '0 Kg',
+    'required_dmi': '0 Kg',
   }.obs;
   final RxList<HomePaymentModel> payments = <HomePaymentModel>[].obs;
   final Rx<FarmerPlanModel> currentPlan = const FarmerPlanModel(
@@ -262,6 +267,8 @@ class HomeController extends GetxController {
       await Future.wait([
         _loadDairyPaymentsAndMilk(),
         _loadFeedingSummary(),
+        _loadDmiSummary(),
+        _loadProductionGraphPoints(),
         _loadCurrentPlan(),
       ]);
     } finally {
@@ -368,9 +375,22 @@ class HomeController extends GetxController {
             .map((entry) => Map<String, dynamic>.from(entry))
             .toList();
 
-        final latest = parsedHistory.isNotEmpty
-            ? parsedHistory.first
+        final latestLedger = row['latest_ledger'] is Map
+            ? Map<String, dynamic>.from(row['latest_ledger'] as Map)
+            : (parsedHistory.isNotEmpty
+                  ? parsedHistory.first
+                  : <String, dynamic>{});
+        final latestPaymentFromApi = row['latest_payment'] is Map
+            ? Map<String, dynamic>.from(row['latest_payment'] as Map)
             : <String, dynamic>{};
+        final latestPaymentFromHistory = parsedHistory.firstWhere(
+          (entry) => _asDouble(entry['paid_amount']) > 0,
+          orElse: () => <String, dynamic>{},
+        );
+        final latestPayment = latestPaymentFromApi.isNotEmpty
+            ? latestPaymentFromApi
+            : latestPaymentFromHistory;
+        final latest = latestPayment.isNotEmpty ? latestPayment : latestLedger;
 
         double todayPayment = 0;
         double totalPayment = 0;
@@ -383,7 +403,11 @@ class HomeController extends GetxController {
             todayPayment = todayPending > 0 ? todayPending : todayAmount;
           }
         }
-        final pendingPayment = _asDouble(latest['balance_amount']);
+        final pendingPayment = row.containsKey('current_balance')
+            ? _asDouble(row['current_balance'])
+            : _asDouble(
+                latestLedger['balance_amount'] ?? latest['balance_amount'],
+              );
 
         final todayMilk = _asDouble(row['today_milk']);
         final totalMilk = _asDouble(row['total_milk']);
@@ -473,6 +497,203 @@ class HomeController extends GetxController {
         'total_feeding': _formatQuantity(0, 'Kg'),
       });
     }
+  }
+
+  Future<void> _loadDmiSummary() async {
+    if (farmerId == 0) {
+      stats.addAll({
+        'today_dmi': _formatQuantity(0, 'Kg'),
+        'required_dmi': _formatQuantity(0, 'Kg'),
+      });
+      return;
+    }
+
+    try {
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final uri = Uri.parse('${Api.healthDmi}/$farmerId').replace(
+        queryParameters: {
+          'from_date': today,
+          'to_date': today,
+        },
+      );
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        stats.addAll({
+          'today_dmi': _formatQuantity(0, 'Kg'),
+          'required_dmi': _formatQuantity(0, 'Kg'),
+        });
+        return;
+      }
+
+      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+      var actualDmi = 0.0;
+      var requiredDmi = 0.0;
+      for (final item in rows) {
+        final row = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item as Map);
+        actualDmi += _asDouble(row['actual_dmi']);
+        requiredDmi += _asDouble(row['required_dmi']);
+      }
+
+      stats.addAll({
+        'today_dmi': _formatQuantity(actualDmi, 'Kg'),
+        'required_dmi': _formatQuantity(requiredDmi, 'Kg'),
+      });
+    } catch (_) {
+      stats.addAll({
+        'today_dmi': _formatQuantity(0, 'Kg'),
+        'required_dmi': _formatQuantity(0, 'Kg'),
+      });
+    }
+  }
+
+  Future<void> _loadProductionGraphPoints() async {
+    if (farmerId == 0) {
+      productionGraphPoints.assignAll(_emptyProductionGraphPoints());
+      return;
+    }
+
+    final today = DateTime.now();
+    final days = List.generate(
+      5,
+      (index) => DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: 4 - index)),
+    );
+    final milkByDate = {
+      for (final day in days) _dateKey(day): 0.0,
+    };
+    final feedingByDate = {
+      for (final day in days) _dateKey(day): 0.0,
+    };
+    final dmiByDate = {
+      for (final day in days) _dateKey(day): 0.0,
+    };
+
+    await Future.wait([
+      _fillMilkGraphValues(milkByDate),
+      _fillFeedingGraphValues(feedingByDate),
+      _fillDmiGraphValues(dmiByDate, days.first, days.last),
+    ]);
+
+    productionGraphPoints.assignAll(
+      days.map((day) {
+        final key = _dateKey(day);
+        return HomeProductionGraphPoint(
+          dateLabel: DateFormat('d').format(day),
+          milk: milkByDate[key] ?? 0,
+          feeding: feedingByDate[key] ?? 0,
+          dmi: dmiByDate[key] ?? 0,
+        );
+      }).toList(),
+    );
+  }
+
+  List<HomeProductionGraphPoint> _emptyProductionGraphPoints() {
+    final today = DateTime.now();
+    return List.generate(5, (index) {
+      final day = DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: 4 - index));
+      return HomeProductionGraphPoint(
+        dateLabel: DateFormat('d').format(day),
+        milk: 0,
+        feeding: 0,
+        dmi: 0,
+      );
+    });
+  }
+
+  Future<void> _fillMilkGraphValues(Map<String, double> valuesByDate) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.milkList}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        return;
+      }
+
+      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+      for (final item in rows) {
+        final row = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item as Map);
+        final key = _dateKey(_parseDateValue(row['date']));
+        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+        var quantity = _asDouble(row['total_milk']);
+        if (quantity <= 0) {
+          quantity = _asDouble(row['morning_milk']) +
+              _asDouble(row['afternoon_milk']) +
+              _asDouble(row['evening_milk']);
+        }
+        if (quantity <= 0) {
+          quantity = _firstPositiveValue(row, const ['quantity_liters', 'quantity']);
+        }
+        valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fillFeedingGraphValues(Map<String, double> valuesByDate) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.feedingList}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        return;
+      }
+
+      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+      for (final item in rows) {
+        final row = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item as Map);
+        final key = _dateKey(_parseDateValue(row['date']));
+        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+        final quantity = _firstPositiveValue(
+          row,
+          const ['feeding_quantity', 'quantity', 'total_feeding'],
+        );
+        valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fillDmiGraphValues(
+    Map<String, double> valuesByDate,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final uri = Uri.parse('${Api.healthDmi}/$farmerId').replace(
+        queryParameters: {
+          'from_date': DateFormat('yyyy-MM-dd').format(start),
+          'to_date': DateFormat('yyyy-MM-dd').format(end),
+        },
+      );
+      final response = await http.get(uri, headers: {'Accept': 'application/json'});
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 || data['status'] != true) {
+        return;
+      }
+
+      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+      for (final item in rows) {
+        final row = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item as Map);
+        final key = _dateKey(_parseDateValue(row['date']));
+        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+        valuesByDate[key] = (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCurrentPlan() async {
@@ -1236,6 +1457,93 @@ class HomeController extends GetxController {
     return double.tryParse(match?.group(0) ?? '') ?? 0;
   }
 
+  double _firstPositiveValue(Map<String, dynamic> row, List<String> keys) {
+    for (final key in keys) {
+      final value = _asDouble(row[key]);
+      if (value > 0) {
+        return value;
+      }
+    }
+    return 0;
+  }
+
+  DateTime? _parseDateValue(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return null;
+    final parsed = DateTime.tryParse(text);
+    if (parsed != null) return parsed.toLocal();
+    for (final pattern in const ['dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'yyyy-MM-dd']) {
+      try {
+        return DateFormat(pattern).parseStrict(text);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  String _dateKey(DateTime? date) {
+    if (date == null) {
+      return '';
+    }
+    return DateFormat('yyyy-MM-dd').format(date);
+  }
+
+  double _largestProductionGraphValue() {
+    var largest = 0.0;
+    for (final point in productionGraphPoints) {
+      if (point.milk > largest) largest = point.milk;
+      if (point.feeding > largest) largest = point.feeding;
+    }
+    return largest <= 0 ? 1.0 : largest;
+  }
+
+  double get productionGraphMaxValue {
+    final value = _largestProductionGraphValue();
+    if (value <= 10) return 10;
+    if (value <= 20) return 20;
+    if (value <= 30) return 30;
+    if (value <= 50) return 50;
+    if (value <= 100) return 100;
+    if (value <= 200) return 200;
+    if (value <= 500) return 500;
+    if (value <= 800) return 800;
+    if (value <= 1000) return 1000;
+
+    final step = value <= 2000 ? 200 : 500;
+    return (value / step).ceil() * step.toDouble();
+  }
+
+  List<double> get productionGraphAxisTicks {
+    final max = productionGraphMaxValue;
+    if (max <= 30) return <double>[0, 10, 20, 30];
+    if (max <= 50) return <double>[0, 10, 20, 30, 50];
+    if (max <= 100) return <double>[0, 10, 20, 30, 50, 100];
+    if (max <= 500) return <double>[0, 50, 100, 200, 500];
+    if (max <= 800) return <double>[0, 200, 400, 600, 800];
+    if (max <= 1000) return <double>[0, 200, 400, 600, 800, 1000];
+
+    final step = max <= 2000 ? 200.0 : 500.0;
+    final count = (max / step).ceil();
+    return List.generate(count + 1, (index) => step * index);
+  }
+
+  double productionGraphRatio(double value) {
+    final max = productionGraphMaxValue;
+    if (max <= 0) {
+      return 0;
+    }
+    return (value / max).clamp(0.0, 1.0).toDouble();
+  }
+
+  String productionGraphValueText(double value) {
+    if (value <= 0) {
+      return '0';
+    }
+    if (value >= 100) {
+      return _numberFormat.format(value.round());
+    }
+    return _numberFormat.format(double.parse(value.toStringAsFixed(1)));
+  }
+
   double _extractSummaryNumber(
     Map<String, dynamic> summary,
     List<String> keys,
@@ -1415,6 +1723,20 @@ class HomePaymentModel {
     required this.pendingPayment,
     required this.todayMilk,
     required this.totalMilk,
+  });
+}
+
+class HomeProductionGraphPoint {
+  final String dateLabel;
+  final double milk;
+  final double feeding;
+  final double dmi;
+
+  const HomeProductionGraphPoint({
+    required this.dateLabel,
+    required this.milk,
+    required this.feeding,
+    required this.dmi,
   });
 }
 

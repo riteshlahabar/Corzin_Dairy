@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -19,10 +19,18 @@ class PanManagementController extends GetxController {
   final RxList<PanGroupItem> pans = <PanGroupItem>[].obs;
   final RxList<PanAnimalTypeOption> animalTypes = <PanAnimalTypeOption>[].obs;
   final RxList<int> selectedAnimalIds = <int>[].obs;
-  final RxList<String> selectedMilkShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
+  final RxList<String> selectedMilkShifts = <String>[
+    'Morning',
+    'Afternoon',
+    'Evening',
+  ].obs;
   final RxString selectedPanType = panTypeMilking.obs;
   final RxString searchQuery = ''.obs;
-  static const List<String> milkShiftOptions = <String>['Morning', 'Afternoon', 'Evening'];
+  static const List<String> milkShiftOptions = <String>[
+    'Morning',
+    'Afternoon',
+    'Evening',
+  ];
   static const String panTypeMilking = 'milking';
   static const String panTypeNonMilking = 'non_milking';
 
@@ -143,7 +151,10 @@ class PanManagementController extends GetxController {
         animals.assignAll(
           list
               .whereType<Map>()
-              .map((item) => PanAnimalItem.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) =>
+                    PanAnimalItem.fromJson(Map<String, dynamic>.from(item)),
+              )
               .toList(),
         );
       } else {
@@ -171,11 +182,12 @@ class PanManagementController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         final List<dynamic> list = (data['data'] as List?) ?? const [];
-        final parsedPans =
-          list
-              .whereType<Map>()
-              .map((item) => PanGroupItem.fromJson(Map<String, dynamic>.from(item)))
-              .toList();
+        final parsedPans = list
+            .whereType<Map>()
+            .map(
+              (item) => PanGroupItem.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList();
         pans.assignAll(
           _applyPanTypeAnimalRules(_applyPanAnimalFallback(parsedPans)),
         );
@@ -235,13 +247,19 @@ class PanManagementController extends GetxController {
     }
     if (selectedMilkShifts.contains(shift)) {
       if (selectedMilkShifts.length == 1) {
-        Get.snackbar('info'.tr, 'please_keep_at_least_one_milk_shift_selected'.tr);
+        Get.snackbar(
+          'info'.tr,
+          'please_keep_at_least_one_milk_shift_selected'.tr,
+        );
         return;
       }
       selectedMilkShifts.remove(shift);
     } else {
       selectedMilkShifts.add(shift);
-      selectedMilkShifts.sort((a, b) => milkShiftOptions.indexOf(a).compareTo(milkShiftOptions.indexOf(b)));
+      selectedMilkShifts.sort(
+        (a, b) =>
+            milkShiftOptions.indexOf(a).compareTo(milkShiftOptions.indexOf(b)),
+      );
     }
   }
 
@@ -300,7 +318,9 @@ class PanManagementController extends GetxController {
           'name': panName,
           'animal_ids': selectedAnimalIds.toList(),
           'pan_type': selectedPanType.value,
-          'milk_shifts': isMilkingPan ? selectedMilkShifts.toList() : <String>[],
+          'milk_shifts': isMilkingPan
+              ? selectedMilkShifts.toList()
+              : <String>[],
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -308,13 +328,23 @@ class PanManagementController extends GetxController {
         panNameController.clear();
         selectedAnimalIds.clear();
         selectedPanType.value = panTypeMilking;
-        selectedMilkShifts.assignAll(<String>['Morning', 'Afternoon', 'Evening']);
+        selectedMilkShifts.assignAll(<String>[
+          'Morning',
+          'Afternoon',
+          'Evening',
+        ]);
         await refreshAll();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'pan_created_successfully'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'pan_created_successfully'.tr,
+        );
         return true;
       }
 
-      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_create_pan'.tr);
+      Get.snackbar(
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_create_pan'.tr,
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -368,11 +398,17 @@ class PanManagementController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         await refreshAll();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'pan_updated_successfully'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'pan_updated_successfully'.tr,
+        );
         return true;
       }
 
-      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_update_pan'.tr);
+      Get.snackbar(
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_update_pan'.tr,
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -438,59 +474,31 @@ class PanManagementController extends GetxController {
           'farmer_id': farmerId,
           'animal_id': animalId,
           'to_pan_id': toPanId,
+          if (animalTypeId != null && animalTypeId > 0)
+            'animal_type_id': animalTypeId,
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
-        if (animalTypeId != null && animalTypeId > 0) {
-          final typeChanged = await _updateAnimalType(
-            animalId: animalId,
-            animalTypeId: animalTypeId,
-          );
-          if (!typeChanged) {
-            await refreshAll();
-            Get.snackbar(
-              'info'.tr,
-              'animal_transferred_but_type_not_updated'.tr,
-            );
-            return true;
-          }
-        }
         await refreshAll();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'animal_pan_transferred_successfully'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ??
+              'animal_pan_transferred_successfully'.tr,
+        );
         return true;
       }
 
-      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_transfer_pan'.tr);
+      Get.snackbar(
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_to_transfer_pan'.tr,
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
       return false;
     } finally {
       isSubmitting.value = false;
-    }
-  }
-
-  Future<bool> _updateAnimalType({
-    required int animalId,
-    required int animalTypeId,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${Api.animalLifecycle}/$animalId'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'action': 'move_type',
-          'animal_type_id': animalTypeId.toString(),
-        }),
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      return response.statusCode == 200 && data['status'] == true;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -508,9 +516,7 @@ class PanManagementController extends GetxController {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'farmer_id': farmerId,
-        }),
+        body: jsonEncode({'farmer_id': farmerId}),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
@@ -530,7 +536,10 @@ class PanManagementController extends GetxController {
           return false;
         }
       }
-      Get.snackbar('error'.tr, message?.toString() ?? 'failed_to_delete_pan'.tr);
+      Get.snackbar(
+        'error'.tr,
+        message?.toString() ?? 'failed_to_delete_pan'.tr,
+      );
       return false;
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -588,7 +597,8 @@ class PanAnimalItem {
   bool get isMilkingAnimal {
     final type = animalTypeName.trim().toLowerCase();
     final hasMilking = type.contains('milking') || type.contains('milk');
-    final hasNonMilking = type.contains('non-milking') ||
+    final hasNonMilking =
+        type.contains('non-milking') ||
         type.contains('non milking') ||
         type.contains('dry');
     return hasMilking && !hasNonMilking;
@@ -609,10 +619,7 @@ class PanAnimalTypeOption {
   final int id;
   final String name;
 
-  const PanAnimalTypeOption({
-    required this.id,
-    required this.name,
-  });
+  const PanAnimalTypeOption({required this.id, required this.name});
 
   factory PanAnimalTypeOption.fromJson(Map<String, dynamic> json) {
     return PanAnimalTypeOption(
@@ -649,14 +656,13 @@ class PanGroupItem {
       id: int.tryParse('${json['id'] ?? 0}') ?? 0,
       name: (json['name'] ?? '').toString(),
       animalsCount: int.tryParse('${json['animals_count'] ?? 0}') ?? 0,
-      milkShifts: _parseMilkShifts(
-        json['milk_shifts'],
-        panType: panType,
-      ),
+      milkShifts: _parseMilkShifts(json['milk_shifts'], panType: panType),
       panType: panType,
       animals: rawAnimals
           .whereType<Map>()
-          .map((item) => PanAnimalItem.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => PanAnimalItem.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList(),
     );
   }
@@ -688,11 +694,10 @@ class PanGroupItem {
       return <String>[];
     }
     if (value is! List) return allowed;
-    final parsed = value.map((item) => item.toString().trim()).where((item) => allowed.contains(item)).toList();
+    final parsed = value
+        .map((item) => item.toString().trim())
+        .where((item) => allowed.contains(item))
+        .toList();
     return parsed.isEmpty ? allowed : parsed;
   }
 }
-
-
-
-

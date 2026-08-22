@@ -44,6 +44,9 @@ class _HealthViewState extends State<HealthView> {
   void _loadSection(HealthSection section) {
     controller.selectedSection.value = section;
     switch (section) {
+      case HealthSection.reagent:
+        controller.fetchReagentRecords();
+        break;
       case HealthSection.mastitis:
         controller.fetchMastitisRecords();
         break;
@@ -60,7 +63,13 @@ class _HealthViewState extends State<HealthView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9F4),
-      floatingActionButton: widget.initialSection == HealthSection.mastitis
+      floatingActionButton: widget.initialSection == HealthSection.reagent
+          ? FloatingActionButton(
+              backgroundColor: AppColors.primary,
+              onPressed: () => _openReagentSheet(context),
+              child: const Icon(Icons.add_rounded, color: Colors.white),
+            )
+          : widget.initialSection == HealthSection.mastitis
           ? FloatingActionButton(
               backgroundColor: AppColors.primary,
               onPressed: () => _openMastitisSheet(context),
@@ -109,6 +118,7 @@ class _HealthViewState extends State<HealthView> {
                 () => controller.isLoading.value
                     ? const Center(child: CircularProgressIndicator())
                     : switch (widget.initialSection) {
+                        HealthSection.reagent => _reagentList(),
                         HealthSection.dmi => _dmiList(),
                         HealthSection.mastitis => _mastitisList(),
                         HealthSection.vaccination => _vaccinationList(),
@@ -123,6 +133,7 @@ class _HealthViewState extends State<HealthView> {
 
   String get _screenTitle =>
       switch (widget.initialSection) {
+        HealthSection.reagent => 'reagent'.tr,
         HealthSection.dmi => 'dmi'.tr,
         HealthSection.mastitis => 'mastitis'.tr,
         HealthSection.vaccination => 'vaccination'.tr,
@@ -134,6 +145,133 @@ class _HealthViewState extends State<HealthView> {
       return;
     }
     Get.back();
+  }
+
+  Widget _reagentList() {
+    final records = controller.filteredReagentUsages;
+    final balance = controller.reagentBalanceMl.value;
+    return RefreshIndicator(
+      onRefresh: () async {
+        await controller.fetchReagentRecords();
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+        children: [
+          _reagentBalanceCard(balance),
+          const SizedBox(height: 10),
+          _reagentSearchBar(),
+          const SizedBox(height: 12),
+          if (records.isEmpty)
+            _inlineEmptyState(
+              balance <= 0
+                  ? 'no_reagent_available'.tr
+                  : 'no_reagent_usage_found'.tr,
+            )
+          else
+            ...records.map(
+              (item) => _card(
+                title: item.displayTitle,
+                subtitle: 'mastitis'.tr,
+                dateText: item.date,
+                rows: [
+                  _reagentInfo('reagent_used_quantity'.tr, '${item.quantityMl.toStringAsFixed(2)} ml'),
+                  _reagentInfo('reagent_balance'.tr, '${item.balanceAfterMl.toStringAsFixed(2)} ml'),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reagentBalanceCard(double balance) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2EFE3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF7EF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.science_outlined, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'reagent_balance'.tr,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.grey.shade700,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${balance.toStringAsFixed(2)} ml',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reagentSearchBar() {
+    return TextField(
+      onChanged: (value) => controller.reagentSearchQuery.value = value,
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        hintText: 'search_reagent_records'.tr,
+        hintStyle: TextStyle(fontSize: 12.2, color: AppColors.grey.shade600),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: AppColors.primary,
+          size: 19,
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 38),
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFDDEBDE)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+        ),
+      ),
+    );
   }
 
   Widget _dmiList() {
@@ -943,6 +1081,31 @@ class _HealthViewState extends State<HealthView> {
     );
   }
 
+  Widget _reagentInfo(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 122,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.grey.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12.5))),
+        ],
+      ),
+    );
+  }
+
   Widget _inlineEmptyState(String text) {
     return Container(
       width: double.infinity,
@@ -968,6 +1131,96 @@ class _HealthViewState extends State<HealthView> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openReagentSheet(BuildContext context) async {
+    final quantityController = TextEditingController();
+    final localSaving = false.obs;
+
+    await Get.bottomSheet(
+      Obx(
+        () {
+          return Container(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  Text(
+                    'add_reagent'.tr,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: quantityController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _sheetDecoration('reagent_quantity'.tr),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: (localSaving.value || controller.isSubmitting.value)
+                          ? null
+                          : () async {
+                              final quantity = double.tryParse(
+                                quantityController.text.trim(),
+                              );
+                              if (quantity == null || quantity <= 0) {
+                                Get.snackbar(
+                                  'validation'.tr,
+                                  'invalid_reagent_quantity'.tr,
+                                );
+                                return;
+                              }
+
+                              localSaving.value = true;
+                              final ok = await controller.addReagent(
+                                quantityMl: quantity,
+                              );
+                              localSaving.value = false;
+                              if (ok) {
+                                _closeSheetAndShowSuccess(
+                                  controller.lastSubmitMessage.trim().isEmpty
+                                      ? 'reagent_added_successfully'.tr
+                                      : controller.lastSubmitMessage.trim(),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: (localSaving.value || controller.isSubmitting.value)
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.2),
+                            )
+                          : Text('save_record'.tr, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
     );
   }
 
@@ -1000,6 +1253,8 @@ class _HealthViewState extends State<HealthView> {
               }
             });
           }
+          final reagentBalance = controller.reagentBalanceMl.value;
+          final hasReagentForTest = reagentBalance >= 12;
 
           return Container(
             padding: EdgeInsets.fromLTRB(
@@ -1051,11 +1306,39 @@ class _HealthViewState extends State<HealthView> {
                       }
                     },
                   ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: hasReagentForTest
+                          ? const Color(0xFFEFF7EF)
+                          : const Color(0xFFFFF4E8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasReagentForTest
+                            ? const Color(0xFFDDEBDE)
+                            : const Color(0xFFFFD6A8),
+                      ),
+                    ),
+                    child: Text(
+                      hasReagentForTest
+                          ? '${'reagent_test_note'.tr} ${'available_reagent_balance'.tr}: ${reagentBalance.toStringAsFixed(2)} ml'
+                          : 'no_reagent_available'.tr,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: hasReagentForTest
+                            ? AppColors.grey.shade800
+                            : const Color(0xFF9A5A00),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: (localSaving.value || controller.isSubmitting.value)
+                      onPressed: (localSaving.value || controller.isSubmitting.value || !hasReagentForTest)
                           ? null
                           : () async {
                               final animalId = selectedAnimalId.value;

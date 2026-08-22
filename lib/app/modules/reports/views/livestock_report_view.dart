@@ -215,7 +215,6 @@ class _LivestockReportViewState extends State<LivestockReportView> {
             ],
             onChanged: (value) {
               controller.selectedTargetId.value = value;
-              unawaited(controller.fetchReport());
             },
           ),
           const SizedBox(height: 10),
@@ -239,6 +238,27 @@ class _LivestockReportViewState extends State<LivestockReportView> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: controller.isLoading.value
+                  ? null
+                  : () {
+                      unawaited(controller.fetchReport());
+                    },
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: Text('search_report'.tr),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.55),
+                disabledForegroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
           ),
           const SizedBox(height: 10),
           Row(

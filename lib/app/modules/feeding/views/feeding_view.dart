@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
@@ -30,8 +31,8 @@ class FeedingView extends GetView<FeedingController> {
                           key: controller.formKey,
                           child: Column(
                             children: [
-                              _hero(),
-                              const SizedBox(height: 14),
+                              _entryCalendar(),
+                              const SizedBox(height: 12),
                               _formCard(),
                               const SizedBox(height: 18),
                               _button(),
@@ -78,38 +79,227 @@ class FeedingView extends GetView<FeedingController> {
     Get.back();
   }
 
-  Widget _hero() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.primary,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _entryCalendar() {
+    final weekdays = const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return Obx(
+      () {
+        final month = controller.entryCalendarMonth.value;
+        final firstDay = DateTime(month.year, month.month);
+        final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+        final leadingEmptyCells = firstDay.weekday % 7;
+        final totalCells = leadingEmptyCells + daysInMonth;
+        final trailingEmptyCells = (7 - (totalCells % 7)) % 7;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 11),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE0EADF)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.025),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _monthArrow(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => controller.moveEntryCalendarMonth(-1),
+                  ),
+                  Expanded(
+                    child: Text(
+                      DateFormat('MMMM yyyy').format(month),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  _monthArrow(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: controller.canMoveEntryCalendarForward
+                        ? () => controller.moveEntryCalendarMonth(1)
+                        : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Container(
+                height: 24,
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFE8EFE8)),
+                    bottom: BorderSide(color: Color(0xFFE8EFE8)),
+                  ),
+                ),
+                child: Row(
+                  children: weekdays
+                      .map(
+                        (day) => Expanded(
+                          child: Center(
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                fontSize: 9.8,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              GridView.count(
+                crossAxisCount: 7,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 0,
+                crossAxisSpacing: 0,
+                childAspectRatio: 1.22,
+                children: [
+                  ...List.generate(leadingEmptyCells, (_) => _calendarBlankBlock()),
+                  ...List.generate(daysInMonth, (index) {
+                    final day = DateTime(month.year, month.month, index + 1);
+                    return _calendarDayBlock(day, controller.entryCountForDay(day));
+                  }),
+                  ...List.generate(trailingEmptyCells, (_) => _calendarBlankBlock()),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _calendarLegend(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _monthArrow({required IconData icon, required VoidCallback? onTap}) {
+    return SizedBox.square(
+      dimension: 26,
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon),
+        iconSize: 18,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+        visualDensity: VisualDensity.compact,
+        color: AppColors.primary,
+        disabledColor: AppColors.grey.shade400,
+      ),
+    );
+  }
+
+  Widget _calendarBlankBlock() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE8EFE8), width: 0.55),
+      ),
+    );
+  }
+
+  Widget _calendarDayBlock(DateTime date, int entryCount) {
+    final now = DateTime.now();
+    final color = entryCount >= 2
+        ? const Color(0xFF2EAD4B)
+        : entryCount == 1
+            ? const Color(0xFFF2C94C)
+            : const Color(0xFFE5484D);
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: isToday ? AppColors.primary : const Color(0xFFE8EFE8),
+          width: isToday ? 0.9 : 0.55,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: isToday ? AppColors.black : AppColors.grey.shade700,
+                  fontSize: 9.6,
+                  fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 5),
+              height: 3,
+              width: 12,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _calendarLegend() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 6,
       children: [
-        const Icon(Icons.grass_rounded, color: Colors.white, size: 28),
-        const SizedBox(height: 8),
+        _legendItem(const Color(0xFF2EAD4B), 'both_shift_done'.tr),
+        _legendItem(const Color(0xFFF2C94C), 'single_shift_done'.tr),
+        _legendItem(const Color(0xFFE5484D), 'no_entry_done'.tr),
+      ],
+    );
+  }
+
+  Widget _legendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 7,
+          width: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        const SizedBox(width: 5),
         Text(
-          'feeding_entry'.tr,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16.5,
+          label,
+          style: TextStyle(
+            fontSize: 10.4,
+            color: AppColors.grey.shade800,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'feeding_desc'.tr,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            height: 1.3,
-          ),
-        ),
       ],
-    ),
-  );
+    );
+  }
 
   Widget _formCard() => Container(
     padding: const EdgeInsets.all(16),
@@ -273,36 +463,38 @@ class FeedingView extends GetView<FeedingController> {
             _label('feeding_quantity'.tr, requiredField: true),
             const SizedBox(height: 6),
             TextFormField(
-  controller: controller.quantityController,
-  focusNode: controller.quantityFocus,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  decoration: _decoration('enter_quantity'.tr),
-  validator: (value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'enter_quantity_error'.tr;
-    }
-    final parsed = double.tryParse(value.trim());
-    if (parsed == null || parsed <= 0) {
-      return 'valid_quantity'.tr;
-    }
-    final selectedPlan = controller.selectedDietPlan.value;
-    if (selectedPlan != null &&
-        parsed - controller.packageQuantity.value > 0.000001) {
-      return 'Feeding quantity cannot be greater than available diet quantity.';
-    }
-    return null;
-  },
-),
-const SizedBox(height: 6),
-Text(
-  'feeding_quantity_half_shift_note'.tr,
-  style: TextStyle(
-    fontSize: 11.8,
-    height: 1.3,
-    fontWeight: FontWeight.w600,
-    color: AppColors.grey.shade600,
-  ),
-),
+              controller: controller.quantityController,
+              focusNode: controller.quantityFocus,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: _decoration('enter_quantity'.tr),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'enter_quantity_error'.tr;
+                }
+                final parsed = double.tryParse(value.trim());
+                if (parsed == null || parsed <= 0) {
+                  return 'valid_quantity'.tr;
+                }
+                final selectedPlan = controller.selectedDietPlan.value;
+                if (selectedPlan != null &&
+                    parsed - controller.packageQuantity.value > 0.000001) {
+                  return 'Feeding quantity cannot be greater than available diet quantity.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 6),
+            Obx(
+              () => Text(
+                controller.feedingQuantityHalfShiftNote(),
+                style: TextStyle(
+                  fontSize: 11.8,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.grey.shade600,
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -528,6 +720,3 @@ Text(
     }
   }
 }
-
-
-

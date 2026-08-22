@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/api.dart';
 
-enum HealthSection { dmi, mastitis, vaccination }
+enum HealthSection { reagent, dmi, mastitis, vaccination }
 
 class HealthController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -19,6 +19,9 @@ class HealthController extends GetxController {
   final RxList<MastitisRecordItem> mastitisRecords = <MastitisRecordItem>[].obs;
   final RxList<VaccinationRecordItem> vaccinationRecords = <VaccinationRecordItem>[].obs;
   final RxList<DmiRecordItem> dmiRecords = <DmiRecordItem>[].obs;
+  final RxList<ReagentUsageItem> reagentUsages = <ReagentUsageItem>[].obs;
+  final RxDouble reagentBalanceMl = 0.0.obs;
+  final RxString reagentSearchQuery = ''.obs;
   final RxString dmiSearchQuery = ''.obs;
   final RxString dmiAnimalTypeFilter = 'all'.obs;
   final Rx<DateTime> dmiFromDate = DateTime.now().obs;
@@ -50,6 +53,7 @@ class HealthController extends GetxController {
       fetchMastitisRecords(),
       fetchVaccinationRecords(),
       fetchDmiRecords(),
+      fetchReagentRecords(),
     ]);
   }
 
@@ -60,6 +64,9 @@ class HealthController extends GetxController {
 
   Future<void> refreshSelectedSection() async {
     switch (selectedSection.value) {
+      case HealthSection.reagent:
+        await fetchReagentRecords();
+        break;
       case HealthSection.mastitis:
         await fetchMastitisRecords();
         break;
@@ -230,6 +237,39 @@ class HealthController extends GetxController {
     }
   }
 
+  Future<void> fetchReagentRecords() async {
+    if (farmerId == 0) {
+      reagentUsages.clear();
+      reagentBalanceMl.value = 0;
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+      final response = await http.get(
+        Uri.parse('${Api.healthReagent}/$farmerId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode == 200 && data['status'] == true) {
+        reagentBalanceMl.value =
+            double.tryParse((data['balance_ml'] ?? '0').toString()) ?? 0;
+        final List list = data['data'] ?? [];
+        reagentUsages.assignAll(
+          list.map((item) => ReagentUsageItem.fromJson(item)).toList(),
+        );
+      } else {
+        reagentUsages.clear();
+        reagentBalanceMl.value = 0;
+      }
+    } catch (_) {
+      reagentUsages.clear();
+      reagentBalanceMl.value = 0;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<bool> saveMedical({
     required int animalId,
     required String medicineName,
@@ -268,7 +308,28 @@ class HealthController extends GetxController {
         'notes': notes,
       },
       successMessage: 'Mastitis record saved successfully',
-      onSuccess: fetchMastitisRecords,
+      onSuccess: () async {
+        await Future.wait([
+          fetchMastitisRecords(),
+          fetchReagentRecords(),
+        ]);
+      },
+      showSuccessSnackbar: false,
+    );
+  }
+
+  Future<bool> addReagent({
+    required double quantityMl,
+  }) async {
+    return _submit(
+      endpoint: Api.healthReagent,
+      payload: {
+        'farmer_id': farmerId.toString(),
+        'quantity_ml': quantityMl.toStringAsFixed(2),
+        'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      },
+      successMessage: 'reagent_added_successfully'.tr,
+      onSuccess: fetchReagentRecords,
       showSuccessSnackbar: false,
     );
   }
@@ -588,6 +649,17 @@ class HealthController extends GetxController {
     return groups;
   }
 
+  List<ReagentUsageItem> get filteredReagentUsages {
+    final query = reagentSearchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) {
+      return reagentUsages.toList();
+    }
+
+    return reagentUsages.where((item) {
+      return item.searchText.contains(query);
+    }).toList();
+  }
+
   List<DmiRecordItem> get filteredDmiRecords {
     final query = dmiSearchQuery.value.trim().toLowerCase();
     final selectedType = dmiAnimalTypeFilter.value.trim().toLowerCase();
@@ -709,7 +781,7 @@ class HealthController extends GetxController {
       final requiredDmi = rows.fold<double>(0, (sum, row) => sum + row.requiredDmiValue);
       final actualDmi = rows.fold<double>(0, (sum, row) => sum + row.actualDmiValue);
       final difference = double.parse((actualDmi - requiredDmi).toStringAsFixed(2));
-      final alertStatus = difference.abs() <= 0.5
+      final alertStatus = difference.abs() <= 1.0
           ? 'Balanced'
           : (difference < 0 ? 'Low' : 'High');
       final notes = rows
@@ -973,6 +1045,56 @@ class HealthAnimalItem {
       panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
       panName: json['pan_name']?.toString() ?? '',
     );
+  }
+}
+
+class ReagentUsageItem {
+  final int id;
+  final int animalId;
+  final String animalName;
+  final String tagNumber;
+  final double quantityMl;
+  final double balanceAfterMl;
+  final String date;
+  final String notes;
+
+  ReagentUsageItem({
+    required this.id,
+    required this.animalId,
+    required this.animalName,
+    required this.tagNumber,
+    required this.quantityMl,
+    required this.balanceAfterMl,
+    required this.date,
+    required this.notes,
+  });
+
+  factory ReagentUsageItem.fromJson(Map<String, dynamic> json) {
+    return ReagentUsageItem(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      animalId: int.tryParse(json['animal_id']?.toString() ?? '0') ?? 0,
+      animalName: json['animal_name']?.toString() ?? '',
+      tagNumber: json['tag_number']?.toString() ?? '',
+      quantityMl: double.tryParse((json['quantity_ml'] ?? '0').toString()) ?? 0,
+      balanceAfterMl:
+          double.tryParse((json['balance_after_ml'] ?? '0').toString()) ?? 0,
+      date: json['date']?.toString() ?? '',
+      notes: json['notes']?.toString() ?? '',
+    );
+  }
+
+  String get displayTitle =>
+      '${animalName.trim().isEmpty ? 'animal'.tr : animalName} - ${'tag'.tr} ${tagNumber.trim().isEmpty ? '-' : tagNumber}';
+
+  String get searchText {
+    return [
+      animalName,
+      tagNumber,
+      quantityMl.toStringAsFixed(2),
+      balanceAfterMl.toStringAsFixed(2),
+      date,
+      notes,
+    ].join(' ').toLowerCase();
   }
 }
 

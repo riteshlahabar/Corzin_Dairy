@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -10,6 +11,9 @@ import '../../../core/utils/api.dart';
 import '../../../routes/app_pages.dart';
 
 class LoginOtpController extends GetxController {
+  static const int otpValidityDurationSeconds = 15 * 60;
+  static const int resendCooldownSeconds = 30;
+
   final List<TextEditingController> otpControllers = List.generate(
     6,
     (_) => TextEditingController(),
@@ -19,9 +23,15 @@ class LoginOtpController extends GetxController {
 
   late String verificationId;
   late String mobile;
+  int? resendToken;
   bool isTestNumber = false;
   bool autoVerified = false;
   RxBool isLoading = false.obs;
+  RxBool isResending = false.obs;
+  RxInt otpSecondsRemaining = otpValidityDurationSeconds.obs;
+  RxInt resendSecondsRemaining = resendCooldownSeconds.obs;
+  Timer? _otpTimer;
+  Timer? _resendTimer;
   final FirebaseMessagingService _firebaseMessagingService = FirebaseMessagingService();
 
   @override
@@ -29,14 +39,19 @@ class LoginOtpController extends GetxController {
     super.onInit();
 
     verificationId = Get.arguments?["verificationId"] ?? "";
+    resendToken = Get.arguments?["resendToken"];
     mobile = Get.arguments?["mobile"] ?? "";
     isTestNumber = Get.arguments?["isTestNumber"] ?? false;
     autoVerified = Get.arguments?["autoVerified"] ?? false;
 
     debugPrint("📱 OTP Screen Mobile: $mobile");
     debugPrint("🔐 VerificationId: $verificationId");
+    debugPrint("🔁 Resend token: $resendToken");
     debugPrint("🧪 isTestNumber: $isTestNumber");
     debugPrint("⚡ autoVerified: $autoVerified");
+
+    startOtpTimer();
+    startResendTimer();
 
     /// If firebase auto verification completed
     if (autoVerified) {
@@ -58,6 +73,52 @@ class LoginOtpController extends GetxController {
     return otpControllers.map((e) => e.text.trim()).join();
   }
 
+  bool get isOtpExpired {
+    return !autoVerified && otpSecondsRemaining.value <= 0;
+  }
+
+  String formatTimer(int totalSeconds) {
+    final safeSeconds = totalSeconds < 0 ? 0 : totalSeconds;
+    final minutes = safeSeconds ~/ 60;
+    final seconds = safeSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void startOtpTimer() {
+    _otpTimer?.cancel();
+    otpSecondsRemaining.value = otpValidityDurationSeconds;
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (otpSecondsRemaining.value <= 1) {
+        otpSecondsRemaining.value = 0;
+        timer.cancel();
+        return;
+      }
+      otpSecondsRemaining.value--;
+    });
+  }
+
+  void startResendTimer() {
+    _resendTimer?.cancel();
+    resendSecondsRemaining.value = resendCooldownSeconds;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (resendSecondsRemaining.value <= 1) {
+        resendSecondsRemaining.value = 0;
+        timer.cancel();
+        return;
+      }
+      resendSecondsRemaining.value--;
+    });
+  }
+
+  void clearOtp() {
+    for (final controller in otpControllers) {
+      controller.clear();
+    }
+    if (focusNodes.isNotEmpty) {
+      focusNodes.first.requestFocus();
+    }
+  }
+
   Future<void> verifyOtp() async {
     if (isLoading.value) return;
 
@@ -66,6 +127,11 @@ class LoginOtpController extends GetxController {
 
     if (!autoVerified && otp.length < 6) {
       Get.snackbar('error'.tr, 'enter_complete_otp'.tr);
+      return;
+    }
+
+    if (isOtpExpired) {
+      Get.snackbar('error'.tr, 'OTP expired. Please resend OTP.');
       return;
     }
 
@@ -218,7 +284,73 @@ class LoginOtpController extends GetxController {
   }
 
   Future<void> resendOtp() async {
-    Get.snackbar('info'.tr, 'otp_resent_to'.trParams({'mobile': mobile}));
+    if (isResending.value || isLoading.value) return;
+
+    if (resendSecondsRemaining.value > 0) {
+      Get.snackbar(
+        'info'.tr,
+        'Please wait ${resendSecondsRemaining.value} seconds before resending OTP.',
+      );
+      return;
+    }
+
+    if (mobile.trim().isEmpty) {
+      Get.snackbar('error'.tr, 'enter_valid_mobile_number'.tr);
+      return;
+    }
+
+    if (isTestNumber) {
+      clearOtp();
+      startOtpTimer();
+      startResendTimer();
+      Get.snackbar('info'.tr, 'otp_resent_to'.trParams({'mobile': mobile}));
+      return;
+    }
+
+    isResending.value = true;
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: "+91$mobile",
+        timeout: const Duration(seconds: 60),
+        forceResendingToken: resendToken,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          try {
+            await FirebaseAuth.instance.signInWithCredential(credential);
+            autoVerified = true;
+            isResending.value = false;
+            await handlePostOtpSuccess();
+          } catch (e) {
+            debugPrint("❌ Resend auto verification sign-in error: $e");
+            isResending.value = false;
+            Get.snackbar('error'.tr, 'auto_verification_failed'.tr);
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          debugPrint("❌ resend verificationFailed: ${e.message}");
+          isResending.value = false;
+          Get.snackbar('error'.tr, e.message ?? 'otp_failed'.tr);
+        },
+        codeSent: (String newVerificationId, int? newResendToken) {
+          debugPrint("✅ OTP resent. verificationId: $newVerificationId");
+          verificationId = newVerificationId;
+          resendToken = newResendToken ?? resendToken;
+          isResending.value = false;
+          clearOtp();
+          startOtpTimer();
+          startResendTimer();
+          Get.snackbar('info'.tr, 'otp_resent_to'.trParams({'mobile': mobile}));
+        },
+        codeAutoRetrievalTimeout: (String newVerificationId) {
+          verificationId = newVerificationId;
+          debugPrint("⏰ Resend auto retrieval timeout: $newVerificationId");
+        },
+      );
+    } catch (e) {
+      debugPrint("❌ resendOtp error: $e");
+      isResending.value = false;
+      Get.snackbar('error'.tr, 'something_went_wrong_sending_otp'.tr);
+    }
   }
 
   void _showInactiveAccountMessage(String adminNumber) {
@@ -246,6 +378,8 @@ class LoginOtpController extends GetxController {
 
   @override
   void onClose() {
+    _otpTimer?.cancel();
+    _resendTimer?.cancel();
     for (final c in otpControllers) {
       c.dispose();
     }

@@ -23,6 +23,7 @@ class LivestockReportController extends GetxController {
   final RxBool isExporting = false.obs;
   final RxString scope = 'animal'.obs;
   final RxString reportType = 'all'.obs;
+  final RxString appliedReportType = 'all'.obs;
   final RxnInt selectedTargetId = RxnInt();
 
   final TextEditingController fromDateController = TextEditingController();
@@ -34,6 +35,8 @@ class LivestockReportController extends GetxController {
   final RxList<ReportSectionData> sectionReports = <ReportSectionData>[].obs;
 
   int farmerId = 0;
+  String _appliedFromDateText = '';
+  String _appliedToDateText = '';
 
   static const String reportTypeAll = 'all';
   static const String reportTypeMilk = 'milk';
@@ -62,6 +65,8 @@ class LivestockReportController extends GetxController {
       'dd/MM/yyyy',
     ).format(DateTime(now.year, now.month, 1));
     toDateController.text = DateFormat('dd/MM/yyyy').format(now);
+    _appliedFromDateText = fromDateController.text;
+    _appliedToDateText = toDateController.text;
     unawaited(_boot());
   }
 
@@ -83,7 +88,6 @@ class LivestockReportController extends GetxController {
     scope.value = next;
     selectedTargetId.value = null;
     await fetchTargets();
-    await fetchReport();
   }
 
   void changeReportType(String? value) {
@@ -167,14 +171,12 @@ class LivestockReportController extends GetxController {
     final picked = await _pickDate(context, fromDateController.text);
     if (picked == null) return;
     fromDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-    await fetchReport();
   }
 
   Future<void> pickToDate(BuildContext context) async {
     final picked = await _pickDate(context, toDateController.text);
     if (picked == null) return;
     toDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-    await fetchReport();
   }
 
   Future<DateTime?> _pickDate(BuildContext context, String existingText) async {
@@ -206,6 +208,9 @@ class LivestockReportController extends GetxController {
 
     final fromDate = _apiDate(fromDateController.text.trim());
     final toDate = _apiDate(toDateController.text.trim());
+    appliedReportType.value = reportType.value;
+    _appliedFromDateText = fromDateController.text.trim();
+    _appliedToDateText = toDateController.text.trim();
     final query = <String, String>{
       'scope': scope.value,
       'from_date': fromDate,
@@ -286,7 +291,7 @@ class LivestockReportController extends GetxController {
     );
     final profitNet = profitCredit - profitDebit;
 
-    switch (reportType.value) {
+    switch (appliedReportType.value) {
       case reportTypeMilk:
         return <ReportSummaryCardData>[
           ReportSummaryCardData(
@@ -408,7 +413,7 @@ class LivestockReportController extends GetxController {
     List<ReportSectionData> sections,
   ) {
     if (sections.isEmpty) return const <ReportSectionData>[];
-    switch (reportType.value) {
+    switch (appliedReportType.value) {
       case reportTypeMilk:
         return sections
             .where((section) => section.title == sectionMilk)
@@ -468,7 +473,7 @@ class LivestockReportController extends GetxController {
   Future<void> exportExcel() async {
     try {
       isExporting.value = true;
-      final sections = _filterSectionsByType(await _buildDetailedSections());
+      final sections = visibleSections;
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
         Get.snackbar('info'.tr, 'no_report_data'.tr);
@@ -505,7 +510,7 @@ class LivestockReportController extends GetxController {
   Future<void> exportPdf() async {
     try {
       isExporting.value = true;
-      final sections = _filterSectionsByType(await _buildDetailedSections());
+      final sections = visibleSections;
       final hasAnyRow = sections.any((section) => section.rows.isNotEmpty);
       if (!hasAnyRow) {
         Get.snackbar('info'.tr, 'no_report_data'.tr);
@@ -529,8 +534,8 @@ class LivestockReportController extends GetxController {
               pw.SizedBox(height: 4),
               pw.Text(
                 'range_from_to'.trParams({
-                  'from': fromDateController.text,
-                  'to': toDateController.text,
+                  'from': _appliedFromDateText,
+                  'to': _appliedToDateText,
                 }),
               ),
               pw.SizedBox(height: 10),
@@ -1652,7 +1657,7 @@ class LivestockReportController extends GetxController {
       final dmiType = dmiTypes.isEmpty
           ? '-'
           : (dmiTypes.length == 1 ? dmiTypes.first : dmiTypes.join(', '));
-      final alertStatus = difference.abs() <= 0.5
+      final alertStatus = difference.abs() <= 1.0
           ? 'Balanced'
           : (difference < 0 ? 'Low' : 'High');
 

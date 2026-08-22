@@ -46,10 +46,12 @@ class LoginController extends GetxController {
 
       await auth.verifyPhoneNumber(
         phoneNumber: "+91$phone",
+        timeout: const Duration(seconds: 60),
 
         verificationCompleted: (PhoneAuthCredential credential) async {
           try {
             await auth.signInWithCredential(credential);
+            isLoading.value = false;
 
             Get.offNamed(
               Routes.LOGIN_OTP,
@@ -62,22 +64,26 @@ class LoginController extends GetxController {
             );
           } catch (e) {
             debugPrint("❌ Auto verification sign-in error: $e");
+            isLoading.value = false;
             Get.snackbar('error'.tr, 'auto_verification_failed'.tr);
           }
         },
 
         verificationFailed: (FirebaseAuthException e) {
           debugPrint("❌ verificationFailed: ${e.message}");
+          isLoading.value = false;
           Get.snackbar('error'.tr, e.message ?? 'otp_failed'.tr);
         },
 
         codeSent: (String verificationId, int? resendToken) {
           debugPrint("✅ OTP sent. verificationId: $verificationId");
+          isLoading.value = false;
 
           Get.offNamed(
             Routes.LOGIN_OTP,
             arguments: {
               "verificationId": verificationId,
+              "resendToken": resendToken,
               "mobile": phone,
               "isTestNumber": false,
               "autoVerified": false,
@@ -91,9 +97,8 @@ class LoginController extends GetxController {
       );
     } catch (e) {
       debugPrint("❌ sendOtp error: $e");
-      Get.snackbar('error'.tr, 'something_went_wrong_sending_otp'.tr);
-    } finally {
       isLoading.value = false;
+      Get.snackbar('error'.tr, 'something_went_wrong_sending_otp'.tr);
     }
   }
 }

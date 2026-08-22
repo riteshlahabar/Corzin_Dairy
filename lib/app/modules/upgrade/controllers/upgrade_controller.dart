@@ -193,8 +193,16 @@ class UpgradeController extends GetxController {
       isPurchasingPlan.value = true;
       purchasingPlanId.value = plan.id;
 
+      final order = await _createSubscriptionOrder(plan);
+      if (order == null || !order.isValid) {
+        Get.snackbar('payment'.tr, 'Unable to create payment order.');
+        return;
+      }
+
       final paymentResult = await RazorpayService.instance.openCheckout(
-        amount: plan.amount,
+        amount: order.amount,
+        keyId: order.keyId,
+        orderId: order.orderId,
         customerName: farmerName,
         contact: mobileNumber,
         description: 'Subscription - ${plan.name.tr}',
@@ -213,9 +221,14 @@ class UpgradeController extends GetxController {
         return;
       }
 
+      final paymentMeta = paymentResult.toApiPayload();
+      if ((paymentMeta['razorpay_order_id'] ?? '').toString().trim().isEmpty) {
+        paymentMeta['razorpay_order_id'] = order.orderId;
+      }
+
       final saved = await _saveSubscriptionPurchase(
         plan: plan,
-        paymentMeta: paymentResult.toApiPayload(),
+        paymentMeta: paymentMeta,
       );
 
       if (saved) {
@@ -229,6 +242,40 @@ class UpgradeController extends GetxController {
     } finally {
       isPurchasingPlan.value = false;
       purchasingPlanId.value = 0;
+    }
+  }
+
+  Future<RazorpayOrderModel?> _createSubscriptionOrder(PlanModel plan) async {
+    try {
+      final response = await http.post(
+        Uri.parse(Api.subscriptionOrder),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'farmer_id': farmerId,
+          'plan_id': plan.id,
+        }),
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      if (response.statusCode != 200 ||
+          data['status'] != true ||
+          data['data'] is! Map) {
+        final message = data['message']?.toString().trim();
+        if (message?.isNotEmpty == true) {
+          Get.snackbar('payment'.tr, message!);
+        }
+        return null;
+      }
+
+      return RazorpayOrderModel.fromJson(
+        Map<String, dynamic>.from(data['data']),
+      );
+    } catch (e) {
+      Get.snackbar('payment'.tr, e.toString());
+      return null;
     }
   }
 
@@ -342,6 +389,28 @@ class PlanModel {
       amount: priceAmount,
       features: features,
       highlighted: isHighlighted,
+    );
+  }
+}
+
+class RazorpayOrderModel {
+  const RazorpayOrderModel({
+    required this.keyId,
+    required this.orderId,
+    required this.amount,
+  });
+
+  final String keyId;
+  final String orderId;
+  final double amount;
+
+  bool get isValid => keyId.isNotEmpty && orderId.isNotEmpty && amount > 0;
+
+  factory RazorpayOrderModel.fromJson(Map<String, dynamic> json) {
+    return RazorpayOrderModel(
+      keyId: json['key_id']?.toString().trim() ?? '',
+      orderId: json['order_id']?.toString().trim() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0,
     );
   }
 }

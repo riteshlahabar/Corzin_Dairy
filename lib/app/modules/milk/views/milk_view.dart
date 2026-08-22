@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
@@ -32,8 +33,8 @@ class MilkView extends GetView<MilkController> {
                             key: controller.formKey,
                             child: Column(
                               children: [
-                                _buildHeroCard(),
-                                const SizedBox(height: 16),
+                                _buildEntryCalendar(),
+                                const SizedBox(height: 12),
                                 _buildFormCard(),
                                 const SizedBox(height: 20),
                                 _buildSubmitButton(),
@@ -76,22 +77,225 @@ class MilkView extends GetView<MilkController> {
     Get.back();
   }
 
-  Widget _buildHeroCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF4EA857)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.22), blurRadius: 18, offset: const Offset(0, 8))],
+  Widget _buildEntryCalendar() {
+    final weekdays = const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return Obx(
+      () {
+        final month = controller.entryCalendarMonth.value;
+        final firstDay = DateTime(month.year, month.month);
+        final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+        final leadingEmptyCells = firstDay.weekday % 7;
+        final totalCells = leadingEmptyCells + daysInMonth;
+        final trailingEmptyCells = (7 - (totalCells % 7)) % 7;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 11),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE0EADF)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.025),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _monthArrow(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => controller.moveEntryCalendarMonth(-1),
+                  ),
+                  Expanded(
+                    child: Text(
+                      DateFormat('MMMM yyyy').format(month),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  _monthArrow(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: controller.canMoveEntryCalendarForward
+                        ? () => controller.moveEntryCalendarMonth(1)
+                        : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Container(
+                height: 24,
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFE8EFE8)),
+                    bottom: BorderSide(color: Color(0xFFE8EFE8)),
+                  ),
+                ),
+                child: Row(
+                  children: weekdays
+                      .map(
+                        (day) => Expanded(
+                          child: Center(
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                fontSize: 9.8,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              GridView.count(
+                crossAxisCount: 7,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 0,
+                crossAxisSpacing: 0,
+                childAspectRatio: 1.22,
+                children: [
+                  ...List.generate(leadingEmptyCells, (_) => _calendarBlankBlock()),
+                  ...List.generate(daysInMonth, (index) {
+                    final day = DateTime(month.year, month.month, index + 1);
+                    return _calendarDayBlock(day, controller.entryCountForDay(day));
+                  }),
+                  ...List.generate(trailingEmptyCells, (_) => _calendarBlankBlock()),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _calendarLegend(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _monthArrow({required IconData icon, required VoidCallback? onTap}) {
+    return SizedBox.square(
+      dimension: 26,
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(icon),
+        iconSize: 18,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+        visualDensity: VisualDensity.compact,
+        color: AppColors.primary,
+        disabledColor: AppColors.grey.shade400,
       ),
-      child: Row(
+    );
+  }
+
+  Widget _calendarBlankBlock() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE8EFE8), width: 0.55),
+      ),
+    );
+  }
+
+  Widget _calendarDayBlock(DateTime date, int entryCount) {
+    final now = DateTime.now();
+    final color = entryCount >= 2
+        ? const Color(0xFF2EAD4B)
+        : entryCount == 1
+            ? const Color(0xFFF2C94C)
+            : const Color(0xFFE5484D);
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: isToday ? AppColors.primary : const Color(0xFFE8EFE8),
+          width: isToday ? 0.9 : 0.55,
+        ),
+      ),
+      child: Stack(
         children: [
-          Container(height: 62, width: 62, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.local_drink_rounded, color: Colors.white, size: 32)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('milk_entry'.tr, style: const TextStyle(color: AppColors.white, fontSize: 17, fontWeight: FontWeight.w700)), const SizedBox(height: 6), Text('milk_entry_desc'.tr, style: const TextStyle(color: Colors.white, fontSize: 12.5, height: 1.35, fontWeight: FontWeight.w400))])),
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: isToday ? AppColors.black : AppColors.grey.shade700,
+                  fontSize: 9.6,
+                  fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 5),
+              height: 3,
+              width: 12,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _calendarLegend() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 6,
+      children: [
+        _legendItem(const Color(0xFF2EAD4B), 'both_shift_done'.tr),
+        _legendItem(const Color(0xFFF2C94C), 'single_shift_done'.tr),
+        _legendItem(const Color(0xFFE5484D), 'no_entry_done'.tr),
+      ],
+    );
+  }
+
+  Widget _legendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 7,
+          width: 14,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.4,
+            color: AppColors.grey.shade800,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 

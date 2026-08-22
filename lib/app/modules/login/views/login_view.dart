@@ -90,19 +90,44 @@ class LoginView extends GetView<LoginController> {
 
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            controller.sendOtp();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF5E9E2E),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+                        child: Obx(
+                          () => ElevatedButton(
+                            onPressed: controller.isLoading.value
+                                ? null
+                                : () {
+                                    controller.sendOtp();
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF5E9E2E),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFF8DBD6B),
+                              disabledForegroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                             ),
+                            child: controller.isLoading.value
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text("Sending OTP..."),
+                                    ],
+                                  )
+                                : const Text("Send OTP"),
                           ),
-                          child: const Text("Send OTP"),
                         ),
                       ),
 

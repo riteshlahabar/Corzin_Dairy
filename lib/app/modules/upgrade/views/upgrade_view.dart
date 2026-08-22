@@ -52,6 +52,9 @@ class UpgradeView extends GetView<UpgradeController> {
                   _selectedPlanDetails(),
                   const SizedBox(height: 18),
                   _continueButton(),
+                  // Manual QR payment section is hidden while Razorpay live payment is active.
+                  // const SizedBox(height: 18),
+                  // _paymentQrSection(),
                 ],
               ),
       ),
@@ -377,6 +380,59 @@ class UpgradeView extends GetView<UpgradeController> {
       ),
     );
   }
+
+  /*
+  Widget _paymentQrSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryGreen.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Scan the QR code',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _deepGreen,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Image.asset(
+              'assets/images/payment_qr.png',
+              height: 280,
+              width: double.infinity,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Please make the payment using the QR code and send the payment screenshot via WhatsApp 9226824223',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _deepGreen,
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  */
 
  Widget _premiumPlanCard(PlanModel plan) {
   return Obx(
