@@ -194,55 +194,58 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
       return;
     }
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                height: 4,
-                width: 54,
-                margin: const EdgeInsets.only(bottom: 18),
-                decoration: BoxDecoration(
-                  color: AppColors.grey,
-                  borderRadius: BorderRadius.circular(12),
+      SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  height: 4,
+                  width: 54,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: AppColors.grey,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            ),
-            Text(
-              'quick_add'.tr,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'quick_add_desc'.tr,
-              style: TextStyle(fontSize: 13, color: AppColors.grey.shade700),
-            ),
-            const SizedBox(height: 18),
-            _sheetAction(
-              icon: Icons.local_drink_rounded,
-              title: 'add_milk'.tr,
-              onTap: () {
-                Get.back();
-                openDrawerRoute(Routes.MILK);
-              },
-            ),
-            const SizedBox(height: 12),
-            _sheetAction(
-              icon: Icons.grass_rounded,
-              title: 'add_feeding'.tr,
-              onTap: () {
-                Get.back();
-                openDrawerRoute(Routes.FEEDING);
-              },
-            ),
-          ],
+              Text(
+                'quick_add'.tr,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'quick_add_desc'.tr,
+                style: TextStyle(fontSize: 13, color: AppColors.grey.shade700),
+              ),
+              const SizedBox(height: 18),
+              _sheetAction(
+                icon: Icons.local_drink_rounded,
+                title: 'add_milk'.tr,
+                onTap: () {
+                  Get.back();
+                  openDrawerRoute(Routes.MILK);
+                },
+              ),
+              const SizedBox(height: 12),
+              _sheetAction(
+                icon: Icons.grass_rounded,
+                title: 'add_feeding'.tr,
+                onTap: () {
+                  Get.back();
+                  openDrawerRoute(Routes.FEEDING);
+                },
+              ),
+            ],
+          ),
         ),
       ),
       isScrollControlled: true,
@@ -517,81 +520,84 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                 if (planLocked) {
                   return const SizedBox.shrink();
                 }
-                return BottomAppBar(
-                  color: AppColors.white,
-                  elevation: 10,
-                  height: 60,
-                  padding: EdgeInsets.zero,
-                  child: SizedBox(
+                return SafeArea(
+                  top: false,
+                  child: BottomAppBar(
+                    color: AppColors.white,
+                    elevation: 10,
                     height: 60,
-                    child: Row(
-                      children: [
-                        _navItem(
-                          icon: Icons.home_outlined,
-                          selectedIcon: Icons.home_rounded,
-                          label: 'home'.tr,
-                          isSelected: controller.currentIndex.value == 0,
-                          onTap: () => controller.changeTab(0),
-                        ),
-                        _navItem(
-                          icon: Icons.medical_services_outlined,
-                          selectedIcon: Icons.medical_services_rounded,
-                          label: 'doctor'.tr,
-                          isSelected: controller.currentIndex.value == 1,
-                          onTap: () => controller.changeTab(1),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: GestureDetector(
-                              onTap: controller.openAddAction,
-                              child: Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      AppColors.primary.withValues(alpha: 0.96),
-                                      AppColors.primary,
+                    padding: EdgeInsets.zero,
+                    child: SizedBox(
+                      height: 60,
+                      child: Row(
+                        children: [
+                          _navItem(
+                            icon: Icons.home_outlined,
+                            selectedIcon: Icons.home_rounded,
+                            label: 'home'.tr,
+                            isSelected: controller.currentIndex.value == 0,
+                            onTap: () => controller.changeTab(0),
+                          ),
+                          _navItem(
+                            icon: Icons.medical_services_outlined,
+                            selectedIcon: Icons.medical_services_rounded,
+                            label: 'doctor'.tr,
+                            isSelected: controller.currentIndex.value == 1,
+                            onTap: () => controller.changeTab(1),
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: controller.openAddAction,
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        AppColors.primary.withValues(alpha: 0.96),
+                                        AppColors.primary,
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
                                     ],
                                   ),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.18,
-                                      ),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.add_rounded,
-                                  color: Colors.white,
-                                  size: 24,
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        // Temporary swap: Shop tab hidden in bottom navigation.
-                        _navItem(
-                          icon: Icons.summarize_outlined,
-                          selectedIcon: Icons.summarize_rounded,
-                          label: 'menu_report'.tr,
-                          isSelected: controller.currentIndex.value == 3,
-                          onTap: () => controller.changeTab(3),
-                        ),
-                        _navItem(
-                          icon: Icons.person_outline_rounded,
-                          selectedIcon: Icons.person_rounded,
-                          label: 'profile'.tr,
-                          isSelected: controller.currentIndex.value == 4,
-                          onTap: () => controller.changeTab(4),
-                        ),
-                      ],
+                          // Temporary swap: Shop tab hidden in bottom navigation.
+                          _navItem(
+                            icon: Icons.summarize_outlined,
+                            selectedIcon: Icons.summarize_rounded,
+                            label: 'menu_report'.tr,
+                            isSelected: controller.currentIndex.value == 3,
+                            onTap: () => controller.changeTab(3),
+                          ),
+                          _navItem(
+                            icon: Icons.person_outline_rounded,
+                            selectedIcon: Icons.person_rounded,
+                            label: 'profile'.tr,
+                            isSelected: controller.currentIndex.value == 4,
+                            onTap: () => controller.changeTab(4),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );

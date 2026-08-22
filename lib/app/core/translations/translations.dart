@@ -137,6 +137,8 @@ const Map<String, String> _en = {
   'get_priority_support': 'Get priority support',
   'unlock_all_premium_tools': 'Unlock all premium tools',
   'tap_to_choose': 'Tap to choose',
+  'used': 'Used',
+  'free_plan_used': 'Free plan used',
   'continue_with_plan': 'Continue with @price',
   'yearly': 'Yearly',
   'half_yearly': 'Half-Yearly',

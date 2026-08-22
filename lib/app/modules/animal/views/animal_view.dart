@@ -13,6 +13,11 @@ class AnimalView extends GetView<AnimalController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF6),
       body: Obx(
@@ -29,7 +34,7 @@ class AnimalView extends GetView<AnimalController> {
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
                           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                          padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
                           child: Form(
                             key: controller.formKey,
                             child: Column(

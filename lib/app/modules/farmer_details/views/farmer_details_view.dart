@@ -13,6 +13,11 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: Column(
@@ -37,6 +42,7 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: bottomSafePadding + 20),
                 child: Column(
                   children: [
                     Obx(() => _photoUploadCard()),

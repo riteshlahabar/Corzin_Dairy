@@ -12,6 +12,11 @@ class FeedingView extends GetView<FeedingController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       body: Obx(
@@ -26,7 +31,7 @@ class FeedingView extends GetView<FeedingController> {
                     Expanded(
                       child: SingleChildScrollView(
                         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(16, 14, 16, MediaQuery.of(context).viewInsets.bottom + 24),
+                        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
                         child: Form(
                           key: controller.formKey,
                           child: Column(

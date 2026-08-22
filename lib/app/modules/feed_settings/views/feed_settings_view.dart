@@ -15,6 +15,11 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
       appBar: AppBar(
@@ -46,7 +51,7 @@ class FeedSettingsView extends GetView<FeedSettingsController> {
                   : RefreshIndicator(
                       onRefresh: controller.fetchFeedTypes,
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
                         children: [
                           _introCard(),
                           const SizedBox(height: 14),
@@ -504,6 +509,11 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Obx(() {
       if (widget.controller.isLoading.value) {
         return const Center(child: CircularProgressIndicator());
@@ -516,7 +526,7 @@ class _FeedSubtypeAddFormState extends State<_FeedSubtypeAddForm> {
 
       return ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
         children: [
           Container(
             padding: const EdgeInsets.all(14),

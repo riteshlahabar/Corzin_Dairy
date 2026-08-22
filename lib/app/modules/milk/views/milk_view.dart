@@ -11,6 +11,11 @@ class MilkView extends GetView<MilkController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF6),
       body: Obx(
@@ -28,7 +33,7 @@ class MilkView extends GetView<MilkController> {
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
                           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: EdgeInsets.fromLTRB(16, 14, 16, MediaQuery.of(context).viewInsets.bottom + 24),
+                          padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
                           child: Form(
                             key: controller.formKey,
                             child: Column(

@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
-import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../routes/app_pages.dart';
 
 class FarmerDetailsController extends GetxController {
   late String lang;
@@ -302,7 +302,7 @@ class FarmerDetailsController extends GetxController {
 
         farmerName.value = firstName.text.trim();
 
-        Get.offAll(() => const MainBottomNavView());
+        Get.offAllNamed(Routes.UPGRADE);
       } else {
         Get.snackbar('error'.tr, data['message'].toString());
       }

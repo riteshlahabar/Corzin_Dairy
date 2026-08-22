@@ -32,23 +32,6 @@ class LoginOtpView extends GetView<LoginOtpController> {
                 style: TextStyle(color: Colors.grey),
               ),
 
-              const SizedBox(height: 12),
-
-              Obx(
-                () => Text(
-                  controller.otpSecondsRemaining.value > 0
-                      ? "OTP expires in ${controller.formatTimer(controller.otpSecondsRemaining.value)}"
-                      : "OTP expired. Please resend OTP.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: controller.otpSecondsRemaining.value > 0
-                        ? Colors.grey
-                        : Colors.red,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-
               const SizedBox(height: 40),
 
               /// 🔹 OTP BOXES

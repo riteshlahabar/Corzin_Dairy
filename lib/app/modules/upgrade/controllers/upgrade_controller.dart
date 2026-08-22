@@ -8,6 +8,7 @@ import '../../../core/services/razorpay_service.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/utils/api.dart';
 import '../../home/controllers/home_controller.dart';
+import '../../../routes/app_pages.dart';
 
 class UpgradeController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -88,21 +89,29 @@ class UpgradeController extends GetxController {
   }
 
   void _ensureSelectedPlan() {
-    if (plans.isEmpty) {
+    final selectablePlans = plans.where((plan) => plan.isSelectable).toList();
+    if (selectablePlans.isEmpty) {
       selectedPlanId.value = 0;
       return;
     }
 
     final currentId = selectedPlanId.value;
-    if (currentId != 0 && plans.any((plan) => plan.id == currentId)) {
+    if (currentId != 0 &&
+        selectablePlans.any((plan) => plan.id == currentId)) {
       return;
     }
 
-    final highlighted = plans.firstWhereOrNull((plan) => plan.highlighted);
-    selectedPlanId.value = (highlighted ?? plans.first).id;
+    final highlighted =
+        selectablePlans.firstWhereOrNull((plan) => plan.highlighted);
+    selectedPlanId.value = (highlighted ?? selectablePlans.first).id;
   }
 
   void selectPlan(PlanModel plan) {
+    if (!plan.isSelectable) {
+      Get.snackbar('info'.tr, 'Free plan already used for this mobile number. Please choose paid plan.');
+      _ensureSelectedPlan();
+      return;
+    }
     selectedPlanId.value = plan.id;
   }
 
@@ -123,11 +132,72 @@ class UpgradeController extends GetxController {
 
   Future<void> continueWithSelectedPlan() async {
     final plan = selectedPlan;
+    if (!plan.isSelectable) {
+      Get.snackbar('info'.tr, 'Free plan already used for this mobile number. Please choose paid plan.');
+      _ensureSelectedPlan();
+      return;
+    }
     if (plan.amount > 0) {
       await purchasePlan(plan);
       return;
     }
-    await contactAdmin();
+    await activateFreePlan(plan);
+  }
+
+  Future<void> activateFreePlan(PlanModel plan) async {
+    if (isPurchasingPlan.value) return;
+    if (farmerId <= 0) {
+      Get.snackbar('error'.tr, 'please_login_again'.tr);
+      return;
+    }
+
+    try {
+      isPurchasingPlan.value = true;
+      purchasingPlanId.value = plan.id;
+
+      final response = await http.post(
+        Uri.parse(Api.subscriptionFree),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'farmer_id': farmerId,
+          'plan_id': plan.id,
+        }),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
+        final message = data['message']?.toString().trim();
+        if (Get.isRegistered<HomeController>()) {
+          await Get.find<HomeController>().loadDashboard(silent: true);
+        }
+        Get.snackbar(
+          'success'.tr,
+          message?.isNotEmpty == true
+              ? message!
+              : 'Your free plan activated successfully.',
+        );
+        Get.offAllNamed(Routes.HOME);
+        return;
+      }
+
+      final message = data['message']?.toString().trim();
+      Get.snackbar(
+        'info'.tr,
+        message?.isNotEmpty == true
+            ? message!
+            : 'Unable to activate free plan. Please choose paid plan.',
+      );
+      await loadPlans();
+    } catch (e) {
+      Get.snackbar('error'.tr, e.toString());
+    } finally {
+      isPurchasingPlan.value = false;
+      purchasingPlanId.value = 0;
+    }
   }
 
   Future<void> loadAdminContact() async {
@@ -236,6 +306,7 @@ class UpgradeController extends GetxController {
           await Get.find<HomeController>().loadDashboard(silent: true);
         }
         Get.snackbar('success'.tr, 'subscription_payment_success'.tr);
+        Get.offAllNamed(Routes.HOME);
       } else {
         Get.snackbar('info'.tr, 'subscription_activation_pending'.tr);
       }
@@ -348,6 +419,9 @@ class PlanModel {
     required this.amount,
     required this.features,
     required this.highlighted,
+    this.isFreePlan = false,
+    this.isFreeUsed = false,
+    this.isSelectable = true,
   });
 
   final int id;
@@ -356,6 +430,9 @@ class PlanModel {
   final double amount;
   final List<String> features;
   final bool highlighted;
+  final bool isFreePlan;
+  final bool isFreeUsed;
+  final bool isSelectable;
 
   factory PlanModel.fromJson(Map<String, dynamic> json) {
     final featuresRaw = json['features'];
@@ -389,6 +466,9 @@ class PlanModel {
       amount: priceAmount,
       features: features,
       highlighted: isHighlighted,
+      isFreePlan: json['is_free_plan'] == true || priceAmount <= 0,
+      isFreeUsed: json['is_free_used'] == true,
+      isSelectable: json['is_selectable'] != false,
     );
   }
 }

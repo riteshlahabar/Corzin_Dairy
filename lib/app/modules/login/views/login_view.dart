@@ -9,6 +9,11 @@ class LoginView extends GetView<LoginController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
@@ -36,7 +41,7 @@ class LoginView extends GetView<LoginController> {
                     20,
                     25,
                     20,
-                    MediaQuery.of(context).viewInsets.bottom + 20,
+                    bottomSafePadding + 20,
                   ),
                   decoration: const BoxDecoration(
                     color: Colors.white,

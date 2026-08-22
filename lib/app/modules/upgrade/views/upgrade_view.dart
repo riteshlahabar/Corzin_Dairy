@@ -15,6 +15,11 @@ class UpgradeView extends GetView<UpgradeController> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomSafePadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8F3),
       appBar: AppBar(
@@ -41,7 +46,7 @@ class UpgradeView extends GetView<UpgradeController> {
         () => controller.isLoading.value
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: EdgeInsets.fromLTRB(16, 12, 16, bottomSafePadding + 24),
                 children: [
                   _premiumShowcaseSection(),
                   const SizedBox(height: 16),
@@ -440,10 +445,11 @@ class UpgradeView extends GetView<UpgradeController> {
       final selected = controller.selectedPlanId.value == plan.id;
       final yearly = _isTwelveMonthPlan(plan);
       final highlighted = yearly || plan.highlighted;
+      final selectable = plan.isSelectable;
 
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => _selectPlanImmediately(plan),
+        onTap: selectable ? () => _selectPlanImmediately(plan) : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
@@ -453,7 +459,12 @@ class UpgradeView extends GetView<UpgradeController> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
             gradient: LinearGradient(
-              colors: selected
+              colors: !selectable
+                  ? const [
+                      Color(0xFF8B9A8F),
+                      Color(0xFF6F7D73),
+                    ]
+                  : selected
                   ? const [
                       Color(0xFF0F7A34),
                       Color(0xFF25A84D),
@@ -496,11 +507,11 @@ class UpgradeView extends GetView<UpgradeController> {
                       shape: BoxShape.circle,
                       color: selected
                           ? _brightGreen
-                          : Colors.white.withValues(alpha: 0.10),
+                          : Colors.white.withValues(alpha: selectable ? 0.10 : 0.06),
                       border: Border.all(
                         color: selected
                             ? _brightGreen
-                            : Colors.white.withValues(alpha: 0.42),
+                            : Colors.white.withValues(alpha: selectable ? 0.42 : 0.24),
                         width: 1.2,
                       ),
                     ),
@@ -536,7 +547,27 @@ class UpgradeView extends GetView<UpgradeController> {
               ),
               const Spacer(),
 
-              if (yearly) ...[
+              if (!selectable) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'used'.tr,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ] else if (yearly) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
@@ -596,21 +627,23 @@ class UpgradeView extends GetView<UpgradeController> {
                 decoration: BoxDecoration(
                   color: selected
                       ? _brightGreen.withValues(alpha: 0.20)
-                      : Colors.white.withValues(alpha: 0.10),
+                      : Colors.white.withValues(alpha: selectable ? 0.10 : 0.06),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: selected
                         ? _brightGreen.withValues(alpha: 0.50)
-                        : Colors.white.withValues(alpha: 0.18),
+                        : Colors.white.withValues(alpha: selectable ? 0.18 : 0.10),
                   ),
                 ),
                 child: Text(
-                  selected ? 'selected'.tr : 'tap_to_choose'.tr,
+                  !selectable
+                      ? 'free_plan_used'.tr
+                      : (selected ? 'selected'.tr : 'tap_to_choose'.tr),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: selected
                         ? _brightGreen
-                        : Colors.white.withValues(alpha: 0.82),
+                        : Colors.white.withValues(alpha: selectable ? 0.82 : 0.62),
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
@@ -946,6 +979,7 @@ class UpgradeView extends GetView<UpgradeController> {
     return Obx(
       () {
         final plan = controller.selectedPlan;
+        final canContinue = plan.isSelectable && plan.id > 0;
 
         return Container(
           decoration: BoxDecoration(
@@ -967,7 +1001,7 @@ class UpgradeView extends GetView<UpgradeController> {
             ],
           ),
           child: ElevatedButton(
-            onPressed: controller.isPurchasingPlan.value
+            onPressed: controller.isPurchasingPlan.value || !canContinue
                 ? null
                 : controller.continueWithSelectedPlan,
             style: ElevatedButton.styleFrom(
