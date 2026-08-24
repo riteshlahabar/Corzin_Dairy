@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
@@ -46,6 +47,8 @@ class MilkController extends GetxController {
   int farmerId = 0;
   List<Map<String, dynamic>> _milkRows = <Map<String, dynamic>>[];
   static const List<String> _allShifts = <String>['Morning', 'Afternoon', 'Evening'];
+  static const Duration _referenceCacheMaxAge = Duration(minutes: 10);
+  static const Duration _scheduleCacheMaxAge = Duration(minutes: 1);
 
   @override
   void onInit() {
@@ -68,10 +71,10 @@ class MilkController extends GetxController {
   Future<void> fetchAnimals() async {
     if (farmerId == 0) return;
     try {
-      isPageLoading.value = true;
-      final response = await http.get(Uri.parse('${Api.animalList}/$farmerId'), headers: {'Accept': 'application/json'});
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      isPageLoading.value = animals.isEmpty;
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         final fetched = list.map((item) => MilkAnimalModel.fromJson(item)).toList();
         final milkingOnly = fetched.where((animal) => _isMilkingAnimalType(animal.animalTypeName)).toList();
@@ -82,17 +85,30 @@ class MilkController extends GetxController {
         }
         _rebuildPansFromAnimals();
         updateAvailableShifts();
-      } else {
+        isPageLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_list_$farmerId',
+        uri: Uri.parse('${Api.animalList}/$farmerId'),
+        onCached: apply,
+        maxAge: _referenceCacheMaxAge,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (animals.isEmpty) {
         animals.clear();
         pans.clear();
         selectedPan.value = null;
         updateAvailableShifts();
       }
     } catch (_) {
-      animals.clear();
-      pans.clear();
-      selectedPan.value = null;
-      updateAvailableShifts();
+      if (animals.isEmpty) {
+        animals.clear();
+        pans.clear();
+        selectedPan.value = null;
+        updateAvailableShifts();
+      }
     } finally {
       isPageLoading.value = false;
     }
@@ -110,16 +126,27 @@ class MilkController extends GetxController {
   Future<void> fetchDairies() async {
     if (farmerId == 0) return;
     try {
-      final response = await http.get(Uri.parse('${Api.dairyList}/$farmerId'), headers: {'Accept': 'application/json'});
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         dairies.assignAll(list.map((item) => MilkDairyModel.fromJson(item)).toList());
-      } else {
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'dairy_list_$farmerId',
+        uri: Uri.parse('${Api.dairyList}/$farmerId'),
+        onCached: apply,
+        maxAge: _referenceCacheMaxAge,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (dairies.isEmpty) {
         dairies.clear();
       }
     } catch (_) {
-      dairies.clear();
+      if (dairies.isEmpty) {
+        dairies.clear();
+      }
     }
   }
 
@@ -339,7 +366,7 @@ class MilkController extends GetxController {
           'count': '${panCowMilkEntries.length}',
           'pan': pan.name,
         });
-        await refreshAutoSchedule();
+        await refreshAutoSchedule(forceRefresh: true);
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
@@ -388,7 +415,7 @@ class MilkController extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final successMessage = data['message']?.toString() ?? 'Milk record saved successfully';
-        await refreshAutoSchedule();
+        await refreshAutoSchedule(forceRefresh: true);
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
@@ -603,30 +630,41 @@ class MilkController extends GetxController {
         .replaceAll(RegExp(r'\.$'), '');
   }
 
-  Future<void> refreshAutoSchedule() async {
+  Future<void> refreshAutoSchedule({bool forceRefresh = false}) async {
     if (farmerId == 0) return;
     try {
       isScheduleLoading.value = true;
-      final response = await http.get(
-        Uri.parse('${Api.milkList}/$farmerId'),
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List list = data['data'] ?? [];
+        _milkRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+        _refreshMonthEntryCounts();
+        updateAvailableShifts();
+        isScheduleLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'milk_list_$farmerId',
+        uri: Uri.parse('${Api.milkList}/$farmerId'),
         headers: const {'Accept': 'application/json'},
+        onCached: apply,
+        maxAge: _scheduleCacheMaxAge,
+        forceRefresh: forceRefresh,
       );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || data['status'] != true) {
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_milkRows.isEmpty) {
         _milkRows = <Map<String, dynamic>>[];
         _refreshMonthEntryCounts();
         updateAvailableShifts();
         return;
       }
-
-      final List list = data['data'] ?? [];
-      _milkRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
-      _refreshMonthEntryCounts();
-      updateAvailableShifts();
     } catch (_) {
-      _milkRows = <Map<String, dynamic>>[];
-      _refreshMonthEntryCounts();
-      updateAvailableShifts();
+      if (_milkRows.isEmpty) {
+        _milkRows = <Map<String, dynamic>>[];
+        _refreshMonthEntryCounts();
+        updateAvailableShifts();
+      }
     } finally {
       isScheduleLoading.value = false;
     }

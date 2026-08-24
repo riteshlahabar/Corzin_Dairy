@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/api.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
@@ -54,6 +55,9 @@ class FeedingController extends GetxController {
   int _dietPlanRequestSerial = 0;
   List<Map<String, dynamic>> _feedingRows = <Map<String, dynamic>>[];
   static const List<String> _allFeedingTimes = <String>['Morning', 'Evening'];
+  static const Duration _referenceCacheMaxAge = Duration(minutes: 10);
+  static const Duration _dietPlanCacheMaxAge = Duration(minutes: 2);
+  static const Duration _scheduleCacheMaxAge = Duration(minutes: 1);
 
   @override
   void onInit() {
@@ -84,23 +88,29 @@ class FeedingController extends GetxController {
     if (farmerId == 0) return;
 
     try {
-      isPageLoading.value = true;
+      isPageLoading.value = animals.isEmpty;
 
-      final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         animals.assignAll(
           list.map((item) => FeedingAnimalModel.fromJson(item)).toList(),
         );
         _rebuildPansFromAnimals();
         updateAvailableFeedingTimes();
+        isPageLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_list_$farmerId',
+        uri: Uri.parse('${Api.animalList}/$farmerId'),
+        onCached: apply,
+        maxAge: _referenceCacheMaxAge,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
         await fetchDietPlans();
-      } else {
+      } else if (animals.isEmpty) {
         animals.clear();
         pans.clear();
         selectedPan.value = null;
@@ -110,13 +120,15 @@ class FeedingController extends GetxController {
         selectedDietPlanId.value = null;
       }
     } catch (_) {
-      animals.clear();
-      pans.clear();
-      selectedPan.value = null;
-      updateAvailableFeedingTimes();
-      dietPlans.clear();
-      selectedDietPlan.value = null;
-      selectedDietPlanId.value = null;
+      if (animals.isEmpty) {
+        animals.clear();
+        pans.clear();
+        selectedPan.value = null;
+        updateAvailableFeedingTimes();
+        dietPlans.clear();
+        selectedDietPlan.value = null;
+        selectedDietPlanId.value = null;
+      }
     } finally {
       isPageLoading.value = false;
     }
@@ -126,13 +138,9 @@ class FeedingController extends GetxController {
     if (farmerId == 0) return;
     try {
       final uri = Uri.parse('${Api.feedingTypes}?farmer_id=$farmerId');
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json'},
-      );
 
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         feedTypes.assignAll(
           list.map((item) => FeedTypeModel.fromJson(item)).toList(),
@@ -143,8 +151,18 @@ class FeedingController extends GetxController {
         } else {
           onFeedTypeChanged(null);
         }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_types_$farmerId',
+        uri: uri,
+        onCached: apply,
+        maxAge: _referenceCacheMaxAge,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
         await fetchDietPlans();
-      } else {
+      } else if (feedTypes.isEmpty) {
         feedTypes.clear();
         _clearSubtypeInputs();
         dietPlans.clear();
@@ -152,15 +170,17 @@ class FeedingController extends GetxController {
         selectedDietPlanId.value = null;
       }
     } catch (_) {
-      feedTypes.clear();
-      _clearSubtypeInputs();
-      dietPlans.clear();
-      selectedDietPlan.value = null;
-      selectedDietPlanId.value = null;
+      if (feedTypes.isEmpty) {
+        feedTypes.clear();
+        _clearSubtypeInputs();
+        dietPlans.clear();
+        selectedDietPlan.value = null;
+        selectedDietPlanId.value = null;
+      }
     }
   }
 
-  Future<void> fetchDietPlans() async {
+  Future<void> fetchDietPlans({bool forceRefresh = false}) async {
     if (farmerId == 0) return;
 
     final requestedAnimalId = selectedAnimal.value?.id ?? 0;
@@ -182,12 +202,11 @@ class FeedingController extends GetxController {
     try {
       final uri = Uri.parse('${Api.feedingDietPlans}/$farmerId')
           .replace(queryParameters: query.isEmpty ? null : query);
-      final response = await http.get(uri, headers: {'Accept': 'application/json'});
-      if (requestId != _dietPlanRequestSerial) {
-        return;
-      }
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode == 200 && data['status'] == true) {
+
+      void apply(Map<String, dynamic> data) {
+        if (requestId != _dietPlanRequestSerial || data['status'] != true) {
+          return;
+        }
         final List list = data['data'] ?? [];
         final parsed = list
             .map((item) => FeedDietPlanModel.fromJson(item))
@@ -206,14 +225,30 @@ class FeedingController extends GetxController {
           uniqueById[plan.id] = plan;
         }
         dietPlans.assignAll(uniqueById.values.toList());
-      } else {
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_diet_plans_${farmerId}_${query.entries.map((entry) => '${entry.key}_${entry.value}').join('_')}',
+        uri: uri,
+        onCached: apply,
+        maxAge: _dietPlanCacheMaxAge,
+        forceRefresh: forceRefresh,
+      );
+      if (requestId != _dietPlanRequestSerial) {
+        return;
+      }
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (dietPlans.isEmpty) {
         dietPlans.clear();
       }
     } catch (_) {
       if (requestId != _dietPlanRequestSerial) {
         return;
       }
-      dietPlans.clear();
+      if (dietPlans.isEmpty) {
+        dietPlans.clear();
+      }
     }
 
     if (requestId != _dietPlanRequestSerial) {
@@ -536,7 +571,8 @@ class FeedingController extends GetxController {
           'count': '$successCount',
           'pan': pan.name,
         });
-        await refreshAutoSchedule();
+        await refreshAutoSchedule(forceRefresh: true);
+        await fetchDietPlans(forceRefresh: true);
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
@@ -601,7 +637,8 @@ class FeedingController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final successMessage =
             data['message']?.toString() ?? 'feeding_entry_saved_successfully'.tr;
-        await refreshAutoSchedule();
+        await refreshAutoSchedule(forceRefresh: true);
+        await fetchDietPlans(forceRefresh: true);
         clearForm();
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
@@ -741,30 +778,42 @@ class FeedingController extends GetxController {
     Get.offAllNamed(Routes.HOME);
   }
 
-  Future<void> refreshAutoSchedule() async {
+  Future<void> refreshAutoSchedule({bool forceRefresh = false}) async {
     if (farmerId == 0) return;
     try {
       isScheduleLoading.value = true;
-      final response = await http.get(
-        Uri.parse('${Api.feedingList}/$farmerId'),
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List list = data['data'] ?? [];
+        _feedingRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+        _refreshMonthEntryCounts();
+        updateAvailableFeedingTimes();
+        isScheduleLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_list_$farmerId',
+        uri: Uri.parse('${Api.feedingList}/$farmerId'),
         headers: const {'Accept': 'application/json'},
+        onCached: apply,
+        maxAge: _scheduleCacheMaxAge,
+        forceRefresh: forceRefresh,
       );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || data['status'] != true) {
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_feedingRows.isEmpty) {
         _feedingRows = <Map<String, dynamic>>[];
         _refreshMonthEntryCounts();
         updateAvailableFeedingTimes();
         return;
       }
-
-      final List list = data['data'] ?? [];
-      _feedingRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
-      _refreshMonthEntryCounts();
-      updateAvailableFeedingTimes();
     } catch (_) {
-      _feedingRows = <Map<String, dynamic>>[];
-      _refreshMonthEntryCounts();
-      updateAvailableFeedingTimes();
+      if (_feedingRows.isEmpty) {
+        _feedingRows = <Map<String, dynamic>>[];
+        _refreshMonthEntryCounts();
+        updateAvailableFeedingTimes();
+      }
     } finally {
       isScheduleLoading.value = false;
     }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
@@ -123,19 +124,31 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         _history.clear();
         return;
       }
-      final response = await http.get(
-        Uri.parse('${Api.feedingList}/$_farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final List items = (data['data'] as List?) ?? [];
 
-      _history
-        ..clear()
-        ..addAll(items.map((e) => _FeedingHistoryItem.fromJson(e)).toList());
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List items = (data['data'] as List?) ?? [];
+        _history
+          ..clear()
+          ..addAll(items.map((e) => _FeedingHistoryItem.fromJson(e)).toList());
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_list_$_farmerId',
+        uri: Uri.parse('${Api.feedingList}/$_farmerId'),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_history.isEmpty) {
+        _history.clear();
+      }
     } catch (_) {
-      _history.clear();
-      if (mounted) {
+      if (_history.isEmpty && mounted) {
+        _history.clear();
         Get.snackbar('error'.tr, 'unable_load_feeding_history'.tr);
       }
     } finally {
@@ -153,19 +166,31 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         _feedTypes.clear();
         return;
       }
-      final response = await http.get(
-        Uri.parse('${Api.feedingTypes}?farmer_id=$_farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final List items = (data['data'] as List?) ?? [];
 
-      _feedTypes
-        ..clear()
-        ..addAll(items.map((e) => _FeedTypeEditorItem.fromJson(e)).toList());
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List items = (data['data'] as List?) ?? [];
+        _feedTypes
+          ..clear()
+          ..addAll(items.map((e) => _FeedTypeEditorItem.fromJson(e)).toList());
+        if (mounted) {
+          setState(() => _isFeedTypeLoading = false);
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_types_$_farmerId',
+        uri: Uri.parse('${Api.feedingTypes}?farmer_id=$_farmerId'),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_feedTypes.isEmpty) {
+        _feedTypes.clear();
+      }
     } catch (_) {
-      _feedTypes.clear();
-      if (mounted) {
+      if (_feedTypes.isEmpty && mounted) {
+        _feedTypes.clear();
         Get.snackbar('error'.tr, 'unable_load_feed_type_content'.tr);
       }
     } finally {
@@ -182,23 +207,34 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         _dietPlanLookups.clear();
         return;
       }
-      final response = await http.get(
-        Uri.parse('${Api.feedingDietPlans}/$_farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final List items = (data['data'] as List?) ?? [];
 
-      _dietPlanLookups
-        ..clear()
-        ..addAll(
-          items
-              .map((e) => _DietPlanQuantityLookup.fromJson((e as Map).cast<String, dynamic>()))
-              .where((item) => item.planQuantity > 0)
-              .toList(),
-        );
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List items = (data['data'] as List?) ?? [];
+        _dietPlanLookups
+          ..clear()
+          ..addAll(
+            items
+                .map((e) => _DietPlanQuantityLookup.fromJson((e as Map).cast<String, dynamic>()))
+                .where((item) => item.planQuantity > 0)
+                .toList(),
+          );
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_diet_plans_${_farmerId}_',
+        uri: Uri.parse('${Api.feedingDietPlans}/$_farmerId'),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_dietPlanLookups.isEmpty) {
+        _dietPlanLookups.clear();
+      }
     } catch (_) {
-      _dietPlanLookups.clear();
+      if (_dietPlanLookups.isEmpty) {
+        _dietPlanLookups.clear();
+      }
     }
   }
 

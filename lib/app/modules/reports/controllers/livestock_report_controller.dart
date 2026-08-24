@@ -5,13 +5,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/utils/api.dart';
 
 class LivestockReportController extends GetxController {
@@ -119,51 +119,58 @@ class LivestockReportController extends GetxController {
             '$endpoint/$farmerId',
           ).replace(queryParameters: const {'include_inactive': '1'});
     try {
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json'},
+      void apply(Map<String, dynamic> body) {
+        if (body['status'] != true) return;
+        
+        final List<dynamic> list = body['data'] ?? <dynamic>[];
+        final items = <ReportTargetOption>[];
+        if (scope.value == 'pan') {
+          for (final raw in list.whereType<Map>()) {
+            final item = Map<String, dynamic>.from(raw);
+            final id = int.tryParse((item['id'] ?? '').toString()) ?? 0;
+            final name = (item['name'] ?? '').toString().trim();
+            if (id <= 0 || name.isEmpty) continue;
+            items.add(ReportTargetOption(id: id, label: name));
+          }
+        } else {
+          for (final raw in list.whereType<Map>()) {
+            final item = Map<String, dynamic>.from(raw);
+            final id = int.tryParse((item['id'] ?? '').toString()) ?? 0;
+            if (id <= 0) continue;
+            final animal = (item['animal_name'] ?? item['name'] ?? '')
+                .toString()
+                .trim();
+            final tag = (item['tag_number'] ?? '').toString().trim();
+            if (animal.isEmpty) continue;
+            final label = tag.isEmpty ? animal : '$animal ($tag)';
+            items.add(ReportTargetOption(id: id, label: label));
+          }
+        }
+        items.sort(
+          (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
+        );
+        targets.assignAll(items);
+
+        final selected = selectedTargetId.value;
+        if (selected != null && !items.any((item) => item.id == selected)) {
+          selectedTargetId.value = null;
+        }
+      }
+
+      final body = await CachedApiService.instance.getMap(
+        key: 'report_targets_${scope.value}_$farmerId',
+        uri: uri,
+        onCached: apply,
       );
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || body['status'] != true) {
+      if (body == null || body['status'] != true) {
         targets.clear();
         return;
       }
-
-      final List<dynamic> list = body['data'] ?? <dynamic>[];
-      final items = <ReportTargetOption>[];
-      if (scope.value == 'pan') {
-        for (final raw in list.whereType<Map>()) {
-          final item = Map<String, dynamic>.from(raw);
-          final id = int.tryParse((item['id'] ?? '').toString()) ?? 0;
-          final name = (item['name'] ?? '').toString().trim();
-          if (id <= 0 || name.isEmpty) continue;
-          items.add(ReportTargetOption(id: id, label: name));
-        }
-      } else {
-        for (final raw in list.whereType<Map>()) {
-          final item = Map<String, dynamic>.from(raw);
-          final id = int.tryParse((item['id'] ?? '').toString()) ?? 0;
-          if (id <= 0) continue;
-          final animal = (item['animal_name'] ?? item['name'] ?? '')
-              .toString()
-              .trim();
-          final tag = (item['tag_number'] ?? '').toString().trim();
-          if (animal.isEmpty) continue;
-          final label = tag.isEmpty ? animal : '$animal ($tag)';
-          items.add(ReportTargetOption(id: id, label: label));
-        }
-      }
-      items.sort(
-        (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-      );
-      targets.assignAll(items);
-
-      final selected = selectedTargetId.value;
-      if (selected != null && !items.any((item) => item.id == selected)) {
-        selectedTargetId.value = null;
-      }
+      apply(body);
     } catch (_) {
-      targets.clear();
+      if (targets.isEmpty) {
+        targets.clear();
+      }
     }
   }
 
@@ -221,41 +228,51 @@ class LivestockReportController extends GetxController {
     }
 
     try {
-      isLoading.value = true;
+      isLoading.value = rows.isEmpty;
       final uri = Uri.parse(
         '${Api.livestockReport}/$farmerId',
       ).replace(queryParameters: query);
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json'},
+
+      Future<void> apply(Map<String, dynamic> body) async {
+        if (body['status'] != true) return;
+        final data = body['data'] is Map
+            ? Map<String, dynamic>.from(body['data'])
+            : <String, dynamic>{};
+        final list = (data['rows'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  LivestockReportRow.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList();
+        rows.assignAll(list);
+        totals.value = LivestockReportTotals.fromJson(
+          data['totals'] is Map
+              ? Map<String, dynamic>.from(data['totals'])
+              : <String, dynamic>{},
+        );
+        sectionReports.assignAll(await _buildDetailedSections());
+        isLoading.value = false;
+      }
+
+      final cacheKey = 'livestock_report_${farmerId}_${query.entries.map((entry) => '${entry.key}_${entry.value}').join('_')}';
+      final body = await CachedApiService.instance.getMap(
+        key: cacheKey,
+        uri: uri,
+        onCached: (cached) => unawaited(apply(cached)),
       );
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || body['status'] != true) {
+      if (body == null || body['status'] != true) {
         rows.clear();
         totals.value = LivestockReportTotals.zero();
         return;
       }
-      final data = body['data'] is Map
-          ? Map<String, dynamic>.from(body['data'])
-          : <String, dynamic>{};
-      final list = (data['rows'] as List? ?? const [])
-          .whereType<Map>()
-          .map(
-            (item) =>
-                LivestockReportRow.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList();
-      rows.assignAll(list);
-      totals.value = LivestockReportTotals.fromJson(
-        data['totals'] is Map
-            ? Map<String, dynamic>.from(data['totals'])
-            : <String, dynamic>{},
-      );
-      sectionReports.assignAll(await _buildDetailedSections());
+      await apply(body);
     } catch (_) {
-      rows.clear();
-      totals.value = LivestockReportTotals.zero();
-      sectionReports.clear();
+      if (rows.isEmpty) {
+        rows.clear();
+        totals.value = LivestockReportTotals.zero();
+        sectionReports.clear();
+      }
     } finally {
       isLoading.value = false;
     }
@@ -1103,14 +1120,11 @@ class LivestockReportController extends GetxController {
   }) async {
     try {
       final uri = Uri.parse(endpoint).replace(queryParameters: query);
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json'},
+      final body = await CachedApiService.instance.getMapPreferCache(
+        key: 'report_list_${uri.toString()}',
+        uri: uri,
       );
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
-      if (response.statusCode != 200 ||
-          body is! Map ||
-          body['status'] != true) {
+      if (body == null || body['status'] != true) {
         return const <Map<String, dynamic>>[];
       }
       final data = body['data'];

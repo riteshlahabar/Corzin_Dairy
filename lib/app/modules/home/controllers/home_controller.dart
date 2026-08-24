@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/cached_api_service.dart';
+import '../../../core/services/cached_image_file_service.dart';
 import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/session_service.dart';
@@ -128,16 +130,21 @@ class HomeController extends GetxController {
 
   Future<void> fetchAnimalTypes() async {
     try {
-      final response = await http.get(
-        Uri.parse(Api.animalTypes),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         animalTypes.assignAll(
           list.map((item) => AnimalTypeOption.fromJson(item)).toList(),
         );
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'home_animal_types',
+        uri: Uri.parse(Api.animalTypes),
+        onCached: apply,
+      );
+      if (data != null) {
+        apply(data);
       }
     } catch (_) {
       animalTypes.clear();
@@ -149,20 +156,32 @@ class HomeController extends GetxController {
 
     try {
       if (!silent) {
-        isLoadingAnimals.value = true;
+        isLoadingAnimals.value = animals.isEmpty;
       }
-      final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         animals.value = data['data'] ?? [];
-      } else {
+        _preCacheAnimalImages();
+        if (!silent) {
+          isLoadingAnimals.value = false;
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'home_animals_$farmerId',
+        uri: Uri.parse('${Api.animalList}/$farmerId'),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (animals.isEmpty) {
         animals.clear();
       }
     } catch (_) {
-      animals.clear();
+      if (animals.isEmpty) {
+        animals.clear();
+      }
     } finally {
       if (!silent) {
         isLoadingAnimals.value = false;
@@ -172,14 +191,8 @@ class HomeController extends GetxController {
 
   Future<void> fetchSaleAnimals() async {
     try {
-      final response = await http.get(
-        Uri.parse(Api.animalsForSale),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = _decodeBody(response.body);
-      if (response.statusCode == 200 &&
-          data['status'] == true &&
-          data['data'] is List) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true || data['data'] is! List) return;
         saleAnimals.assignAll(
           (data['data'] as List)
               .whereType<Map>()
@@ -190,24 +203,32 @@ class HomeController extends GetxController {
               )
               .toList(),
         );
+        _preCacheSaleAnimalImages();
         _syncHeroBannerTimer();
-      } else {
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'home_sale_animals',
+        uri: Uri.parse(Api.animalsForSale),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true && data['data'] is List) {
+        apply(data);
+      } else if (saleAnimals.isEmpty) {
         saleAnimals.clear();
         _syncHeroBannerTimer();
       }
     } catch (_) {
-      saleAnimals.clear();
-      _syncHeroBannerTimer();
+      if (saleAnimals.isEmpty) {
+        saleAnimals.clear();
+        _syncHeroBannerTimer();
+      }
     }
   }
 
   Future<void> fetchFarmerSettings() async {
     try {
-      final response = await http.get(
-        Uri.parse(Api.farmerSettings),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = _decodeBody(response.body);
+      void apply(Map<String, dynamic> data) {
       final settings = data['data'] is Map
           ? Map<String, dynamic>.from(data['data'] as Map)
           : <String, dynamic>{};
@@ -217,9 +238,7 @@ class HomeController extends GetxController {
       adminContactName.value = contact['name']?.toString().trim() ?? '';
       adminContactNumber.value = contact['number']?.toString().trim() ?? '';
       final banners = settings['banners'] ?? [];
-      if (response.statusCode == 200 &&
-          data['status'] == true &&
-          banners is List) {
+        if (data['status'] == true && banners is List) {
         farmerBanners.assignAll(
           banners
               .whereType<Map>()
@@ -231,14 +250,27 @@ class HomeController extends GetxController {
               .where((banner) => banner.imageUrl.trim().isNotEmpty)
               .toList(),
         );
+        _preCacheBannerImages();
         _syncHeroBannerTimer();
-      } else {
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'home_farmer_settings',
+        uri: Uri.parse(Api.farmerSettings),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (farmerBanners.isEmpty) {
         farmerBanners.clear();
         _syncHeroBannerTimer();
       }
     } catch (_) {
-      farmerBanners.clear();
-      _syncHeroBannerTimer();
+      if (farmerBanners.isEmpty) {
+        farmerBanners.clear();
+        _syncHeroBannerTimer();
+      }
     }
   }
 
@@ -341,12 +373,102 @@ class HomeController extends GetxController {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('${Api.dairyPayments}/$farmerId'),
-        headers: {'Accept': 'application/json'},
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+      
+        final list = data['data'] is List ? data['data'] as List : <dynamic>[];
+        double todayMilkTotal = 0;
+        double totalMilkTotal = 0;
+        final now = DateTime.now();
+        final todayKey =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+        final mappedPayments = list.map((item) {
+          final row = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item as Map);
+
+          final history = row['history'] is List
+              ? row['history'] as List
+              : <dynamic>[];
+          final parsedHistory = history
+              .whereType<Map>()
+              .map((entry) => Map<String, dynamic>.from(entry))
+              .toList();
+
+          final latestLedger = row['latest_ledger'] is Map
+              ? Map<String, dynamic>.from(row['latest_ledger'] as Map)
+              : (parsedHistory.isNotEmpty
+                    ? parsedHistory.first
+                    : <String, dynamic>{});
+          final latestPaymentFromApi = row['latest_payment'] is Map
+              ? Map<String, dynamic>.from(row['latest_payment'] as Map)
+              : <String, dynamic>{};
+          final latestPaymentFromHistory = parsedHistory.firstWhere(
+            (entry) => _asDouble(entry['paid_amount']) > 0,
+            orElse: () => <String, dynamic>{},
+          );
+          final latestPayment = latestPaymentFromApi.isNotEmpty
+              ? latestPaymentFromApi
+              : latestPaymentFromHistory;
+          final latest = latestPayment.isNotEmpty ? latestPayment : latestLedger;
+
+          double todayPayment = 0;
+          double totalPayment = 0;
+          for (final entry in parsedHistory) {
+            final paid = _asDouble(entry['paid_amount']);
+            totalPayment += paid;
+            if ((entry['date_key'] ?? '').toString() == todayKey) {
+              final todayPending = _asDouble(entry['today_balance']);
+              final todayAmount = _asDouble(entry['day_total_amount']);
+              todayPayment = todayPending > 0 ? todayPending : todayAmount;
+            }
+          }
+          final pendingPayment = row.containsKey('current_balance')
+              ? _asDouble(row['current_balance'])
+              : _asDouble(
+                  latestLedger['balance_amount'] ?? latest['balance_amount'],
+                );
+
+          final todayMilk = _asDouble(row['today_milk']);
+          final totalMilk = _asDouble(row['total_milk']);
+
+          todayMilkTotal += todayMilk;
+          totalMilkTotal += totalMilk;
+
+          return HomePaymentModel(
+            dairyName: row['dairy_name']?.toString().trim().isNotEmpty == true
+                ? row['dairy_name'].toString()
+                : 'Dairy',
+            latestPaymentDate: _formatPaymentDate(
+              latest['paid_date'] ?? latest['date'] ?? latest['date_key'],
+            ),
+            latestPaymentAmount: _formatCurrency(
+              _asDouble(latest['paid_amount']),
+            ),
+            todayPayment: _formatCurrency(todayPayment),
+            totalPayment: _formatCurrency(totalPayment),
+            pendingPayment: _formatCurrency(pendingPayment),
+            todayMilk: _formatQuantity(todayMilk, 'L'),
+            totalMilk: _formatQuantity(totalMilk, 'L'),
+          );
+        }).toList();
+
+        payments.assignAll(mappedPayments);
+        stats.addAll({
+          'today_milk': _formatQuantity(todayMilkTotal, 'L'),
+          'total_milk': _formatQuantity(totalMilkTotal, 'L'),
+        });
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'dairy_payments_$farmerId',
+        uri: Uri.parse('${Api.dairyPayments}/$farmerId'),
+        onCached: apply,
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (payments.isEmpty) {
         payments.clear();
         stats.addAll({
           'today_milk': _formatQuantity(0, 'L'),
@@ -354,96 +476,14 @@ class HomeController extends GetxController {
         });
         return;
       }
-
-      final list = data['data'] is List ? data['data'] as List : <dynamic>[];
-      double todayMilkTotal = 0;
-      double totalMilkTotal = 0;
-      final now = DateTime.now();
-      final todayKey =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-      final mappedPayments = list.map((item) {
-        final row = item is Map<String, dynamic>
-            ? item
-            : Map<String, dynamic>.from(item as Map);
-
-        final history = row['history'] is List
-            ? row['history'] as List
-            : <dynamic>[];
-        final parsedHistory = history
-            .whereType<Map>()
-            .map((entry) => Map<String, dynamic>.from(entry))
-            .toList();
-
-        final latestLedger = row['latest_ledger'] is Map
-            ? Map<String, dynamic>.from(row['latest_ledger'] as Map)
-            : (parsedHistory.isNotEmpty
-                  ? parsedHistory.first
-                  : <String, dynamic>{});
-        final latestPaymentFromApi = row['latest_payment'] is Map
-            ? Map<String, dynamic>.from(row['latest_payment'] as Map)
-            : <String, dynamic>{};
-        final latestPaymentFromHistory = parsedHistory.firstWhere(
-          (entry) => _asDouble(entry['paid_amount']) > 0,
-          orElse: () => <String, dynamic>{},
-        );
-        final latestPayment = latestPaymentFromApi.isNotEmpty
-            ? latestPaymentFromApi
-            : latestPaymentFromHistory;
-        final latest = latestPayment.isNotEmpty ? latestPayment : latestLedger;
-
-        double todayPayment = 0;
-        double totalPayment = 0;
-        for (final entry in parsedHistory) {
-          final paid = _asDouble(entry['paid_amount']);
-          totalPayment += paid;
-          if ((entry['date_key'] ?? '').toString() == todayKey) {
-            final todayPending = _asDouble(entry['today_balance']);
-            final todayAmount = _asDouble(entry['day_total_amount']);
-            todayPayment = todayPending > 0 ? todayPending : todayAmount;
-          }
-        }
-        final pendingPayment = row.containsKey('current_balance')
-            ? _asDouble(row['current_balance'])
-            : _asDouble(
-                latestLedger['balance_amount'] ?? latest['balance_amount'],
-              );
-
-        final todayMilk = _asDouble(row['today_milk']);
-        final totalMilk = _asDouble(row['total_milk']);
-
-        todayMilkTotal += todayMilk;
-        totalMilkTotal += totalMilk;
-
-        return HomePaymentModel(
-          dairyName: row['dairy_name']?.toString().trim().isNotEmpty == true
-              ? row['dairy_name'].toString()
-              : 'Dairy',
-          latestPaymentDate: _formatPaymentDate(
-            latest['paid_date'] ?? latest['date'] ?? latest['date_key'],
-          ),
-          latestPaymentAmount: _formatCurrency(
-            _asDouble(latest['paid_amount']),
-          ),
-          todayPayment: _formatCurrency(todayPayment),
-          totalPayment: _formatCurrency(totalPayment),
-          pendingPayment: _formatCurrency(pendingPayment),
-          todayMilk: _formatQuantity(todayMilk, 'L'),
-          totalMilk: _formatQuantity(totalMilk, 'L'),
-        );
-      }).toList();
-
-      payments.assignAll(mappedPayments);
-      stats.addAll({
-        'today_milk': _formatQuantity(todayMilkTotal, 'L'),
-        'total_milk': _formatQuantity(totalMilkTotal, 'L'),
-      });
     } catch (_) {
-      payments.clear();
-      stats.addAll({
-        'today_milk': _formatQuantity(0, 'L'),
-        'total_milk': _formatQuantity(0, 'L'),
-      });
+      if (payments.isEmpty) {
+        payments.clear();
+        stats.addAll({
+          'today_milk': _formatQuantity(0, 'L'),
+          'total_milk': _formatQuantity(0, 'L'),
+        });
+      }
     }
   }
 
@@ -457,40 +497,46 @@ class HomeController extends GetxController {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('${Api.feedingSummary}/$farmerId'),
-        headers: {'Accept': 'application/json'},
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
+        final summary = data['data'] is Map<String, dynamic>
+            ? data['data'] as Map<String, dynamic>
+            : Map<String, dynamic>.from(data['data'] as Map? ?? {});
+        final unit = _extractUnit(summary);
+        final todayFeeding = _extractSummaryNumber(summary, const [
+          'today_feeding',
+          'today_feed',
+          'today_quantity',
+          'today_total',
+        ]);
+        final totalFeeding = _extractSummaryNumber(summary, const [
+          'total_feeding',
+          'total_feed',
+          'total_quantity',
+          'total',
+        ]);
+
+        stats.addAll({
+          'today_feeding': _formatQuantity(todayFeeding, unit),
+          'total_feeding': _formatQuantity(totalFeeding, unit),
+        });
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_summary_$farmerId',
+        uri: Uri.parse('${Api.feedingSummary}/$farmerId'),
+        onCached: apply,
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else {
         stats.addAll({
           'today_feeding': _formatQuantity(0, 'Kg'),
           'total_feeding': _formatQuantity(0, 'Kg'),
         });
         return;
       }
-
-      final summary = data['data'] is Map<String, dynamic>
-          ? data['data'] as Map<String, dynamic>
-          : Map<String, dynamic>.from(data['data'] as Map? ?? {});
-      final unit = _extractUnit(summary);
-      final todayFeeding = _extractSummaryNumber(summary, const [
-        'today_feeding',
-        'today_feed',
-        'today_quantity',
-        'today_total',
-      ]);
-      final totalFeeding = _extractSummaryNumber(summary, const [
-        'total_feeding',
-        'total_feed',
-        'total_quantity',
-        'total',
-      ]);
-
-      stats.addAll({
-        'today_feeding': _formatQuantity(todayFeeding, unit),
-        'total_feeding': _formatQuantity(totalFeeding, unit),
-      });
     } catch (_) {
       stats.addAll({
         'today_feeding': _formatQuantity(0, 'Kg'),
@@ -516,31 +562,41 @@ class HomeController extends GetxController {
           'to_date': today,
         },
       );
-      final response = await http.get(uri, headers: {'Accept': 'application/json'});
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
+        final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+        var actualDmi = 0.0;
+        var requiredDmi = 0.0;
+        for (final item in rows) {
+          final row = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item as Map);
+          actualDmi += _asDouble(row['actual_dmi']);
+          requiredDmi += _asDouble(row['required_dmi']);
+        }
+
+        stats.addAll({
+          'today_dmi': _formatQuantity(actualDmi, 'Kg'),
+          'required_dmi': _formatQuantity(requiredDmi, 'Kg'),
+        });
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'dmi_summary_${farmerId}_$today',
+        uri: uri,
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else {
         stats.addAll({
           'today_dmi': _formatQuantity(0, 'Kg'),
           'required_dmi': _formatQuantity(0, 'Kg'),
         });
         return;
       }
-
-      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
-      var actualDmi = 0.0;
-      var requiredDmi = 0.0;
-      for (final item in rows) {
-        final row = item is Map<String, dynamic>
-            ? item
-            : Map<String, dynamic>.from(item as Map);
-        actualDmi += _asDouble(row['actual_dmi']);
-        requiredDmi += _asDouble(row['required_dmi']);
-      }
-
-      stats.addAll({
-        'today_dmi': _formatQuantity(actualDmi, 'Kg'),
-        'required_dmi': _formatQuantity(requiredDmi, 'Kg'),
-      });
     } catch (_) {
       stats.addAll({
         'today_dmi': _formatQuantity(0, 'Kg'),
@@ -606,62 +662,72 @@ class HomeController extends GetxController {
 
   Future<void> _fillMilkGraphValues(Map<String, double> valuesByDate) async {
     try {
-      final response = await http.get(
-        Uri.parse('${Api.milkList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
+        for (final key in valuesByDate.keys.toList()) {
+          valuesByDate[key] = 0;
+        }
+        final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+        for (final item in rows) {
+          final row = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item as Map);
+          final key = _dateKey(_parseDateValue(row['date']));
+          if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+          var quantity = _asDouble(row['total_milk']);
+          if (quantity <= 0) {
+            quantity = _asDouble(row['morning_milk']) +
+                _asDouble(row['afternoon_milk']) +
+                _asDouble(row['evening_milk']);
+          }
+          if (quantity <= 0) {
+            quantity = _firstPositiveValue(row, const ['quantity_liters', 'quantity']);
+          }
+          valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'milk_list_$farmerId',
+        uri: Uri.parse('${Api.milkList}/$farmerId'),
+        onCached: apply,
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
-        return;
-      }
-
-      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
-      for (final item in rows) {
-        final row = item is Map<String, dynamic>
-            ? item
-            : Map<String, dynamic>.from(item as Map);
-        final key = _dateKey(_parseDateValue(row['date']));
-        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
-
-        var quantity = _asDouble(row['total_milk']);
-        if (quantity <= 0) {
-          quantity = _asDouble(row['morning_milk']) +
-              _asDouble(row['afternoon_milk']) +
-              _asDouble(row['evening_milk']);
-        }
-        if (quantity <= 0) {
-          quantity = _firstPositiveValue(row, const ['quantity_liters', 'quantity']);
-        }
-        valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
-      }
+      if (data != null) apply(data);
     } catch (_) {}
   }
 
   Future<void> _fillFeedingGraphValues(Map<String, double> valuesByDate) async {
     try {
-      final response = await http.get(
-        Uri.parse('${Api.feedingList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
+        for (final key in valuesByDate.keys.toList()) {
+          valuesByDate[key] = 0;
+        }
+        final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+        for (final item in rows) {
+          final row = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item as Map);
+          final key = _dateKey(_parseDateValue(row['date']));
+          if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+          final quantity = _firstPositiveValue(
+            row,
+            const ['feeding_quantity', 'quantity', 'total_feeding'],
+          );
+          valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'feeding_list_$farmerId',
+        uri: Uri.parse('${Api.feedingList}/$farmerId'),
+        onCached: apply,
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
-        return;
-      }
-
-      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
-      for (final item in rows) {
-        final row = item is Map<String, dynamic>
-            ? item
-            : Map<String, dynamic>.from(item as Map);
-        final key = _dateKey(_parseDateValue(row['date']));
-        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
-
-        final quantity = _firstPositiveValue(
-          row,
-          const ['feeding_quantity', 'quantity', 'total_feeding'],
-        );
-        valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
-      }
+      if (data != null) apply(data);
     } catch (_) {}
   }
 
@@ -677,140 +743,156 @@ class HomeController extends GetxController {
           'to_date': DateFormat('yyyy-MM-dd').format(end),
         },
       );
-      final response = await http.get(uri, headers: {'Accept': 'application/json'});
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) {
-        return;
+      final cacheKey =
+          'dmi_graph_${farmerId}_${DateFormat('yyyyMMdd').format(start)}_${DateFormat('yyyyMMdd').format(end)}';
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
+        for (final key in valuesByDate.keys.toList()) {
+          valuesByDate[key] = 0;
+        }
+        final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
+        for (final item in rows) {
+          final row = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item as Map);
+          final key = _dateKey(_parseDateValue(row['date']));
+          if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
+
+          valuesByDate[key] = (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
+        }
       }
 
-      final rows = data['data'] is List ? data['data'] as List : <dynamic>[];
-      for (final item in rows) {
-        final row = item is Map<String, dynamic>
-            ? item
-            : Map<String, dynamic>.from(item as Map);
-        final key = _dateKey(_parseDateValue(row['date']));
-        if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
-
-        valuesByDate[key] = (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
-      }
+      final data = await CachedApiService.instance.getMap(
+        key: cacheKey,
+        uri: uri,
+        onCached: apply,
+      );
+      if (data != null) apply(data);
     } catch (_) {}
   }
 
   Future<void> _loadCurrentPlan() async {
     try {
-      final response = await http.get(
-        Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
-        headers: {'Accept': 'application/json'},
+      Future<void> apply(Map<String, dynamic> data) async {
+        if (data['status'] != true || data['data'] is! List) {
+          return;
+        }
+      
+        final list = (data['data'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+        if (list.isEmpty) return;
+
+        final currentSubscription = data['current_subscription'] is Map
+            ? Map<String, dynamic>.from(data['current_subscription'] as Map)
+            : <String, dynamic>{};
+        final currentPlanId =
+            int.tryParse(
+              currentSubscription['farmer_plan_id']?.toString() ?? '',
+            ) ??
+            0;
+        final plan = currentPlanId > 0
+            ? list.firstWhere(
+                (item) =>
+                    int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
+                orElse: () => list.firstWhere(
+                  (item) => item['is_current'] == true,
+                  orElse: () => list.first,
+                ),
+              )
+            : list.firstWhere(
+                (item) => item['is_current'] == true,
+                orElse: () => list.firstWhere(
+                  (item) => item['is_popular'] == true,
+                  orElse: () => list.first,
+                ),
+              );
+
+        int durationDays =
+            int.tryParse(
+              (currentSubscription['duration_days'] ?? plan['duration_days'])
+                      ?.toString() ??
+                  '',
+            ) ??
+            0;
+        final planName =
+            currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
+            ? currentSubscription['plan_name'].toString()
+            : plan['name']?.toString().trim().isNotEmpty == true
+            ? plan['name'].toString()
+            : 'free_plan';
+        final isFreePlan =
+            planName.toLowerCase().contains('free') ||
+            _asDouble(currentSubscription['price'] ?? plan['price']) <= 0;
+        if (isFreePlan && durationDays <= 0) {
+          durationDays = 30;
+        }
+        final amount =
+            currentSubscription['price_label']?.toString().trim().isNotEmpty ==
+                true
+            ? currentSubscription['price_label'].toString()
+            : plan['price_label']?.toString().trim().isNotEmpty == true
+            ? plan['price_label'].toString()
+            : _formatCurrency(
+                _asDouble(currentSubscription['price'] ?? plan['price']),
+              );
+        final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
+        final now = DateTime.now();
+        final startAt =
+            _readDate(currentSubscription, const ['start_date']) ??
+            _readDate(plan, const [
+              'start_date',
+              'package_start_date',
+              'subscribed_at',
+              'created_at',
+            ]) ??
+            backendStartAt ??
+            now;
+        final renewAt =
+            _readDate(currentSubscription, const ['due_date']) ??
+            _readDate(plan, const [
+              'renew_date',
+              'renewal_date',
+              'expiry_date',
+              'expires_at',
+              'end_date',
+            ]) ??
+            startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
+        _planRenewAt = renewAt;
+        final daysLeft = _daysLeftFromNow(renewAt);
+        final lockedFromApi =
+            data['access_locked'] == true ||
+            currentSubscription['is_active'] == false ||
+            currentSubscription['status']?.toString().toLowerCase() ==
+                'expired' ||
+            daysLeft <= 0;
+
+        currentPlan.value = FarmerPlanModel(
+          name: planName,
+          amount: amount,
+          expiryDate: durationDays > 0 ? '$durationDays days' : '30 days',
+          startDate: DateFormat('dd-MM-yyyy').format(startAt),
+          renewDate: DateFormat('dd-MM-yyyy').format(renewAt),
+        );
+        _setPlanDaysLeft(daysLeft > 0 ? daysLeft : 0);
+        isPlanLocked.value = lockedFromApi;
+        planLockMessage.value = lockedFromApi
+            ? 'Your plan has expired. Please contact admin to upgrade your plan.'
+            : '';
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'subscription_plans_$farmerId',
+        uri: Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
+        onCached: (cached) => unawaited(apply(cached)),
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 ||
-          data['status'] != true ||
-          data['data'] is! List) {
+      if (data == null || data['status'] != true || data['data'] is! List) {
         return;
       }
-
-      final list = (data['data'] as List)
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-      if (list.isEmpty) return;
-
-      final currentSubscription = data['current_subscription'] is Map
-          ? Map<String, dynamic>.from(data['current_subscription'] as Map)
-          : <String, dynamic>{};
-      final currentPlanId =
-          int.tryParse(
-            currentSubscription['farmer_plan_id']?.toString() ?? '',
-          ) ??
-          0;
-      final plan = currentPlanId > 0
-          ? list.firstWhere(
-              (item) =>
-                  int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
-              orElse: () => list.firstWhere(
-                (item) => item['is_current'] == true,
-                orElse: () => list.first,
-              ),
-            )
-          : list.firstWhere(
-              (item) => item['is_current'] == true,
-              orElse: () => list.firstWhere(
-                (item) => item['is_popular'] == true,
-                orElse: () => list.first,
-              ),
-            );
-
-      int durationDays =
-          int.tryParse(
-            (currentSubscription['duration_days'] ?? plan['duration_days'])
-                    ?.toString() ??
-                '',
-          ) ??
-          0;
-      final planName =
-          currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
-          ? currentSubscription['plan_name'].toString()
-          : plan['name']?.toString().trim().isNotEmpty == true
-          ? plan['name'].toString()
-          : 'free_plan';
-      final isFreePlan =
-          planName.toLowerCase().contains('free') ||
-          _asDouble(currentSubscription['price'] ?? plan['price']) <= 0;
-      if (isFreePlan && durationDays <= 0) {
-        durationDays = 30;
-      }
-      final amount =
-          currentSubscription['price_label']?.toString().trim().isNotEmpty ==
-              true
-          ? currentSubscription['price_label'].toString()
-          : plan['price_label']?.toString().trim().isNotEmpty == true
-          ? plan['price_label'].toString()
-          : _formatCurrency(
-              _asDouble(currentSubscription['price'] ?? plan['price']),
-            );
-      final backendStartAt = await _loadFarmerPlanStartDateFromProfile();
-      final now = DateTime.now();
-      final startAt =
-          _readDate(currentSubscription, const ['start_date']) ??
-          _readDate(plan, const [
-            'start_date',
-            'package_start_date',
-            'subscribed_at',
-            'created_at',
-          ]) ??
-          backendStartAt ??
-          now;
-      final renewAt =
-          _readDate(currentSubscription, const ['due_date']) ??
-          _readDate(plan, const [
-            'renew_date',
-            'renewal_date',
-            'expiry_date',
-            'expires_at',
-            'end_date',
-          ]) ??
-          startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
-      _planRenewAt = renewAt;
-      final daysLeft = _daysLeftFromNow(renewAt);
-      final lockedFromApi =
-          data['access_locked'] == true ||
-          currentSubscription['is_active'] == false ||
-          currentSubscription['status']?.toString().toLowerCase() ==
-              'expired' ||
-          daysLeft <= 0;
-
-      currentPlan.value = FarmerPlanModel(
-        name: planName,
-        amount: amount,
-        expiryDate: durationDays > 0 ? '$durationDays days' : '30 days',
-        startDate: DateFormat('dd-MM-yyyy').format(startAt),
-        renewDate: DateFormat('dd-MM-yyyy').format(renewAt),
-      );
-      _setPlanDaysLeft(daysLeft > 0 ? daysLeft : 0);
-      isPlanLocked.value = lockedFromApi;
-      planLockMessage.value = lockedFromApi
-          ? 'Your plan has expired. Please contact admin to upgrade your plan.'
-          : '';
+      await apply(data);
     } catch (_) {
       final now = DateTime.now();
       final renewAt = now.add(const Duration(days: 30));
@@ -943,6 +1025,24 @@ class HomeController extends GetxController {
       }
       heroBannerIndex.value = (heroBannerIndex.value + 1) % currentTotal;
     });
+  }
+
+  void _preCacheAnimalImages() {
+    CachedImageFileService.instance.preCacheImages(
+      animals.map((animal) => (animal['image'] ?? '').toString()),
+    );
+  }
+
+  void _preCacheSaleAnimalImages() {
+    CachedImageFileService.instance.preCacheImages(
+      saleAnimals.map((animal) => animal.image),
+    );
+  }
+
+  void _preCacheBannerImages() {
+    CachedImageFileService.instance.preCacheImages(
+      farmerBanners.map((banner) => banner.imageUrl),
+    );
   }
 
   void showNextHeroBanner() {

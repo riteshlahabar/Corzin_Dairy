@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/utils/api.dart';
 
 class AnimalHistoryController extends GetxController {
@@ -139,21 +140,28 @@ class AnimalHistoryController extends GetxController {
 
   Future<void> fetchAnimalTypes() async {
     try {
-      final response = await http.get(
-        Uri.parse(Api.animalTypes),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         animalTypes.assignAll(
           list.map((item) => AnimalTypeOption.fromJson(item)).toList(),
         );
-      } else {
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_types',
+        uri: Uri.parse(Api.animalTypes),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (animalTypes.isEmpty) {
         animalTypes.clear();
       }
     } catch (_) {
-      animalTypes.clear();
+      if (animalTypes.isEmpty) {
+        animalTypes.clear();
+      }
     }
   }
 
@@ -164,20 +172,29 @@ class AnimalHistoryController extends GetxController {
     }
 
     try {
-      isLoading.value = true;
-      final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode == 200 && data['status'] == true) {
+      isLoading.value = history.isEmpty;
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         history.assignAll(list.map((item) => AnimalHistoryItem.fromJson(item)).toList());
-      } else {
+        isLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_list_$farmerId',
+        uri: Uri.parse('${Api.animalList}/$farmerId'),
+        onCached: apply,
+      );
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (history.isEmpty) {
         history.clear();
       }
     } catch (_) {
-      history.clear();
+      if (history.isEmpty) {
+        history.clear();
+      }
     } finally {
       isLoading.value = false;
     }

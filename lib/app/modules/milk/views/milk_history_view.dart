@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/utils/api.dart';
@@ -101,21 +102,33 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
         setState(() => _isLoading = false);
         return;
       }
-      final response = await http.get(
-        Uri.parse('${Api.milkList}/$_farmerId'),
-        headers: {'Accept': 'application/json'},
+
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+        final List items = (data['data'] as List?) ?? [];
+        _history
+          ..clear()
+          ..addAll(items.map((e) => _MilkHistoryItem.fromJson((e as Map).cast<String, dynamic>())).toList());
+
+        _history.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'milk_list_$_farmerId',
+        uri: Uri.parse('${Api.milkList}/$_farmerId'),
+        onCached: apply,
       );
-      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final List items = (data['data'] as List?) ?? [];
-
-      _history
-        ..clear()
-        ..addAll(items.map((e) => _MilkHistoryItem.fromJson((e as Map).cast<String, dynamic>())).toList());
-
-      _history.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (_history.isEmpty) {
+        _history.clear();
+      }
     } catch (_) {
-      _history.clear();
-      if (mounted) {
+      if (_history.isEmpty && mounted) {
+        _history.clear();
         Get.snackbar('error'.tr, 'unable_load_milk_history'.tr);
       }
     } finally {

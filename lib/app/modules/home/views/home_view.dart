@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/animal_details_widget.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
+import '../../../core/widget/cached_network_file_image.dart';
 import '../../../routes/app_pages.dart';
 import '../controllers/home_controller.dart';
 
@@ -537,10 +538,10 @@ class HomeView extends GetView<HomeController> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              banner.imageUrl,
+            CachedNetworkFileImage(
+              imageUrl: banner.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
+              errorWidget: Container(
                 color: AppColors.primary,
                 alignment: Alignment.center,
                 child: const Icon(Icons.image_not_supported_rounded, color: Colors.white, size: 34),
@@ -621,10 +622,10 @@ class HomeView extends GetView<HomeController> {
                 color: Colors.white.withValues(alpha: 0.14),
                 child: animal.image.isEmpty
                     ? const Icon(Icons.pets_rounded, color: Colors.white, size: 34)
-                    : Image.network(
-                        animal.image,
+                    : CachedNetworkFileImage(
+                        imageUrl: animal.image,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(Icons.pets_rounded, color: Colors.white, size: 34),
+                        errorWidget: const Icon(Icons.pets_rounded, color: Colors.white, size: 34),
                       ),
               ),
             ),
@@ -1274,16 +1275,13 @@ class HomeView extends GetView<HomeController> {
                 width: double.infinity,
                 color: const Color(0xFFF3F6F3),
                 child: (animal['image'] ?? '').toString().isNotEmpty
-                    ? Image.network(
-                        animal['image'],
+                    ? CachedNetworkFileImage(
+                        imageUrl: animal['image'],
                         height: 84,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return _animalImageFallback();
-                        },
-                        errorBuilder: (context, error, stackTrace) => _animalImageFallback(),
+                        placeholder: _animalImageFallback(),
+                        errorWidget: _animalImageFallback(),
                       )
                     : _animalImageFallback(),
               ),

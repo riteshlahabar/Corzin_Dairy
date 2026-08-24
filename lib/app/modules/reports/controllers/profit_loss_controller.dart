@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/utils/api.dart';
 
 class ProfitLossController extends GetxController {
@@ -80,22 +78,34 @@ class ProfitLossController extends GetxController {
     };
 
     try {
-      isLoading.value = true;
+      isLoading.value = detailRows.isEmpty;
       final uri = Uri.parse('${Api.profitLossReport}/$farmerId').replace(
         queryParameters: query,
       );
-      final response = await http.get(uri, headers: {'Accept': 'application/json'});
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || body['status'] != true) {
+
+      Future<void> apply(Map<String, dynamic> body) async {
+        if (body['status'] != true) return;
+        final data = body['data'] is Map ? Map<String, dynamic>.from(body['data']) : <String, dynamic>{};
+        summary.value = ProfitLossSummary.fromJson(data);
+        detailRows.assignAll(await _buildProfitLossRows());
+        isLoading.value = false;
+      }
+
+      final body = await CachedApiService.instance.getMap(
+        key: 'profit_loss_${farmerId}_${query['from_date']}_${query['to_date']}',
+        uri: uri,
+        onCached: (cached) => unawaited(apply(cached)),
+      );
+      if (body == null || body['status'] != true) {
         summary.value = ProfitLossSummary.zero();
         return;
       }
-      final data = body['data'] is Map ? Map<String, dynamic>.from(body['data']) : <String, dynamic>{};
-      summary.value = ProfitLossSummary.fromJson(data);
-      detailRows.assignAll(await _buildProfitLossRows());
+      await apply(body);
     } catch (_) {
-      summary.value = ProfitLossSummary.zero();
-      detailRows.clear();
+      if (detailRows.isEmpty) {
+        summary.value = ProfitLossSummary.zero();
+        detailRows.clear();
+      }
     } finally {
       isLoading.value = false;
     }
@@ -203,12 +213,11 @@ class ProfitLossController extends GetxController {
 
   Future<List<Map<String, dynamic>>> _fetchList(String endpoint) async {
     try {
-      final response = await http.get(
-        Uri.parse(endpoint),
-        headers: {'Accept': 'application/json'},
+      final body = await CachedApiService.instance.getMapPreferCache(
+        key: endpoint,
+        uri: Uri.parse(endpoint),
       );
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
-      if (response.statusCode != 200 || body is! Map || body['status'] != true) {
+      if (body == null || body['status'] != true) {
         return const <Map<String, dynamic>>[];
       }
       final data = body['data'];
