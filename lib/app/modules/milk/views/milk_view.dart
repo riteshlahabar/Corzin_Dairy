@@ -320,49 +320,67 @@ class MilkView extends GetView<MilkController> {
           _fieldLabel('select_animal'.tr, requiredField: true),
           const SizedBox(height: 8),
           Obx(
-            () => _dropdownCard(
-              child: DropdownButtonFormField<MilkAnimalModel>(
-                initialValue: controller.selectedAnimal.value,
-                isExpanded: true,
-                dropdownColor: Colors.white,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-                decoration: _dropdownDecoration('choose_animal'.tr),
-                items: controller.animals
-                    .map(
-                      (animal) => DropdownMenuItem<MilkAnimalModel>(
-                        value: animal,
-                        child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: controller.selectAnimal,
-              ),
-            ),
+            () {
+              final selectedAnimal = controller.selectedAnimal.value;
+              final resolvedAnimal = selectedAnimal == null
+                  ? null
+                  : controller.animals.firstWhereOrNull(
+                      (animal) => animal.id == selectedAnimal.id,
+                    );
+
+              return _dropdownCard(
+                child: DropdownButtonFormField<MilkAnimalModel>(
+                  initialValue: resolvedAnimal,
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                  decoration: _dropdownDecoration('choose_animal'.tr),
+                  items: controller.animals
+                      .map(
+                        (animal) => DropdownMenuItem<MilkAnimalModel>(
+                          value: animal,
+                          child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: controller.selectAnimal,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           _fieldLabel('select_pan'.tr, requiredField: true),
           const SizedBox(height: 8),
           Obx(
-            () => _dropdownCard(
-              child: DropdownButtonFormField<MilkPanModel>(
-                initialValue: controller.selectedPan.value,
-                isExpanded: true,
-                dropdownColor: Colors.white,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-                decoration: _dropdownDecoration('select_pan'.tr),
-                items: controller.pans
-                    .map(
-                      (pan) => DropdownMenuItem<MilkPanModel>(
-                        value: pan,
-                        child: Text(pan.name, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: controller.pans.isEmpty
-                    ? null
-                    : controller.selectPan,
-              ),
-            ),
+            () {
+              final selectedPan = controller.selectedPan.value;
+              final resolvedPan = selectedPan == null
+                  ? null
+                  : controller.pans.firstWhereOrNull(
+                      (pan) => pan.matches(selectedPan),
+                    );
+
+              return _dropdownCard(
+                child: DropdownButtonFormField<MilkPanModel>(
+                  initialValue: resolvedPan,
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                  decoration: _dropdownDecoration('select_pan'.tr),
+                  items: controller.pans
+                      .map(
+                        (pan) => DropdownMenuItem<MilkPanModel>(
+                          value: pan,
+                          child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: controller.pans.isEmpty
+                      ? null
+                      : controller.selectPan,
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           Row(
@@ -386,7 +404,36 @@ class MilkView extends GetView<MilkController> {
             ],
           ),
           const SizedBox(height: 8),
-          Obx(() => _dropdownCard(child: DropdownButtonFormField<MilkDairyModel>(initialValue: controller.selectedDairy.value, isExpanded: true, dropdownColor: Colors.white, icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary), decoration: _dropdownDecoration('select_dairy'.tr), items: controller.dairies.map((dairy) => DropdownMenuItem<MilkDairyModel>(value: dairy, child: Text(dairy.displayName, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => controller.selectedDairy.value = value, validator: (value) => value == null ? 'please_select_dairy_name'.tr : null))),
+          Obx(
+            () {
+              final selectedDairy = controller.selectedDairy.value;
+              final resolvedDairy = selectedDairy == null
+                  ? null
+                  : controller.dairies.firstWhereOrNull(
+                      (dairy) => dairy.id == selectedDairy.id,
+                    );
+
+              return _dropdownCard(
+                child: DropdownButtonFormField<MilkDairyModel>(
+                  initialValue: resolvedDairy,
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                  decoration: _dropdownDecoration('select_dairy'.tr),
+                  items: controller.dairies
+                      .map(
+                        (dairy) => DropdownMenuItem<MilkDairyModel>(
+                          value: dairy,
+                          child: Text(dairy.displayName, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => controller.selectedDairy.value = value,
+                  validator: (value) => value == null ? 'please_select_dairy_name'.tr : null,
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 16),
           Row(
             children: [

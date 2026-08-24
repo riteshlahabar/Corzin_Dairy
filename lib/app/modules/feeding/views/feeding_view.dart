@@ -384,49 +384,67 @@ class FeedingView extends GetView<FeedingController> {
         _label('select_animal'.tr, requiredField: true),
         const SizedBox(height: 6),
         Obx(
-          () => DropdownButtonFormField<FeedingAnimalModel>(
-            initialValue: controller.selectedAnimal.value,
-            isExpanded: true,
-            dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('choose_animal'.tr),
-            items: controller.animals
-                .map(
-                  (animal) => DropdownMenuItem(
-                    value: animal,
-                    child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: controller.selectAnimal,
-            validator: (value) {
-              if (value == null && controller.selectedPan.value == null) {
-                return 'select_animal_error'.tr;
-              }
-              return null;
-            },
-          ),
+          () {
+            final selectedAnimal = controller.selectedAnimal.value;
+            final resolvedAnimal = selectedAnimal == null
+                ? null
+                : controller.animals.firstWhereOrNull(
+                    (animal) => animal.id == selectedAnimal.id,
+                  );
+
+            return DropdownButtonFormField<FeedingAnimalModel>(
+              initialValue: resolvedAnimal,
+              isExpanded: true,
+              dropdownColor: const Color(0xFFF4FAF4),
+              decoration: _decoration('choose_animal'.tr),
+              items: controller.animals
+                  .map(
+                    (animal) => DropdownMenuItem(
+                      value: animal,
+                      child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
+              onChanged: controller.selectAnimal,
+              validator: (value) {
+                if (value == null && controller.selectedPan.value == null) {
+                  return 'select_animal_error'.tr;
+                }
+                return null;
+              },
+            );
+          },
         ),
         const SizedBox(height: 12),
         _label('select_pan'.tr, requiredField: true),
         const SizedBox(height: 6),
         Obx(
-          () => DropdownButtonFormField<FeedingPanModel>(
-            initialValue: controller.selectedPan.value,
-            isExpanded: true,
-            dropdownColor: const Color(0xFFF4FAF4),
-            decoration: _decoration('select_pan'.tr),
-            items: controller.pans
-                .map(
-                  (pan) => DropdownMenuItem(
-                    value: pan,
-                    child: Text(pan.name, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: controller.pans.isEmpty
+          () {
+            final selectedPan = controller.selectedPan.value;
+            final resolvedPan = selectedPan == null
                 ? null
-                : controller.selectPan,
-          ),
+                : controller.pans.firstWhereOrNull(
+                    (pan) => pan.matches(selectedPan),
+                  );
+
+            return DropdownButtonFormField<FeedingPanModel>(
+              initialValue: resolvedPan,
+              isExpanded: true,
+              dropdownColor: const Color(0xFFF4FAF4),
+              decoration: _decoration('select_pan'.tr),
+              items: controller.pans
+                  .map(
+                    (pan) => DropdownMenuItem(
+                      value: pan,
+                      child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
+              onChanged: controller.pans.isEmpty
+                  ? null
+                  : controller.selectPan,
+            );
+          },
         ),
         const SizedBox(height: 12),
         _dietPlanHeader(),

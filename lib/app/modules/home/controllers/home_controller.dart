@@ -868,7 +868,7 @@ class HomeController extends GetxController {
             currentSubscription['is_active'] == false ||
             currentSubscription['status']?.toString().toLowerCase() ==
                 'expired' ||
-            daysLeft <= 0;
+            daysLeft < 0;
 
         currentPlan.value = FarmerPlanModel(
           name: planName,
@@ -884,12 +884,14 @@ class HomeController extends GetxController {
             : '';
       }
 
-      final data = await CachedApiService.instance.getMap(
-        key: 'subscription_plans_$farmerId',
-        uri: Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
-        onCached: (cached) => unawaited(apply(cached)),
+      final response = await http.get(
+        Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
+        headers: {'Accept': 'application/json'},
       );
-      if (data == null || data['status'] != true || data['data'] is! List) {
+      final data = _decodeBody(response.body);
+      if (response.statusCode != 200 ||
+          data['status'] != true ||
+          data['data'] is! List) {
         return;
       }
       await apply(data);

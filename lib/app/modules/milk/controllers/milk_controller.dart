@@ -130,6 +130,12 @@ class MilkController extends GetxController {
         if (data['status'] != true) return;
         final List list = data['data'] ?? [];
         dairies.assignAll(list.map((item) => MilkDairyModel.fromJson(item)).toList());
+        final currentDairy = selectedDairy.value;
+        if (currentDairy != null) {
+          selectedDairy.value = dairies.firstWhereOrNull(
+            (dairy) => dairy.id == currentDairy.id,
+          );
+        }
       }
 
       final data = await CachedApiService.instance.getMap(

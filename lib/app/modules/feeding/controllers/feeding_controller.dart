@@ -209,7 +209,8 @@ class FeedingController extends GetxController {
         }
         final List list = data['data'] ?? [];
         final parsed = list
-            .map((item) => FeedDietPlanModel.fromJson(item))
+            .whereType<Map>()
+            .map((item) => FeedDietPlanModel.fromJson(item.cast<String, dynamic>()))
             .where(
               (plan) => _matchesDietPlanSelection(
                 plan,

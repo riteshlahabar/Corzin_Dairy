@@ -190,13 +190,19 @@ class DietPlanController extends GetxController {
     if (farmerId == 0) return;
     try {
       final response = await http.get(
-        Uri.parse('${Api.feedingDietPlans}/$farmerId'),
+        Uri.parse('${Api.feedingDietPlans}/$farmerId')
+            .replace(queryParameters: {'include_metrics': '1'}),
         headers: {'Accept': 'application/json'},
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
-        plans.assignAll(list.map((item) => FeedDietPlanModel.fromJson(item)).toList());
+        plans.assignAll(
+          list
+              .whereType<Map>()
+              .map((item) => FeedDietPlanModel.fromJson(item.cast<String, dynamic>()))
+              .toList(),
+        );
       } else {
         plans.clear();
       }

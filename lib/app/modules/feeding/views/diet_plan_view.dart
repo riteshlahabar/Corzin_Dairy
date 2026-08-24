@@ -435,7 +435,7 @@ class _DietPlanViewState extends State<DietPlanView> {
   }
 
   Widget _liveDmiSummaryCard(DietPlanController controller) {
-    final planned = controller.plannedDryMatterTotal;
+    final actualDmi = controller.actualDmi.value;
     final totalFeed = controller.feedBlocks.fold<double>(
       0,
       (sum, block) => sum + block.totalQuantity,
@@ -492,7 +492,7 @@ class _DietPlanViewState extends State<DietPlanView> {
               const SizedBox(width: 10),
               Expanded(
                 child: _summaryMetric(
-                  '${'dry_matter'.tr}: ${planned.toStringAsFixed(2)} kg',
+                  '${'actual_dmi'.tr}: ${actualDmi.toStringAsFixed(2)} kg',
                   color: AppColors.primary,
                   textAlign: TextAlign.right,
                   fontSize: 12.4,
@@ -1100,7 +1100,7 @@ class _DietPlanViewState extends State<DietPlanView> {
                     _infoBadge(
                       icon: Icons.science_rounded,
                       text:
-                          '${'actual_dry_matter'.tr}: ${plan.planDryMatterQuantity.toStringAsFixed(2)} ${plan.unit}',
+                          '${'actual_dmi'.tr}: ${plan.actualDmi.toStringAsFixed(2)} ${plan.unit}',
                       bgColor: const Color(0xFFF3E5F5),
                       textColor: const Color(0xFF6A1B9A),
                     ),
