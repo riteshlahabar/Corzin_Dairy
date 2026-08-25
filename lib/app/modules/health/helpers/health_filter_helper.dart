@@ -78,7 +78,7 @@ extension HealthMastitisFilterHelper on HealthMastitisController {
           );
 
     return allMastitisGroups.where((group) {
-      if (filter != 'all' && group.effectiveTestResult != filter) {
+      if (filter != 'all' && group.displayResult != filter) {
         return false;
       }
 

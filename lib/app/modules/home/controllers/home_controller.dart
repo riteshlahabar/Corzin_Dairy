@@ -626,13 +626,35 @@ class HomeController extends GetxController {
     final dmiByDate = {
       for (final day in days) _dateKey(day): 0.0,
     };
+    void applyGraph() {
+      _assignProductionGraphPoints(
+        days: days,
+        milkByDate: milkByDate,
+        feedingByDate: feedingByDate,
+        dmiByDate: dmiByDate,
+      );
+    }
 
     await Future.wait([
-      _fillMilkGraphValues(milkByDate),
-      _fillFeedingGraphValues(feedingByDate),
-      _fillDmiGraphValues(dmiByDate, days.first, days.last),
+      _fillMilkGraphValues(milkByDate, onApplied: applyGraph),
+      _fillFeedingGraphValues(feedingByDate, onApplied: applyGraph),
+      _fillDmiGraphValues(
+        dmiByDate,
+        days.first,
+        days.last,
+        onApplied: applyGraph,
+      ),
     ]);
 
+    applyGraph();
+  }
+
+  void _assignProductionGraphPoints({
+    required List<DateTime> days,
+    required Map<String, double> milkByDate,
+    required Map<String, double> feedingByDate,
+    required Map<String, double> dmiByDate,
+  }) {
     productionGraphPoints.assignAll(
       days.map((day) {
         final key = _dateKey(day);
@@ -660,7 +682,10 @@ class HomeController extends GetxController {
     });
   }
 
-  Future<void> _fillMilkGraphValues(Map<String, double> valuesByDate) async {
+  Future<void> _fillMilkGraphValues(
+    Map<String, double> valuesByDate, {
+    VoidCallback? onApplied,
+  }) async {
     try {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
@@ -687,6 +712,7 @@ class HomeController extends GetxController {
           }
           valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
         }
+        onApplied?.call();
       }
 
       final data = await CachedApiService.instance.getMap(
@@ -698,7 +724,10 @@ class HomeController extends GetxController {
     } catch (_) {}
   }
 
-  Future<void> _fillFeedingGraphValues(Map<String, double> valuesByDate) async {
+  Future<void> _fillFeedingGraphValues(
+    Map<String, double> valuesByDate, {
+    VoidCallback? onApplied,
+  }) async {
     try {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
@@ -720,6 +749,7 @@ class HomeController extends GetxController {
           );
           valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
         }
+        onApplied?.call();
       }
 
       final data = await CachedApiService.instance.getMap(
@@ -734,8 +764,9 @@ class HomeController extends GetxController {
   Future<void> _fillDmiGraphValues(
     Map<String, double> valuesByDate,
     DateTime start,
-    DateTime end,
-  ) async {
+    DateTime end, {
+    VoidCallback? onApplied,
+  }) async {
     try {
       final uri = Uri.parse('${Api.healthDmi}/$farmerId').replace(
         queryParameters: {
@@ -762,6 +793,7 @@ class HomeController extends GetxController {
 
           valuesByDate[key] = (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
         }
+        onApplied?.call();
       }
 
       final data = await CachedApiService.instance.getMap(
@@ -894,14 +926,12 @@ class HomeController extends GetxController {
             : '';
       }
 
-      final response = await http.get(
-        Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
-        headers: {'Accept': 'application/json'},
+      final data = await CachedApiService.instance.getMap(
+        key: 'home_current_plan_$farmerId',
+        uri: Uri.parse('${Api.subscriptionPlans}?farmer_id=$farmerId'),
+        onCached: (cached) => unawaited(apply(cached)),
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 ||
-          data['status'] != true ||
-          data['data'] is! List) {
+      if (data == null || data['status'] != true || data['data'] is! List) {
         return;
       }
       await apply(data);
@@ -913,12 +943,11 @@ class HomeController extends GetxController {
     final mobile = farmerMobile.value.trim();
     if (mobile.isEmpty) return null;
     try {
-      final response = await http.get(
-        Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
-        headers: {'Accept': 'application/json'},
+      final data = await CachedApiService.instance.getMapPreferCache(
+        key: 'home_plan_profile_$mobile',
+        uri: Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
       );
-      final data = _decodeBody(response.body);
-      if (response.statusCode != 200 || data['status'] != true) return null;
+      if (data == null || data['status'] != true) return null;
 
       final payload = data['data'];
       if (payload is Map<String, dynamic>) {

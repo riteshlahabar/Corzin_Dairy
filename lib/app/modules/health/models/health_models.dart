@@ -219,6 +219,26 @@ class MastitisGroupItem {
   String get animalTypeName => caseRecord.animalTypeName;
   String get testResult => _normalize(caseRecord.testResult);
   String get positiveFoundDate => caseRecord.date;
+  bool get hasRecoveryHistoryRow {
+    return records.any((row) {
+      if (row.id == caseId) return false;
+      final status = _normalize(row.recoveryStatus);
+      final treatment = _normalize(row.treatment);
+      return status == 'recovered' ||
+          status == 'recoverd' ||
+          treatment == 'recovered' ||
+          treatment == 'recoverd';
+    });
+  }
+  bool get isPositiveCase => testResult == 'positive' || hasRecoveryHistoryRow;
+  bool get isRecovered =>
+      isPositiveCase &&
+      (recoveryStatus == 'recovered' || recoveryStatus == 'recoverd');
+  String get displayResult {
+    if (isRecovered) return 'recovered';
+    if (!isPositiveCase && testResult == 'negative') return 'negative';
+    return effectiveTestResult;
+  }
   String get effectiveTestResult {
     if (recoveryStatus == 'recovered' || recoveryStatus == 'recoverd') {
       return 'negative';
@@ -235,6 +255,14 @@ class MastitisGroupItem {
 
   String get recoveryStatus {
     final caseStatus = _normalize(caseRecord.recoveryStatus);
+
+    if (hasRecoveryHistoryRow) {
+      return 'recovered';
+    }
+
+    if (testResult == 'negative') {
+      return 'negative';
+    }
 
     if (caseStatus == 'recovered' || caseStatus == 'recoverd') {
       return caseStatus;

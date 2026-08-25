@@ -251,23 +251,25 @@ String _translatedAnimalTypeFilterLabel(String rawName) {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _metaPill(Icons.pets_outlined, subtitle),
+              if (subtitle.trim().isNotEmpty) _metaPill(Icons.pets_outlined, subtitle),
               _metaPill(
                 Icons.calendar_month_rounded,
                 '${dateLabel.isEmpty ? 'date'.tr : dateLabel}: $dateText',
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FCF8),
-              borderRadius: BorderRadius.circular(14),
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FCF8),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(children: rows),
             ),
-            child: Column(children: rows),
-          ),
+          ],
         ],
       ),
     );
@@ -374,6 +376,8 @@ String _translatedAnimalTypeFilterLabel(String rawName) {
       case 'recovered':
       case 'recoverd':
         return 'recovered'.tr;
+      case 'negative':
+        return 'negative'.tr;
       default:
         return status.trim().isEmpty ? '-' : status;
     }

@@ -3,11 +3,23 @@ part of '../controllers/health_controller.dart';
 class MastitisRepository {
   final HealthApiService _api = HealthApiService.instance;
 
-  Future<List<MastitisRecordItem>?> fetchMastitisRecords(int farmerId) async {
-    final response = await _api.get(Uri.parse('${Api.healthMastitis}/$farmerId'));
-    if (!response.hasTrueStatus) return null;
-    final List list = response.data['data'] ?? [];
-    return list.map((item) => MastitisRecordItem.fromJson(item)).toList();
+  Future<List<MastitisRecordItem>?> fetchMastitisRecords({
+    required int farmerId,
+    void Function(List<MastitisRecordItem> records)? onCached,
+    bool forceRefresh = false,
+  }) async {
+    final uri = Uri.parse('${Api.healthMastitis}/$farmerId');
+    final data = await CachedApiService.instance.getMap(
+      key: 'health_mastitis_$farmerId',
+      uri: uri,
+      onCached: (cached) {
+        if (cached['status'] != true) return;
+        onCached?.call(_parseMastitisRecords(cached['data']));
+      },
+      forceRefresh: forceRefresh,
+    );
+    if (data == null || data['status'] != true) return null;
+    return _parseMastitisRecords(data['data']);
   }
 
   Future<HealthApiResponse> saveMastitis({
@@ -85,5 +97,13 @@ class MastitisRepository {
     }
 
     return _api.post(Api.healthMastitisRecover, payload);
+  }
+
+  List<MastitisRecordItem> _parseMastitisRecords(dynamic raw) {
+    final list = raw is List ? raw : const [];
+    return list
+        .whereType<Map>()
+        .map((item) => MastitisRecordItem.fromJson(item.cast<String, dynamic>()))
+        .toList();
   }
 }

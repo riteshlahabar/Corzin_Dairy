@@ -31,18 +31,29 @@ class HealthMastitisController {
     farmerId = value;
   }
 
-  Future<void> fetchMastitisRecords() async {
+  Future<void> fetchMastitisRecords({bool forceRefresh = false}) async {
     if (farmerId == 0) return;
     try {
-      isLoading.value = true;
-      final result = await _mastitisRepository.fetchMastitisRecords(farmerId);
+      isLoading.value = mastitisRecords.isEmpty;
+      void apply(List<MastitisRecordItem> records) {
+        mastitisRecords.assignAll(records);
+        isLoading.value = false;
+      }
+
+      final result = await _mastitisRepository.fetchMastitisRecords(
+        farmerId: farmerId,
+        onCached: apply,
+        forceRefresh: forceRefresh,
+      );
       if (result != null) {
-        mastitisRecords.assignAll(result);
-      } else {
+        apply(result);
+      } else if (mastitisRecords.isEmpty) {
         mastitisRecords.clear();
       }
     } catch (_) {
-      mastitisRecords.clear();
+      if (mastitisRecords.isEmpty) {
+        mastitisRecords.clear();
+      }
     } finally {
       isLoading.value = false;
     }
@@ -63,7 +74,7 @@ class HealthMastitisController {
       successMessage: 'Mastitis record saved successfully',
       onSuccess: () async {
         await Future.wait([
-          fetchMastitisRecords(),
+          fetchMastitisRecords(forceRefresh: true),
           _refreshReagentRecords(),
         ]);
       },
@@ -92,7 +103,7 @@ class HealthMastitisController {
         notes: notes,
       ),
       successMessage: 'Mastitis record updated successfully',
-      onSuccess: fetchMastitisRecords,
+      onSuccess: () => fetchMastitisRecords(forceRefresh: true),
       showSuccessSnackbar: false,
     );
   }
@@ -114,7 +125,7 @@ class HealthMastitisController {
         notes: notes,
       ),
       successMessage: 'Treatment added successfully',
-      onSuccess: fetchMastitisRecords,
+      onSuccess: () => fetchMastitisRecords(forceRefresh: true),
       showSuccessSnackbar: false,
     );
   }
@@ -132,7 +143,7 @@ class HealthMastitisController {
         date: date,
       ),
       successMessage: 'Animal marked as recovered',
-      onSuccess: fetchMastitisRecords,
+      onSuccess: () => fetchMastitisRecords(forceRefresh: true),
       showSuccessSnackbar: false,
     );
   }

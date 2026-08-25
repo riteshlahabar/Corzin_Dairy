@@ -4,7 +4,7 @@ Widget _buildHealthMastitisList(_HealthViewState state) {
     final records = state.controller.filteredMastitisGroups;
     return RefreshIndicator(
       onRefresh: () async {
-        await state.controller.fetchMastitisRecords();
+        await state.controller.fetchMastitisRecords(forceRefresh: true);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
@@ -27,26 +27,38 @@ Widget _buildHealthMastitisList(_HealthViewState state) {
 Widget _healthMastitisCard(_HealthViewState state, MastitisGroupItem item) {
     final treatments = item.treatments;
     final recoveredRows = item.recoveredRows;
-    final isRecovered = item.recoveryStatus == 'recovered' || item.recoveryStatus == 'recoverd';
+    final isRecovered = item.isRecovered;
     final recoveredRow = recoveredRows.isNotEmpty ? recoveredRows.first : null;
+    final isPositiveCase = item.isPositiveCase;
+    final isNegativeCase = !isPositiveCase && item.displayResult == 'negative';
     return state._card(
       title: '${item.animalName} - ${'tag'.tr} ${item.tagNumber}',
-      subtitle: state._mastitisResultLabel(item.effectiveTestResult),
-      dateLabel: 'positive_found_date'.tr,
-      dateText: item.positiveFoundDate,
-      status: state._mastitisStatusLabel(item.recoveryStatus),
+      subtitle: isNegativeCase
+          ? state._mastitisResultLabel(item.effectiveTestResult)
+          : isRecovered
+          ? state._mastitisStatusLabel(item.recoveryStatus)
+          : state._mastitisResultLabel(item.effectiveTestResult),
+      dateLabel: isPositiveCase ? 'positive_found_date'.tr : 'negative_check_date'.tr,
+      dateText: isPositiveCase ? item.positiveFoundDate : item.latestDate,
+      status: isNegativeCase
+          ? state._mastitisStatusLabel(item.displayResult)
+          : isPositiveCase
+              ? state._mastitisStatusLabel(item.recoveryStatus)
+              : '',
       rows: [
-        if (treatments.isEmpty)
-          state._info('treatment'.tr, 'no_treatment_added'.tr)
-        else
-          ...treatments.map(
-            (row) => state._info(row.date, row.treatment),
-          ),
-        if (recoveredRow != null) ...[
-          const SizedBox(height: 4),
-          state._info(recoveredRow.date, 'recovered'.tr),
+        if (isPositiveCase) ...[
+          if (treatments.isEmpty)
+            state._info('treatment'.tr, 'no_treatment_added'.tr)
+          else
+            ...treatments.map(
+              (row) => state._info(row.date, row.treatment),
+            ),
+          if (recoveredRow != null) ...[
+            const SizedBox(height: 4),
+            state._info(recoveredRow.date, 'recovered'.tr),
+          ],
         ],
-        if (!isRecovered) ...[
+        if (isPositiveCase && !isRecovered) ...[
           const SizedBox(height: 8),
           Row(
             children: [
@@ -191,6 +203,7 @@ Future<void> _healthPickMastitisDate(_HealthViewState state, {required bool isFr
 Widget _healthMastitisResultFilters(_HealthViewState state) {
     final filters = <String, String>{
       'positive': 'positive'.tr,
+      'recovered': 'recovered'.tr,
       'negative': 'negative'.tr,
       'all': 'all'.tr,
     };

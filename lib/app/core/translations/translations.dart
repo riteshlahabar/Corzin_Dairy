@@ -568,6 +568,7 @@ const Map<String, String> _enExtra = {
   'vaccination_date': 'Vaccination Date',
   'search_vaccination_records': 'Search by animal, tag, pen, vaccine',
   'positive_found_date': 'Positive Found Date',
+  'negative_check_date': 'Negative Check Date',
   'recovery_status': 'Recovery Status',
   'positive': 'Positive',
   'negative': 'Negative',
