@@ -1149,7 +1149,7 @@ class HomeView extends GetView<HomeController> {
     return SizedBox(
       height: 28,
       child: ElevatedButton(
-        onPressed: () => Get.toNamed(Routes.UPGRADE),
+        onPressed: _openUpgradePlanScreen,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: AppColors.primary,
@@ -1165,6 +1165,14 @@ class HomeView extends GetView<HomeController> {
         ),
       ),
     );
+  }
+
+  void _openUpgradePlanScreen() {
+    if (Get.isRegistered<BottomNavController>()) {
+      Get.find<BottomNavController>().openDrawerRoute(Routes.UPGRADE);
+      return;
+    }
+    Get.toNamed(Routes.UPGRADE);
   }
 
   Widget _statCard({required String title, required String value, required IconData icon, required Color color, required Color background}) {

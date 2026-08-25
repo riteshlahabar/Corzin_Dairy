@@ -27,25 +27,34 @@ class HealthDmiController {
     farmerId = value;
   }
 
-  Future<void> fetchDmiRecords() async {
+  Future<void> fetchDmiRecords({bool forceRefresh = false}) async {
     if (farmerId == 0) {
       dmiRecords.clear();
       return;
     }
     try {
-      isLoading.value = true;
+      isLoading.value = dmiRecords.isEmpty;
+      void apply(List<DmiRecordItem> records) {
+        dmiRecords.assignAll(records);
+        isLoading.value = false;
+      }
+
       final result = await _dmiRepository.fetchDmiRecords(
         farmerId: farmerId,
         fromDate: dmiFromDate.value,
         toDate: dmiToDate.value,
+        onCached: apply,
+        forceRefresh: forceRefresh,
       );
       if (result != null) {
-        dmiRecords.assignAll(result);
-      } else {
+        apply(result);
+      } else if (dmiRecords.isEmpty) {
         dmiRecords.clear();
       }
     } catch (_) {
-      dmiRecords.clear();
+      if (dmiRecords.isEmpty) {
+        dmiRecords.clear();
+      }
     } finally {
       isLoading.value = false;
     }
@@ -70,7 +79,7 @@ class HealthDmiController {
         notes: notes,
       ),
       successMessage: 'DMI record saved successfully',
-      onSuccess: fetchDmiRecords,
+      onSuccess: () => fetchDmiRecords(forceRefresh: true),
     );
   }
 

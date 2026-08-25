@@ -338,6 +338,8 @@ class DmiRecordItem {
   final int animalCount;
   final List<String> animalTypeNames;
   final List<String> searchAliases;
+  final String panRequiredDmi;
+  final String panActualDmi;
 
   DmiRecordItem({
     required this.animalId,
@@ -357,6 +359,8 @@ class DmiRecordItem {
     this.animalCount = 1,
     this.animalTypeNames = const <String>[],
     this.searchAliases = const <String>[],
+    this.panRequiredDmi = '',
+    this.panActualDmi = '',
   });
 
   factory DmiRecordItem.fromJson(Map<String, dynamic> json) {
@@ -375,6 +379,8 @@ class DmiRecordItem {
       notes: json['notes']?.toString() ?? '',
       panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
       panName: json['pan_name']?.toString() ?? '',
+      panRequiredDmi: json['pan_required_dmi']?.toString() ?? '',
+      panActualDmi: json['pan_actual_dmi']?.toString() ?? '',
       animalTypeNames: [
         json['animal_type_name']?.toString() ?? '',
       ].where((value) => value.trim().isNotEmpty).toList(),
@@ -405,6 +411,8 @@ class DmiRecordItem {
     int? animalCount,
     List<String>? animalTypeNames,
     List<String>? searchAliases,
+    String? panRequiredDmi,
+    String? panActualDmi,
   }) {
     return DmiRecordItem(
       animalId: animalId ?? this.animalId,
@@ -424,6 +432,8 @@ class DmiRecordItem {
       animalCount: animalCount ?? this.animalCount,
       animalTypeNames: animalTypeNames ?? this.animalTypeNames,
       searchAliases: searchAliases ?? this.searchAliases,
+      panRequiredDmi: panRequiredDmi ?? this.panRequiredDmi,
+      panActualDmi: panActualDmi ?? this.panActualDmi,
     );
   }
 
@@ -436,6 +446,15 @@ class DmiRecordItem {
   double get requiredDmiValue => double.tryParse(requiredDmi.trim()) ?? 0;
 
   double get actualDmiValue => double.tryParse(actualDmi.trim()) ?? 0;
+
+  bool get hasPanRequiredDmi => panRequiredDmi.trim().isNotEmpty;
+
+  bool get hasPanActualDmi => panActualDmi.trim().isNotEmpty;
+
+  double get panRequiredDmiValue =>
+      double.tryParse(panRequiredDmi.trim()) ?? 0;
+
+  double get panActualDmiValue => double.tryParse(panActualDmi.trim()) ?? 0;
 
   String get displayTitle {
     if (isPanGroup) {

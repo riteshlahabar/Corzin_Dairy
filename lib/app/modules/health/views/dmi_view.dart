@@ -4,7 +4,7 @@ Widget _buildHealthDmiList(_HealthViewState state) {
     final records = state.controller.filteredDmiRecords;
     return RefreshIndicator(
       onRefresh: () async {
-        await state.controller.fetchDmiRecords();
+        await state.controller.fetchDmiRecords(forceRefresh: true);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),

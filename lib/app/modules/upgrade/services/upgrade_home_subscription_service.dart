@@ -16,9 +16,9 @@ class UpgradeHomeSubscriptionService {
       return Get.find<HomeController>().currentPlan.value;
     }
     return const FarmerPlanModel(
-      name: 'free_plan',
-      amount: 'Rs 0',
-      expiryDate: '30 days',
+      name: 'plan',
+      amount: '-',
+      expiryDate: '-',
       startDate: '-',
       renewDate: '-',
     );

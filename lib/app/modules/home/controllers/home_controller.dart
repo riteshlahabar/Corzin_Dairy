@@ -42,13 +42,13 @@ class HomeController extends GetxController {
   }.obs;
   final RxList<HomePaymentModel> payments = <HomePaymentModel>[].obs;
   final Rx<FarmerPlanModel> currentPlan = const FarmerPlanModel(
-    name: 'free_plan',
-    amount: 'Rs 0',
-    expiryDate: '30 days',
+    name: 'plan',
+    amount: '-',
+    expiryDate: '-',
     startDate: '-',
     renewDate: '-',
   ).obs;
-  final RxInt planDaysLeft = 30.obs;
+  final RxInt planDaysLeft = 0.obs;
   final RxBool planBlinkOn = false.obs;
   final RxString farmerName = ''.obs;
   final RxString farmerMobile = ''.obs;
@@ -775,6 +775,16 @@ class HomeController extends GetxController {
 
   Future<void> _loadCurrentPlan() async {
     try {
+      if (farmerId <= 0) {
+        await loadBaseData();
+      }
+
+      if (farmerId <= 0) {
+        isPlanLocked.value = false;
+        planLockMessage.value = '';
+        return;
+      }
+
       Future<void> apply(Map<String, dynamic> data) async {
         if (data['status'] != true || data['data'] is! List) {
           return;
@@ -794,22 +804,28 @@ class HomeController extends GetxController {
               currentSubscription['farmer_plan_id']?.toString() ?? '',
             ) ??
             0;
-        final plan = currentPlanId > 0
-            ? list.firstWhere(
-                (item) =>
-                    int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
-                orElse: () => list.firstWhere(
-                  (item) => item['is_current'] == true,
-                  orElse: () => list.first,
-                ),
-              )
-            : list.firstWhere(
-                (item) => item['is_current'] == true,
-                orElse: () => list.firstWhere(
-                  (item) => item['is_popular'] == true,
-                  orElse: () => list.first,
-                ),
-              );
+        if (currentSubscription.isEmpty || currentPlanId <= 0) {
+          _planRenewAt = null;
+          _setPlanDaysLeft(0);
+          currentPlan.value = const FarmerPlanModel(
+            name: 'plan',
+            amount: '-',
+            expiryDate: '-',
+            startDate: '-',
+            renewDate: '-',
+          );
+          isPlanLocked.value = data['access_locked'] == true;
+          planLockMessage.value = isPlanLocked.value
+              ? 'Your plan has expired. Please contact admin to upgrade your plan.'
+              : '';
+          return;
+        }
+
+        final plan = list.firstWhere(
+          (item) =>
+              int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
+          orElse: () => <String, dynamic>{},
+        );
 
         int durationDays =
             int.tryParse(
@@ -823,13 +839,7 @@ class HomeController extends GetxController {
             ? currentSubscription['plan_name'].toString()
             : plan['name']?.toString().trim().isNotEmpty == true
             ? plan['name'].toString()
-            : 'free_plan';
-        final isFreePlan =
-            planName.toLowerCase().contains('free') ||
-            _asDouble(currentSubscription['price'] ?? plan['price']) <= 0;
-        if (isFreePlan && durationDays <= 0) {
-          durationDays = 30;
-        }
+            : 'plan';
         final amount =
             currentSubscription['price_label']?.toString().trim().isNotEmpty ==
                 true
@@ -860,7 +870,7 @@ class HomeController extends GetxController {
               'expires_at',
               'end_date',
             ]) ??
-            startAt.add(Duration(days: durationDays > 0 ? durationDays : 30));
+            (durationDays > 0 ? startAt.add(Duration(days: durationDays)) : now);
         _planRenewAt = renewAt;
         final daysLeft = _daysLeftFromNow(renewAt);
         final lockedFromApi =
@@ -873,7 +883,7 @@ class HomeController extends GetxController {
         currentPlan.value = FarmerPlanModel(
           name: planName,
           amount: amount,
-          expiryDate: durationDays > 0 ? '$durationDays days' : '30 days',
+          expiryDate: durationDays > 0 ? '$durationDays days' : '-',
           startDate: DateFormat('dd-MM-yyyy').format(startAt),
           renewDate: DateFormat('dd-MM-yyyy').format(renewAt),
         );
@@ -895,21 +905,7 @@ class HomeController extends GetxController {
         return;
       }
       await apply(data);
-    } catch (_) {
-      final now = DateTime.now();
-      final renewAt = now.add(const Duration(days: 30));
-      _planRenewAt = renewAt;
-      _setPlanDaysLeft(30);
-      currentPlan.value = const FarmerPlanModel(
-        name: 'free_plan',
-        amount: 'Rs 0',
-        expiryDate: '30 days',
-        startDate: '-',
-        renewDate: '-',
-      );
-      isPlanLocked.value = false;
-      planLockMessage.value = '';
-    }
+    } catch (_) {}
     _startPlanDaysTicker();
   }
 

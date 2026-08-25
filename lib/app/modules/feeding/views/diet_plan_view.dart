@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/diet_plan_controller.dart';
-import '../controllers/feeding_controller.dart';
+import '../models/feeding_models.dart';
 
 enum DietPlanViewMode { add, list, edit }
 
@@ -14,8 +14,9 @@ class DietPlanView extends StatefulWidget {
     this.mode = DietPlanViewMode.add,
     this.initialPlan,
     String? controllerTag,
-  }) : controllerTag = controllerTag ??
-            'diet_plan_${mode.name}_${DateTime.now().microsecondsSinceEpoch}';
+  }) : controllerTag =
+           controllerTag ??
+           'diet_plan_${mode.name}_${DateTime.now().microsecondsSinceEpoch}';
 
   final DietPlanViewMode mode;
   final FeedDietPlanModel? initialPlan;
@@ -91,7 +92,9 @@ class _DietPlanViewState extends State<DietPlanView> {
         title: Text(
           mode == DietPlanViewMode.list
               ? 'diet_plan_list'.tr
-              : (mode == DietPlanViewMode.edit ? 'edit_diet_plan_title'.tr : 'add_diet_plan'.tr),
+              : (mode == DietPlanViewMode.edit
+                    ? 'edit_diet_plan_title'.tr
+                    : 'add_diet_plan'.tr),
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
@@ -128,14 +131,15 @@ class _DietPlanViewState extends State<DietPlanView> {
             ),
           );
         }
-        if (mode == DietPlanViewMode.edit && !controller.isEditModeReady.value) {
+        if (mode == DietPlanViewMode.edit &&
+            !controller.isEditModeReady.value) {
           return const Center(child: CircularProgressIndicator());
         }
 
         return RefreshIndicator(
           onRefresh: () async {
             await controller.fetchAnimals();
-            await controller.fetchPlans();
+            await controller.fetchPlans(forceRefresh: true);
             if (mode != DietPlanViewMode.list) {
               await controller.fetchFeedTypes();
             }
@@ -145,9 +149,15 @@ class _DietPlanViewState extends State<DietPlanView> {
           },
           child: ListView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).viewInsets.bottom + 18),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              MediaQuery.of(context).viewInsets.bottom + 18,
+            ),
             children: [
-              if (mode == DietPlanViewMode.add || mode == DietPlanViewMode.edit) ...[
+              if (mode == DietPlanViewMode.add ||
+                  mode == DietPlanViewMode.edit) ...[
                 _formCard(controller),
               ] else ...[
                 _plansCard(controller),
@@ -192,7 +202,9 @@ class _DietPlanViewState extends State<DietPlanView> {
 
     final uniquePans = <String, FeedingPanModel>{};
     for (final pan in controller.pans) {
-      final key = pan.id > 0 ? 'id_${pan.id}' : 'name_${pan.name.trim().toLowerCase()}';
+      final key = pan.id > 0
+          ? 'id_${pan.id}'
+          : 'name_${pan.name.trim().toLowerCase()}';
       uniquePans.putIfAbsent(key, () => pan);
     }
     final panItems = uniquePans.values.toList();
@@ -246,7 +258,11 @@ class _DietPlanViewState extends State<DietPlanView> {
                       color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.restaurant_menu_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -254,7 +270,9 @@ class _DietPlanViewState extends State<DietPlanView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isEditMode ? 'edit_diet_plan_title'.tr : 'add_diet_plan'.tr,
+                          isEditMode
+                              ? 'edit_diet_plan_title'.tr
+                              : 'add_diet_plan'.tr,
                           style: const TextStyle(
                             fontSize: 14.8,
                             fontWeight: FontWeight.w800,
@@ -309,7 +327,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                         .map(
                           (animal) => DropdownMenuItem<FeedingAnimalModel>(
                             value: animal,
-                            child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              animal.displayName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -331,7 +352,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                         .map(
                           (pan) => DropdownMenuItem<FeedingPanModel>(
                             value: pan,
-                            child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              pan.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -373,7 +397,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
                       onPressed: controller.addFeedBlock,
-                      icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.add_circle_outline_rounded,
+                        color: AppColors.primary,
+                      ),
                       label: Text(
                         'add_more_feed'.tr,
                         style: const TextStyle(
@@ -382,7 +409,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                         ),
                       ),
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
                       ),
                     ),
                   ),
@@ -395,10 +425,15 @@ class _DietPlanViewState extends State<DietPlanView> {
               height: 46,
               child: Obx(
                 () => ElevatedButton(
-                  onPressed: controller.isSaving.value ? null : () => _onSavePlanTap(controller, isEditMode: isEditMode),
+                  onPressed: controller.isSaving.value
+                      ? null
+                      : () =>
+                            _onSavePlanTap(controller, isEditMode: isEditMode),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
                     elevation: 0,
                   ),
                   child: controller.isSaving.value
@@ -413,7 +448,11 @@ class _DietPlanViewState extends State<DietPlanView> {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.save_rounded, size: 18, color: Colors.white),
+                            const Icon(
+                              Icons.save_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               isEditMode ? 'update'.tr : 'save'.tr,
@@ -435,7 +474,7 @@ class _DietPlanViewState extends State<DietPlanView> {
   }
 
   Widget _liveDmiSummaryCard(DietPlanController controller) {
-    final actualDmi = controller.actualDmi.value;
+    final actualDmi = controller.plannedDryMatter.value;
     final totalFeed = controller.feedBlocks.fold<double>(
       0,
       (sum, block) => sum + block.totalQuantity,
@@ -445,7 +484,8 @@ class _DietPlanViewState extends State<DietPlanView> {
     final isPositiveGap = gap >= 0;
     final showTotalMilk =
         !controller.isNonMilkingContext.value &&
-        (controller.selectedPan.value != null || controller.milkProduction.value > 0);
+        (controller.selectedPan.value != null ||
+            controller.milkProduction.value > 0);
 
     return Container(
       width: double.infinity,
@@ -566,7 +606,9 @@ class _DietPlanViewState extends State<DietPlanView> {
     final availableRaw = controller.availableFeedTypesForBlock(block);
     final uniqueFeedTypes = <String, FeedTypeModel>{};
     for (final type in availableRaw) {
-      final key = type.id > 0 ? 'id_${type.id}' : 'name_${type.name.trim().toLowerCase()}';
+      final key = type.id > 0
+          ? 'id_${type.id}'
+          : 'name_${type.name.trim().toLowerCase()}';
       uniqueFeedTypes[key] = type;
     }
     final availableFeedTypes = uniqueFeedTypes.values.toList();
@@ -576,7 +618,8 @@ class _DietPlanViewState extends State<DietPlanView> {
       for (final type in availableFeedTypes) {
         if ((selectedType.id > 0 && type.id == selectedType.id) ||
             (selectedType.id <= 0 &&
-                type.name.trim().toLowerCase() == selectedType.name.trim().toLowerCase())) {
+                type.name.trim().toLowerCase() ==
+                    selectedType.name.trim().toLowerCase())) {
           resolvedSelectedType = type;
           break;
         }
@@ -597,7 +640,10 @@ class _DietPlanViewState extends State<DietPlanView> {
           Row(
             children: [
               Expanded(
-                child: _fieldLabel('${'select_feed_type'.tr} ${index + 1}', requiredField: true),
+                child: _fieldLabel(
+                  '${'select_feed_type'.tr} ${index + 1}',
+                  requiredField: true,
+                ),
               ),
               if (index > 0)
                 InkWell(
@@ -632,11 +678,15 @@ class _DietPlanViewState extends State<DietPlanView> {
                   ),
                 )
                 .toList(),
-            onChanged: (value) => controller.onFeedTypeChangedForBlock(block, value),
+            onChanged: (value) =>
+                controller.onFeedTypeChangedForBlock(block, value),
           ),
           if (resolvedSelectedType != null) ...[
             const SizedBox(height: 10),
-            _fieldLabel('${'subtype_name'.tr} (${block.unit})', requiredField: true),
+            _fieldLabel(
+              '${'subtype_name'.tr} (${block.unit})',
+              requiredField: true,
+            ),
             const SizedBox(height: 8),
             ...resolvedSelectedType.subtypes.map(
               (subtype) => Container(
@@ -660,19 +710,9 @@ class _DietPlanViewState extends State<DietPlanView> {
                     Expanded(
                       child: Text(
                         subtype.name,
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    SizedBox(
-                      width: 86,
-                      child: TextField(
-                        controller: block.subtypeQtyControllers[subtype.id],
-                        onTap: () => _selectAllText(block.subtypeQtyControllers[subtype.id]),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: _decoration('qty'.tr).copyWith(
-                          hintText: 'qty'.tr,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -680,12 +720,40 @@ class _DietPlanViewState extends State<DietPlanView> {
                     SizedBox(
                       width: 86,
                       child: TextField(
-                        controller: block.subtypeDmPercentControllers[subtype.id],
-                        onTap: () => _selectAllText(block.subtypeDmPercentControllers[subtype.id]),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        controller: block.subtypeQtyControllers[subtype.id],
+                        onTap: () => _selectAllText(
+                          block.subtypeQtyControllers[subtype.id],
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: _decoration('qty'.tr).copyWith(
+                          hintText: 'qty'.tr,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    SizedBox(
+                      width: 86,
+                      child: TextField(
+                        controller:
+                            block.subtypeDmPercentControllers[subtype.id],
+                        onTap: () => _selectAllText(
+                          block.subtypeDmPercentControllers[subtype.id],
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: _decoration('dm_percent'.tr).copyWith(
                           hintText: 'dm_percent'.tr,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ),
@@ -730,7 +798,9 @@ class _DietPlanViewState extends State<DietPlanView> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                ),
               ),
               child: Column(
                 children: [
@@ -741,7 +811,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                       color: AppColors.primary.withValues(alpha: 0.10),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.restaurant_menu_rounded, color: AppColors.primary),
+                    child: const Icon(
+                      Icons.restaurant_menu_rounded,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -833,7 +906,10 @@ class _DietPlanViewState extends State<DietPlanView> {
                       color: Colors.white.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    child: const Icon(Icons.restaurant_menu_rounded, color: Colors.white),
+                    child: const Icon(
+                      Icons.restaurant_menu_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -899,7 +975,9 @@ class _DietPlanViewState extends State<DietPlanView> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.08),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -914,7 +992,10 @@ class _DietPlanViewState extends State<DietPlanView> {
             decoration: InputDecoration(
               hintText: 'search_diet_plan_animal_pan'.tr,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               suffixIcon: controller.searchQuery.value.trim().isEmpty
                   ? null
@@ -1023,7 +1104,9 @@ class _DietPlanViewState extends State<DietPlanView> {
             height: 5,
             decoration: BoxDecoration(
               color: stripe,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
             ),
           ),
           Padding(
@@ -1073,7 +1156,7 @@ class _DietPlanViewState extends State<DietPlanView> {
                           ),
                         );
                         if (updated == true) {
-                          await controller.fetchPlans();
+                          await controller.fetchPlans(forceRefresh: true);
                         }
                       },
                     ),
@@ -1093,7 +1176,8 @@ class _DietPlanViewState extends State<DietPlanView> {
                   children: [
                     _infoBadge(
                       icon: Icons.inventory_2_rounded,
-                      text: '${'package_quantity'.tr}: ${plan.planQuantity.toStringAsFixed(2)} ${plan.unit}',
+                      text:
+                          '${'package_quantity'.tr}: ${plan.planQuantity.toStringAsFixed(2)} ${plan.unit}',
                       bgColor: const Color(0xFFFFF3E0),
                       textColor: const Color(0xFFEF6C00),
                     ),
@@ -1106,15 +1190,23 @@ class _DietPlanViewState extends State<DietPlanView> {
                     ),
                     _infoBadge(
                       icon: Icons.show_chart_rounded,
-                      text: '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)} ${plan.unit}',
+                      text:
+                          '${'required_dmi'.tr}: ${plan.targetDmi.toStringAsFixed(2)} ${plan.unit}',
                       bgColor: const Color(0xFFE3F2FD),
                       textColor: const Color(0xFF0D47A1),
                     ),
                     _infoBadge(
-                      icon: plan.dmiGap >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                      text: '${'gap'.tr}: ${plan.dmiGap.toStringAsFixed(2)} ${plan.unit}',
-                      bgColor: plan.dmiGap >= 0 ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
-                      textColor: plan.dmiGap >= 0 ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C),
+                      icon: plan.dmiGap >= 0
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      text:
+                          '${'gap'.tr}: ${plan.dmiGap.toStringAsFixed(2)} ${plan.unit}',
+                      bgColor: plan.dmiGap >= 0
+                          ? const Color(0xFFE8F5E9)
+                          : const Color(0xFFFFEBEE),
+                      textColor: plan.dmiGap >= 0
+                          ? const Color(0xFF1B5E20)
+                          : const Color(0xFFB71C1C),
                     ),
                   ],
                 ),
@@ -1126,11 +1218,16 @@ class _DietPlanViewState extends State<DietPlanView> {
                     children: plan.subtypeDetails
                         .map(
                           (subtype) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF4FAF4),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFD6EFD8)),
+                              border: Border.all(
+                                color: const Color(0xFFD6EFD8),
+                              ),
                             ),
                             child: Text(
                               '${_feedSubtypeLabel(controller, plan, subtype)}: ${subtype.quantity.toStringAsFixed(2)} ${plan.unit} | DM ${subtype.dmPercent.toStringAsFixed(2)}% | ${subtype.dryMatterQuantity.toStringAsFixed(2)} ${plan.unit}',
@@ -1158,7 +1255,10 @@ class _DietPlanViewState extends State<DietPlanView> {
     return 'diet_plan'.tr;
   }
 
-  String _planOwnerLabel(DietPlanController controller, FeedDietPlanModel plan) {
+  String _planOwnerLabel(
+    DietPlanController controller,
+    FeedDietPlanModel plan,
+  ) {
     if (plan.panId > 0) {
       for (final pan in controller.pans) {
         if (pan.id == plan.panId) {
@@ -1196,7 +1296,9 @@ class _DietPlanViewState extends State<DietPlanView> {
 
     if (feedTypeName.isEmpty && detail.subtypeId > 0) {
       for (final feedType in controller.feedTypes) {
-        final matchesSubtype = feedType.subtypes.any((subtype) => subtype.id == detail.subtypeId);
+        final matchesSubtype = feedType.subtypes.any(
+          (subtype) => subtype.id == detail.subtypeId,
+        );
         if (matchesSubtype) {
           feedTypeName = feedType.name.trim();
           break;
@@ -1408,8 +1510,12 @@ class _DietPlanViewState extends State<DietPlanView> {
                     child: OutlinedButton(
                       onPressed: () => Get.back(result: false),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.35)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: Text(
@@ -1427,13 +1533,18 @@ class _DietPlanViewState extends State<DietPlanView> {
                       onPressed: () => Get.back(result: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         elevation: 0,
                       ),
                       child: Text(
                         'delete'.tr,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),

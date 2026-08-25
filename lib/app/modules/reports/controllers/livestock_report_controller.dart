@@ -73,7 +73,6 @@ class LivestockReportController extends GetxController {
   Future<void> _boot() async {
     await _loadFarmerId();
     await fetchTargets();
-    await fetchReport();
   }
 
   Future<void> _loadFarmerId() async {

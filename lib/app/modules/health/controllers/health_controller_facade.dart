@@ -45,7 +45,8 @@ extension HealthControllerFacade on HealthController {
   Future<void> fetchVaccines() => vaccinationController.fetchVaccines();
   Future<void> fetchMastitisRecords() => mastitisController.fetchMastitisRecords();
   Future<void> fetchVaccinationRecords() => vaccinationController.fetchVaccinationRecords();
-  Future<void> fetchDmiRecords() => dmiController.fetchDmiRecords();
+  Future<void> fetchDmiRecords({bool forceRefresh = false}) =>
+      dmiController.fetchDmiRecords(forceRefresh: forceRefresh);
   Future<void> fetchReagentRecords() => reagentController.fetchReagentRecords();
 
   Future<bool> saveMedical({

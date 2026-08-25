@@ -76,7 +76,7 @@ class _ProfitLossViewState extends State<ProfitLossView> {
                 () {
                   final data = controller.summary.value;
                   return RefreshIndicator(
-                    onRefresh: controller.fetchSummary,
+                    onRefresh: () async {},
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 90),
                       children: [

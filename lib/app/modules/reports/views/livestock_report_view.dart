@@ -75,7 +75,7 @@ class _LivestockReportViewState extends State<LivestockReportView> {
                   final hasNoData = visibleSections.isEmpty ||
                       visibleSections.every((section) => section.rows.isEmpty);
                   return RefreshIndicator(
-                    onRefresh: controller.fetchReport,
+                    onRefresh: controller.fetchTargets,
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 90),
                       children: [

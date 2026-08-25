@@ -365,8 +365,16 @@ extension HealthDmiFilterHelper on HealthDmiController {
           .toList();
       final bodyWeight = rows.fold<double>(0, (sum, row) => sum + row.bodyWeightValue);
       final totalMilk = rows.fold<double>(0, (sum, row) => sum + row.totalMilkValue);
-      final requiredDmi = rows.fold<double>(0, (sum, row) => sum + row.requiredDmiValue);
-      final actualDmi = rows.fold<double>(0, (sum, row) => sum + row.actualDmiValue);
+      final panMetricRow = rows.firstWhere(
+        (row) => row.hasPanRequiredDmi || row.hasPanActualDmi,
+        orElse: () => first,
+      );
+      final requiredDmi = panMetricRow.hasPanRequiredDmi
+          ? panMetricRow.panRequiredDmiValue
+          : rows.fold<double>(0, (sum, row) => sum + row.requiredDmiValue);
+      final actualDmi = panMetricRow.hasPanActualDmi
+          ? panMetricRow.panActualDmiValue
+          : rows.fold<double>(0, (sum, row) => sum + row.actualDmiValue);
       final difference = double.parse((actualDmi - requiredDmi).toStringAsFixed(2));
       final alertStatus = difference.abs() <= 1.0
           ? 'Balanced'

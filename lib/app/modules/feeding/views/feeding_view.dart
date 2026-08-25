@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../controllers/feeding_controller.dart';
+import '../models/feeding_models.dart';
 import 'diet_plan_view.dart';
 
 class FeedingView extends GetView<FeedingController> {
@@ -30,8 +31,14 @@ class FeedingView extends GetView<FeedingController> {
                     _header(context),
                     Expanded(
                       child: SingleChildScrollView(
-                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomSafePadding + 24),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          14,
+                          16,
+                          bottomSafePadding + 24,
+                        ),
                         child: Form(
                           key: controller.formKey,
                           child: Column(
@@ -56,7 +63,12 @@ class FeedingView extends GetView<FeedingController> {
   Widget _header(BuildContext context) => Container(
     width: double.infinity,
     color: AppColors.primary,
-    padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
+    padding: EdgeInsets.fromLTRB(
+      8,
+      MediaQuery.of(context).padding.top + 4,
+      8,
+      6,
+    ),
     child: Row(
       children: [
         IconButton(
@@ -67,7 +79,11 @@ class FeedingView extends GetView<FeedingController> {
         const SizedBox(width: 8),
         Text(
           'add_feeding'.tr,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
       ],
     ),
@@ -78,7 +94,8 @@ class FeedingView extends GetView<FeedingController> {
       Get.back();
       return;
     }
-    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+    if (Get.isRegistered<BottomNavController>() &&
+        Get.find<BottomNavController>().closeDrawerPage()) {
       return;
     }
     Get.back();
@@ -87,111 +104,118 @@ class FeedingView extends GetView<FeedingController> {
   Widget _entryCalendar() {
     final weekdays = const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-    return Obx(
-      () {
-        final month = controller.entryCalendarMonth.value;
-        final firstDay = DateTime(month.year, month.month);
-        final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-        final leadingEmptyCells = firstDay.weekday % 7;
-        final totalCells = leadingEmptyCells + daysInMonth;
-        final trailingEmptyCells = (7 - (totalCells % 7)) % 7;
+    return Obx(() {
+      final month = controller.entryCalendarMonth.value;
+      final firstDay = DateTime(month.year, month.month);
+      final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
+      final leadingEmptyCells = firstDay.weekday % 7;
+      final totalCells = leadingEmptyCells + daysInMonth;
+      final trailingEmptyCells = (7 - (totalCells % 7)) % 7;
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(12, 9, 12, 11),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE0EADF)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.025),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _monthArrow(
-                    icon: Icons.chevron_left_rounded,
-                    onTap: () => controller.moveEntryCalendarMonth(-1),
-                  ),
-                  Expanded(
-                    child: Text(
-                      DateFormat('MMMM yyyy').format(month),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.black,
-                      ),
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 11),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE0EADF)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.025),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _monthArrow(
+                  icon: Icons.chevron_left_rounded,
+                  onTap: () => controller.moveEntryCalendarMonth(-1),
+                ),
+                Expanded(
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(month),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.black,
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  _monthArrow(
-                    icon: Icons.chevron_right_rounded,
-                    onTap: controller.canMoveEntryCalendarForward
-                        ? () => controller.moveEntryCalendarMonth(1)
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Container(
-                height: 24,
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Color(0xFFE8EFE8)),
-                    bottom: BorderSide(color: Color(0xFFE8EFE8)),
-                  ),
                 ),
-                child: Row(
-                  children: weekdays
-                      .map(
-                        (day) => Expanded(
-                          child: Center(
-                            child: Text(
-                              day,
-                              style: TextStyle(
-                                fontSize: 9.8,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.grey.shade600,
-                              ),
+                const SizedBox(width: 7),
+                _monthArrow(
+                  icon: Icons.chevron_right_rounded,
+                  onTap: controller.canMoveEntryCalendarForward
+                      ? () => controller.moveEntryCalendarMonth(1)
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Container(
+              height: 24,
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Color(0xFFE8EFE8)),
+                  bottom: BorderSide(color: Color(0xFFE8EFE8)),
+                ),
+              ),
+              child: Row(
+                children: weekdays
+                    .map(
+                      (day) => Expanded(
+                        child: Center(
+                          child: Text(
+                            day,
+                            style: TextStyle(
+                              fontSize: 9.8,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.grey.shade600,
                             ),
                           ),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 0,
+              crossAxisSpacing: 0,
+              childAspectRatio: 1.22,
+              children: [
+                ...List.generate(
+                  leadingEmptyCells,
+                  (_) => _calendarBlankBlock(),
                 ),
-              ),
-              GridView.count(
-                crossAxisCount: 7,
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 0,
-                crossAxisSpacing: 0,
-                childAspectRatio: 1.22,
-                children: [
-                  ...List.generate(leadingEmptyCells, (_) => _calendarBlankBlock()),
-                  ...List.generate(daysInMonth, (index) {
-                    final day = DateTime(month.year, month.month, index + 1);
-                    return _calendarDayBlock(day, controller.entryCountForDay(day));
-                  }),
-                  ...List.generate(trailingEmptyCells, (_) => _calendarBlankBlock()),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _calendarLegend(),
-            ],
-          ),
-        );
-      },
-    );
+                ...List.generate(daysInMonth, (index) {
+                  final day = DateTime(month.year, month.month, index + 1);
+                  return _calendarDayBlock(
+                    day,
+                    controller.entryCountForDay(day),
+                  );
+                }),
+                ...List.generate(
+                  trailingEmptyCells,
+                  (_) => _calendarBlankBlock(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _calendarLegend(),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _monthArrow({required IconData icon, required VoidCallback? onTap}) {
@@ -224,9 +248,10 @@ class FeedingView extends GetView<FeedingController> {
     final color = entryCount >= 2
         ? const Color(0xFF2EAD4B)
         : entryCount == 1
-            ? const Color(0xFFF2C94C)
-            : const Color(0xFFE5484D);
-    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+        ? const Color(0xFFF2C94C)
+        : const Color(0xFFE5484D);
+    final isToday =
+        date.year == now.year && date.month == now.month && date.day == now.day;
 
     return Container(
       decoration: BoxDecoration(
@@ -334,8 +359,9 @@ class FeedingView extends GetView<FeedingController> {
                     readOnly: true,
                     onTap: controller.pickDate,
                     decoration: _decoration('select_date'.tr),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? 'select_date_error'.tr : null,
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'select_date_error'.tr
+                        : null,
                   ),
                 ],
               ),
@@ -349,7 +375,10 @@ class FeedingView extends GetView<FeedingController> {
                   const SizedBox(height: 6),
                   Obx(
                     () => DropdownButtonFormField<String>(
-                      initialValue: controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value)
+                      initialValue:
+                          controller.availableFeedingTimes.contains(
+                            controller.selectedFeedingTime.value,
+                          )
                           ? controller.selectedFeedingTime.value
                           : null,
                       isExpanded: true,
@@ -363,14 +392,19 @@ class FeedingView extends GetView<FeedingController> {
                           .map(
                             (time) => DropdownMenuItem<String>(
                               value: time,
-                              child: Text(time, overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                time,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           )
                           .toList(),
                       onChanged: controller.availableFeedingTimes.isEmpty
                           ? null
-                          : (value) => controller.selectedFeedingTime.value = value ?? '',
-                      validator: (value) => value == null || value.trim().isEmpty
+                          : (value) => controller.selectedFeedingTime.value =
+                                value ?? '',
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
                           ? 'No feeding time available for this date'
                           : null,
                     ),
@@ -383,102 +417,98 @@ class FeedingView extends GetView<FeedingController> {
         const SizedBox(height: 12),
         _label('select_animal'.tr, requiredField: true),
         const SizedBox(height: 6),
-        Obx(
-          () {
-            final selectedAnimal = controller.selectedAnimal.value;
-            final resolvedAnimal = selectedAnimal == null
-                ? null
-                : controller.animals.firstWhereOrNull(
-                    (animal) => animal.id == selectedAnimal.id,
-                  );
+        Obx(() {
+          final selectedAnimal = controller.selectedAnimal.value;
+          final resolvedAnimal = selectedAnimal == null
+              ? null
+              : controller.animals.firstWhereOrNull(
+                  (animal) => animal.id == selectedAnimal.id,
+                );
 
-            return DropdownButtonFormField<FeedingAnimalModel>(
-              initialValue: resolvedAnimal,
-              isExpanded: true,
-              dropdownColor: const Color(0xFFF4FAF4),
-              decoration: _decoration('choose_animal'.tr),
-              items: controller.animals
-                  .map(
-                    (animal) => DropdownMenuItem(
-                      value: animal,
-                      child: Text(animal.displayName, overflow: TextOverflow.ellipsis),
+          return DropdownButtonFormField<FeedingAnimalModel>(
+            initialValue: resolvedAnimal,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('choose_animal'.tr),
+            items: controller.animals
+                .map(
+                  (animal) => DropdownMenuItem(
+                    value: animal,
+                    child: Text(
+                      animal.displayName,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                  .toList(),
-              onChanged: controller.selectAnimal,
-              validator: (value) {
-                if (value == null && controller.selectedPan.value == null) {
-                  return 'select_animal_error'.tr;
-                }
-                return null;
-              },
-            );
-          },
-        ),
+                  ),
+                )
+                .toList(),
+            onChanged: controller.selectAnimal,
+            validator: (value) {
+              if (value == null && controller.selectedPan.value == null) {
+                return 'select_animal_error'.tr;
+              }
+              return null;
+            },
+          );
+        }),
         const SizedBox(height: 12),
         _label('select_pan'.tr, requiredField: true),
         const SizedBox(height: 6),
-        Obx(
-          () {
-            final selectedPan = controller.selectedPan.value;
-            final resolvedPan = selectedPan == null
-                ? null
-                : controller.pans.firstWhereOrNull(
-                    (pan) => pan.matches(selectedPan),
-                  );
+        Obx(() {
+          final selectedPan = controller.selectedPan.value;
+          final resolvedPan = selectedPan == null
+              ? null
+              : controller.pans.firstWhereOrNull(
+                  (pan) => pan.matches(selectedPan),
+                );
 
-            return DropdownButtonFormField<FeedingPanModel>(
-              initialValue: resolvedPan,
-              isExpanded: true,
-              dropdownColor: const Color(0xFFF4FAF4),
-              decoration: _decoration('select_pan'.tr),
-              items: controller.pans
-                  .map(
-                    (pan) => DropdownMenuItem(
-                      value: pan,
-                      child: Text(pan.name, overflow: TextOverflow.ellipsis),
-                    ),
-                  )
-                  .toList(),
-              onChanged: controller.pans.isEmpty
-                  ? null
-                  : controller.selectPan,
-            );
-          },
-        ),
+          return DropdownButtonFormField<FeedingPanModel>(
+            initialValue: resolvedPan,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('select_pan'.tr),
+            items: controller.pans
+                .map(
+                  (pan) => DropdownMenuItem(
+                    value: pan,
+                    child: Text(pan.name, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: controller.pans.isEmpty ? null : controller.selectPan,
+          );
+        }),
         const SizedBox(height: 12),
         _dietPlanHeader(),
         const SizedBox(height: 6),
-        Obx(
-          () {
-            final selectedId = controller.selectedDietPlanId.value;
-            final resolvedSelectedId = (selectedId != null &&
-                    controller.dietPlans.any((plan) => plan.id == selectedId))
-                ? selectedId
-                : null;
+        Obx(() {
+          final selectedId = controller.selectedDietPlanId.value;
+          final resolvedSelectedId =
+              (selectedId != null &&
+                  controller.dietPlans.any((plan) => plan.id == selectedId))
+              ? selectedId
+              : null;
 
-            return DropdownButtonFormField<int>(
-              initialValue: resolvedSelectedId,
-              isExpanded: true,
-              dropdownColor: const Color(0xFFF4FAF4),
-              decoration: _decoration('select_diet_plan'.tr),
-                items: controller.dietPlans
-                    .map(
-                      (plan) => DropdownMenuItem<int>(
-                        value: plan.id,
-                        child: Text(
-                          controller.dietPlanDisplayLabel(plan),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              onChanged: controller.dietPlans.isEmpty
-                  ? null
-                  : controller.selectDietPlanById,
-            );
-          },
-        ),
+          return DropdownButtonFormField<int>(
+            initialValue: resolvedSelectedId,
+            isExpanded: true,
+            dropdownColor: const Color(0xFFF4FAF4),
+            decoration: _decoration('select_diet_plan'.tr),
+            items: controller.dietPlans
+                .map(
+                  (plan) => DropdownMenuItem<int>(
+                    value: plan.id,
+                    child: Text(
+                      controller.dietPlanDisplayLabel(plan),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: controller.dietPlans.isEmpty
+                ? null
+                : controller.selectDietPlanById,
+          );
+        }),
         const SizedBox(height: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,7 +518,9 @@ class FeedingView extends GetView<FeedingController> {
             TextFormField(
               controller: controller.quantityController,
               focusNode: controller.quantityFocus,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: _decoration('enter_quantity'.tr),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -532,7 +564,9 @@ class FeedingView extends GetView<FeedingController> {
                   TextFormField(
                     controller: controller.ratePerUnitController,
                     focusNode: controller.ratePerUnitFocus,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: _decoration('enter_rate_per_unit'.tr),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -560,7 +594,8 @@ class FeedingView extends GetView<FeedingController> {
                       key: ValueKey(
                         'feeding_cost_${controller.feedingCost.value.toStringAsFixed(2)}',
                       ),
-                      initialValue: controller.feedingCost.value.toStringAsFixed(2),
+                      initialValue: controller.feedingCost.value
+                          .toStringAsFixed(2),
                       readOnly: true,
                       decoration: _decoration('0.00'),
                     ),
@@ -617,16 +652,14 @@ class FeedingView extends GetView<FeedingController> {
 
   Future<void> _openDietPlanEditor(FeedDietPlanModel plan) async {
     final updated = await Get.to<bool>(
-      () => DietPlanView(
-        mode: DietPlanViewMode.edit,
-        initialPlan: plan,
-      ),
+      () => DietPlanView(mode: DietPlanViewMode.edit, initialPlan: plan),
     );
     if (updated != true) return;
 
     await controller.fetchDietPlans();
     controller.selectDietPlanById(plan.id);
   }
+
   Widget _button() => Obx(
     () => SizedBox(
       width: double.infinity,
@@ -634,7 +667,7 @@ class FeedingView extends GetView<FeedingController> {
       child: ElevatedButton(
         onPressed:
             controller.isSubmitting.value ||
-            controller.isScheduleLoading.value ||
+                controller.isScheduleLoading.value ||
                 controller.animals.isEmpty ||
                 controller.availableFeedingTimes.isEmpty ||
                 controller.feedTypes.isEmpty
@@ -646,7 +679,8 @@ class FeedingView extends GetView<FeedingController> {
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: controller.isSubmitting.value || controller.isScheduleLoading.value
+        child:
+            controller.isSubmitting.value || controller.isScheduleLoading.value
             ? const SizedBox(
                 height: 22,
                 width: 22,
@@ -678,7 +712,11 @@ class FeedingView extends GetView<FeedingController> {
         ),
         children: [
           TextSpan(text: value),
-          if (requiredField) const TextSpan(text: ' *', style: TextStyle(color: AppColors.primary)),
+          if (requiredField)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(color: AppColors.primary),
+            ),
         ],
       ),
     ),
@@ -715,16 +753,33 @@ class FeedingView extends GetView<FeedingController> {
       return;
     }
 
-    if (controller.selectedAnimal.value == null && controller.selectedPan.value == null) {
-      Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr, snackPosition: SnackPosition.BOTTOM);
+    if (controller.selectedAnimal.value == null &&
+        controller.selectedPan.value == null) {
+      Get.snackbar(
+        'error'.tr,
+        'please_select_animal_or_pan'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
-    if (controller.dietPlans.isNotEmpty && controller.selectedDietPlan.value == null) {
-      Get.snackbar('error'.tr, 'please_select_diet_plan_for_selected_animal_pan'.tr, snackPosition: SnackPosition.BOTTOM);
+    if (controller.dietPlans.isNotEmpty &&
+        controller.selectedDietPlan.value == null) {
+      Get.snackbar(
+        'error'.tr,
+        'please_select_diet_plan_for_selected_animal_pan'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
-    if (controller.selectedFeedingTime.value.trim().isEmpty || !controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value)) {
-      Get.snackbar('info'.tr, 'no_feeding_time_available_selected_date'.tr, snackPosition: SnackPosition.BOTTOM);
+    if (controller.selectedFeedingTime.value.trim().isEmpty ||
+        !controller.availableFeedingTimes.contains(
+          controller.selectedFeedingTime.value,
+        )) {
+      Get.snackbar(
+        'info'.tr,
+        'no_feeding_time_available_selected_date'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 

@@ -7,17 +7,28 @@ class DmiRepository {
     required int farmerId,
     required DateTime fromDate,
     required DateTime toDate,
+    void Function(List<DmiRecordItem> records)? onCached,
+    bool forceRefresh = false,
   }) async {
+    final from = DateFormat('yyyy-MM-dd').format(fromDate);
+    final to = DateFormat('yyyy-MM-dd').format(toDate);
     final uri = Uri.parse('${Api.healthDmi}/$farmerId').replace(
       queryParameters: {
-        'from_date': DateFormat('yyyy-MM-dd').format(fromDate),
-        'to_date': DateFormat('yyyy-MM-dd').format(toDate),
+        'from_date': from,
+        'to_date': to,
       },
     );
-    final response = await _api.get(uri);
-    if (!response.hasTrueStatus) return null;
-    final List list = response.data['data'] ?? [];
-    return list.map((item) => DmiRecordItem.fromJson(item)).toList();
+    final data = await CachedApiService.instance.getMap(
+      key: 'health_dmi_${farmerId}_${from}_$to',
+      uri: uri,
+      onCached: (cached) {
+        if (cached['status'] != true) return;
+        onCached?.call(_parseDmiRecords(cached['data']));
+      },
+      forceRefresh: forceRefresh,
+    );
+    if (data == null || data['status'] != true) return null;
+    return _parseDmiRecords(data['data']);
   }
 
   Future<HealthApiResponse> saveDmi({
@@ -45,5 +56,13 @@ class DmiRepository {
       return bodyWeight * 0.025;
     }
     return (bodyWeight * 0.02) + (totalMilk * 0.33);
+  }
+
+  List<DmiRecordItem> _parseDmiRecords(dynamic raw) {
+    final list = raw is List ? raw : const [];
+    return list
+        .whereType<Map>()
+        .map((item) => DmiRecordItem.fromJson(item.cast<String, dynamic>()))
+        .toList();
   }
 }

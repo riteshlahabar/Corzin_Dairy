@@ -30,21 +30,18 @@ class ProfitLossController extends GetxController {
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
-    await fetchSummary();
   }
 
   Future<void> pickFromDate(BuildContext context) async {
     final picked = await _pickDate(context, fromDateController.text);
     if (picked == null) return;
     fromDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-    await fetchSummary();
   }
 
   Future<void> pickToDate(BuildContext context) async {
     final picked = await _pickDate(context, toDateController.text);
     if (picked == null) return;
     toDateController.text = DateFormat('dd/MM/yyyy').format(picked);
-    await fetchSummary();
   }
 
   Future<DateTime?> _pickDate(BuildContext context, String existingText) async {

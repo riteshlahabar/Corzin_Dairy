@@ -226,14 +226,20 @@ String _translatedAnimalTypeFilterLabel(String rawName) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
-              if (status.isNotEmpty) _statusPill(status),
+              if (status.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Flexible(child: Align(alignment: Alignment.centerRight, child: _statusPill(status))),
+              ],
               if (action != null) ...[
                 const SizedBox(width: 6),
                 action,
@@ -268,26 +274,33 @@ String _translatedAnimalTypeFilterLabel(String rawName) {
   }
 
   Widget _metaPill(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF7EF),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11.5,
-              color: AppColors.grey.shade800,
-              fontWeight: FontWeight.w600,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF7EF),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.grey.shade800,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -301,18 +314,23 @@ String _translatedAnimalTypeFilterLabel(String rawName) {
         statusLower == 'recovered'.tr.toLowerCase() ||
         statusLower == 'negative' ||
         statusLower == 'negative'.tr.toLowerCase();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isGood ? const Color(0xFFEAF8EE) : const Color(0xFFFFF4E8),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w700,
-          color: isGood ? const Color(0xFF167B33) : const Color(0xFFB66A00),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 120),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isGood ? const Color(0xFFEAF8EE) : const Color(0xFFFFF4E8),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          status,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: isGood ? const Color(0xFF167B33) : const Color(0xFFB66A00),
+          ),
         ),
       ),
     );

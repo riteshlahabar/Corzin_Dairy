@@ -26,14 +26,23 @@ class HealthMedicalController {
     }
 
     try {
-      final result = await _medicalRepository.fetchAnimals(farmerId);
+      void apply(List<HealthAnimalItem> records) {
+        animals.assignAll(records);
+      }
+
+      final result = await _medicalRepository.fetchAnimals(
+        farmerId,
+        onCached: apply,
+      );
       if (result != null) {
-        animals.assignAll(result);
-      } else {
+        apply(result);
+      } else if (animals.isEmpty) {
         animals.clear();
       }
     } catch (_) {
-      animals.clear();
+      if (animals.isEmpty) {
+        animals.clear();
+      }
     }
   }
 
