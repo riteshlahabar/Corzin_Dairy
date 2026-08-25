@@ -138,6 +138,7 @@ class _LivestockReportViewState extends State<LivestockReportView> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
+            key: ValueKey('report_scope_$selectedScope'),
             initialValue: selectedScope,
             decoration: _decoration('report_scope'.tr),
             dropdownColor: const Color(0xFFF2FAF2),
@@ -151,6 +152,7 @@ class _LivestockReportViewState extends State<LivestockReportView> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
+            key: ValueKey('report_type_$selectedReportType'),
             initialValue: selectedReportType,
             decoration: _decoration('report_type'.tr),
             dropdownColor: const Color(0xFFF2FAF2),
@@ -196,6 +198,7 @@ class _LivestockReportViewState extends State<LivestockReportView> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<int?>(
+            key: ValueKey('report_target_${selectedScope}_${dropdownValue ?? 0}_${targetIds.length}'),
             initialValue: dropdownValue,
             decoration: _decoration(
               selectedScope == 'pan' ? 'select_pan'.tr : 'select_animal'.tr,

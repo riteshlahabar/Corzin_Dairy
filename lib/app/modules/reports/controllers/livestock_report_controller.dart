@@ -37,6 +37,9 @@ class LivestockReportController extends GetxController {
   int farmerId = 0;
   String _appliedFromDateText = '';
   String _appliedToDateText = '';
+  int _targetRequestVersion = 0;
+  int _reportRequestVersion = 0;
+  bool _isControllerClosed = false;
 
   static const String reportTypeAll = 'all';
   static const String reportTypeMilk = 'milk';
@@ -107,6 +110,7 @@ class LivestockReportController extends GetxController {
   }
 
   Future<void> fetchTargets() async {
+    final requestVersion = ++_targetRequestVersion;
     if (farmerId == 0) {
       targets.clear();
       return;
@@ -119,6 +123,7 @@ class LivestockReportController extends GetxController {
           ).replace(queryParameters: const {'include_inactive': '1'});
     try {
       void apply(Map<String, dynamic> body) {
+        if (!_canApplyTargets(requestVersion)) return;
         if (body['status'] != true) return;
         
         final List<dynamic> list = body['data'] ?? <dynamic>[];
@@ -161,12 +166,14 @@ class LivestockReportController extends GetxController {
         uri: uri,
         onCached: apply,
       );
+      if (!_canApplyTargets(requestVersion)) return;
       if (body == null || body['status'] != true) {
         targets.clear();
         return;
       }
       apply(body);
     } catch (_) {
+      if (!_canApplyTargets(requestVersion)) return;
       if (targets.isEmpty) {
         targets.clear();
       }
@@ -175,13 +182,13 @@ class LivestockReportController extends GetxController {
 
   Future<void> pickFromDate(BuildContext context) async {
     final picked = await _pickDate(context, fromDateController.text);
-    if (picked == null) return;
+    if (picked == null || _isControllerClosed) return;
     fromDateController.text = DateFormat('dd/MM/yyyy').format(picked);
   }
 
   Future<void> pickToDate(BuildContext context) async {
     final picked = await _pickDate(context, toDateController.text);
-    if (picked == null) return;
+    if (picked == null || _isControllerClosed) return;
     toDateController.text = DateFormat('dd/MM/yyyy').format(picked);
   }
 
@@ -205,6 +212,7 @@ class LivestockReportController extends GetxController {
   }
 
   Future<void> fetchReport() async {
+    final requestVersion = ++_reportRequestVersion;
     if (farmerId == 0) {
       rows.clear();
       totals.value = LivestockReportTotals.zero();
@@ -227,12 +235,14 @@ class LivestockReportController extends GetxController {
     }
 
     try {
-      isLoading.value = rows.isEmpty;
+      if (!_canApplyReport(requestVersion)) return;
+      isLoading.value = true;
       final uri = Uri.parse(
         '${Api.livestockReport}/$farmerId',
       ).replace(queryParameters: query);
 
       Future<void> apply(Map<String, dynamic> body) async {
+        if (!_canApplyReport(requestVersion)) return;
         if (body['status'] != true) return;
         final data = body['data'] is Map
             ? Map<String, dynamic>.from(body['data'])
@@ -244,13 +254,16 @@ class LivestockReportController extends GetxController {
                   LivestockReportRow.fromJson(Map<String, dynamic>.from(item)),
             )
             .toList();
-        rows.assignAll(list);
-        totals.value = LivestockReportTotals.fromJson(
+        final nextTotals = LivestockReportTotals.fromJson(
           data['totals'] is Map
               ? Map<String, dynamic>.from(data['totals'])
               : <String, dynamic>{},
         );
-        sectionReports.assignAll(await _buildDetailedSections());
+        final nextSections = await _buildDetailedSections(forceRefresh: true);
+        if (!_canApplyReport(requestVersion)) return;
+        rows.assignAll(list);
+        totals.value = nextTotals;
+        sectionReports.assignAll(nextSections);
         isLoading.value = false;
       }
 
@@ -258,8 +271,9 @@ class LivestockReportController extends GetxController {
       final body = await CachedApiService.instance.getMap(
         key: cacheKey,
         uri: uri,
-        onCached: (cached) => unawaited(apply(cached)),
+        forceRefresh: true,
       );
+      if (!_canApplyReport(requestVersion)) return;
       if (body == null || body['status'] != true) {
         rows.clear();
         totals.value = LivestockReportTotals.zero();
@@ -267,14 +281,25 @@ class LivestockReportController extends GetxController {
       }
       await apply(body);
     } catch (_) {
+      if (!_canApplyReport(requestVersion)) return;
       if (rows.isEmpty) {
         rows.clear();
         totals.value = LivestockReportTotals.zero();
         sectionReports.clear();
       }
     } finally {
-      isLoading.value = false;
+      if (_canApplyReport(requestVersion)) {
+        isLoading.value = false;
+      }
     }
+  }
+
+  bool _canApplyTargets(int requestVersion) {
+    return !_isControllerClosed && requestVersion == _targetRequestVersion;
+  }
+
+  bool _canApplyReport(int requestVersion) {
+    return !_isControllerClosed && requestVersion == _reportRequestVersion;
   }
 
   String get scopeLabel =>
@@ -611,7 +636,9 @@ class LivestockReportController extends GetxController {
     }
   }
 
-  Future<List<ReportSectionData>> _buildDetailedSections() async {
+  Future<List<ReportSectionData>> _buildDetailedSections({
+    bool forceRefresh = false,
+  }) async {
     if (farmerId <= 0) return const <ReportSectionData>[];
     final rangeStart =
         _parseDisplayDate(fromDateController.text.trim()) ?? DateTime.now();
@@ -626,24 +653,51 @@ class LivestockReportController extends GetxController {
       59,
       59,
     );
+    final dateRangeQuery = <String, String>{
+      'from_date': _apiDate(fromDateController.text.trim()),
+      'to_date': _apiDate(toDateController.text.trim()),
+    };
 
     final result = await Future.wait<List<Map<String, dynamic>>>([
       _fetchListFromApi(
         '${Api.animalList}/$farmerId',
         query: const {'include_inactive': '1'},
+        forceRefresh: forceRefresh,
       ),
-      _fetchListFromApi('${Api.milkList}/$farmerId'),
-      _fetchListFromApi('${Api.feedingList}/$farmerId'),
-      _fetchListFromApi('${Api.animalHistory}/$farmerId'),
-      _fetchListFromApi('${Api.doctorAppointmentsByFarmer}/$farmerId'),
-      _fetchListFromApi('${Api.pregnancyList}/$farmerId'),
-      _fetchListFromApi('${Api.healthMastitis}/$farmerId'),
+      _fetchListFromApi(
+        '${Api.milkList}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
+      _fetchListFromApi(
+        '${Api.feedingList}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
+      _fetchListFromApi(
+        '${Api.animalHistory}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
+      _fetchListFromApi(
+        '${Api.doctorAppointmentsByFarmer}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
+      _fetchListFromApi(
+        '${Api.pregnancyList}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
+      _fetchListFromApi(
+        '${Api.healthMastitis}/$farmerId',
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
+      ),
       _fetchListFromApi(
         '${Api.healthDmi}/$farmerId',
-        query: <String, String>{
-          'from_date': _apiDate(fromDateController.text.trim()),
-          'to_date': _apiDate(toDateController.text.trim()),
-        },
+        query: dateRangeQuery,
+        forceRefresh: forceRefresh,
       ),
     ]);
 
@@ -1116,12 +1170,14 @@ class LivestockReportController extends GetxController {
   Future<List<Map<String, dynamic>>> _fetchListFromApi(
     String endpoint, {
     Map<String, String>? query,
+    bool forceRefresh = false,
   }) async {
     try {
       final uri = Uri.parse(endpoint).replace(queryParameters: query);
-      final body = await CachedApiService.instance.getMapPreferCache(
+      final body = await CachedApiService.instance.getMap(
         key: 'report_list_${uri.toString()}',
         uri: uri,
+        forceRefresh: forceRefresh,
       );
       if (body == null || body['status'] != true) {
         return const <Map<String, dynamic>>[];
@@ -1864,6 +1920,9 @@ class LivestockReportController extends GetxController {
 
   @override
   void onClose() {
+    _isControllerClosed = true;
+    _targetRequestVersion++;
+    _reportRequestVersion++;
     fromDateController.dispose();
     toDateController.dispose();
     super.onClose();
