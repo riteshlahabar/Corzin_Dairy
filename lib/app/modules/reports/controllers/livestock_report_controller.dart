@@ -12,6 +12,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/cached_api_service.dart';
+import '../../../core/services/local_api_cache_service.dart';
 import '../../../core/utils/api.dart';
 
 class LivestockReportController extends GetxController {
@@ -241,7 +242,11 @@ class LivestockReportController extends GetxController {
         '${Api.livestockReport}/$farmerId',
       ).replace(queryParameters: query);
 
-      Future<void> apply(Map<String, dynamic> body) async {
+      Future<void> apply(
+        Map<String, dynamic> body, {
+        required bool useCachedLists,
+        required bool finishLoading,
+      }) async {
         if (!_canApplyReport(requestVersion)) return;
         if (body['status'] != true) return;
         final data = body['data'] is Map
@@ -259,15 +264,27 @@ class LivestockReportController extends GetxController {
               ? Map<String, dynamic>.from(data['totals'])
               : <String, dynamic>{},
         );
-        final nextSections = await _buildDetailedSections(forceRefresh: true);
+        final nextSections = await _buildDetailedSections(
+          forceRefresh: !useCachedLists,
+          cacheOnly: useCachedLists,
+        );
         if (!_canApplyReport(requestVersion)) return;
         rows.assignAll(list);
         totals.value = nextTotals;
         sectionReports.assignAll(nextSections);
-        isLoading.value = false;
+        if (finishLoading || _sectionsHaveRows(nextSections)) {
+          isLoading.value = false;
+        }
       }
 
       final cacheKey = 'livestock_report_${farmerId}_${query.entries.map((entry) => '${entry.key}_${entry.value}').join('_')}';
+      final cachedBody = await LocalApiCacheService.instance.readMap(cacheKey);
+      if (_canApplyReport(requestVersion) &&
+          cachedBody != null &&
+          cachedBody['status'] == true) {
+        await apply(cachedBody, useCachedLists: true, finishLoading: false);
+      }
+
       final body = await CachedApiService.instance.getMap(
         key: cacheKey,
         uri: uri,
@@ -279,7 +296,7 @@ class LivestockReportController extends GetxController {
         totals.value = LivestockReportTotals.zero();
         return;
       }
-      await apply(body);
+      await apply(body, useCachedLists: false, finishLoading: true);
     } catch (_) {
       if (!_canApplyReport(requestVersion)) return;
       if (rows.isEmpty) {
@@ -300,6 +317,10 @@ class LivestockReportController extends GetxController {
 
   bool _canApplyReport(int requestVersion) {
     return !_isControllerClosed && requestVersion == _reportRequestVersion;
+  }
+
+  bool _sectionsHaveRows(List<ReportSectionData> sections) {
+    return sections.any((section) => section.rows.isNotEmpty);
   }
 
   String get scopeLabel =>
@@ -638,6 +659,7 @@ class LivestockReportController extends GetxController {
 
   Future<List<ReportSectionData>> _buildDetailedSections({
     bool forceRefresh = false,
+    bool cacheOnly = false,
   }) async {
     if (farmerId <= 0) return const <ReportSectionData>[];
     final rangeStart =
@@ -663,41 +685,49 @@ class LivestockReportController extends GetxController {
         '${Api.animalList}/$farmerId',
         query: const {'include_inactive': '1'},
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.milkList}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.feedingList}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.animalHistory}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.doctorAppointmentsByFarmer}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.pregnancyList}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.healthMastitis}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
       _fetchListFromApi(
         '${Api.healthDmi}/$farmerId',
         query: dateRangeQuery,
         forceRefresh: forceRefresh,
+        cacheOnly: cacheOnly,
       ),
     ]);
 
@@ -1171,14 +1201,18 @@ class LivestockReportController extends GetxController {
     String endpoint, {
     Map<String, String>? query,
     bool forceRefresh = false,
+    bool cacheOnly = false,
   }) async {
     try {
       final uri = Uri.parse(endpoint).replace(queryParameters: query);
-      final body = await CachedApiService.instance.getMap(
-        key: 'report_list_${uri.toString()}',
-        uri: uri,
-        forceRefresh: forceRefresh,
-      );
+      final cacheKey = 'report_list_${uri.toString()}';
+      final body = cacheOnly
+          ? await LocalApiCacheService.instance.readMap(cacheKey)
+          : await CachedApiService.instance.getMap(
+              key: cacheKey,
+              uri: uri,
+              forceRefresh: forceRefresh,
+            );
       if (body == null || body['status'] != true) {
         return const <Map<String, dynamic>>[];
       }

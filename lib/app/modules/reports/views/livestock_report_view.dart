@@ -15,20 +15,23 @@ class LivestockReportView extends StatefulWidget {
 }
 
 class _LivestockReportViewState extends State<LivestockReportView> {
+  late final String _controllerTag;
   late final LivestockReportController controller;
 
   @override
   void initState() {
     super.initState();
-    controller = Get.isRegistered<LivestockReportController>()
-        ? Get.find<LivestockReportController>()
-        : Get.put(LivestockReportController());
+    _controllerTag = 'livestock_report_${identityHashCode(this)}';
+    controller = Get.put(
+      LivestockReportController(),
+      tag: _controllerTag,
+    );
   }
 
   @override
   void dispose() {
-    if (Get.isRegistered<LivestockReportController>()) {
-      Get.delete<LivestockReportController>();
+    if (Get.isRegistered<LivestockReportController>(tag: _controllerTag)) {
+      Get.delete<LivestockReportController>(tag: _controllerTag);
     }
     super.dispose();
   }
