@@ -121,19 +121,44 @@ class FarmerDetailsView extends GetView<FarmerDetailsController> {
                     const SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: controller.submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          minimumSize: const Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                      child: Obx(
+                        () => ElevatedButton(
+                          onPressed: controller.isSubmitting.value
+                              ? null
+                              : controller.submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.65),
+                            disabledForegroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 55),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            elevation: 2,
                           ),
-                          elevation: 2,
-                        ),
-                        child: Text(
-                          "submit".tr,
-                          style: const TextStyle(fontSize: 16),
+                          child: controller.isSubmitting.value
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text("Registering..."),
+                                  ],
+                                )
+                              : Text(
+                                  "submit".tr,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                         ),
                       ),
                     ),

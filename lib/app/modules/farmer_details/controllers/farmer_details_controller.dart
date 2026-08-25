@@ -31,6 +31,7 @@ class FarmerDetailsController extends GetxController {
   final Rxn<XFile> selectedPhoto = Rxn<XFile>();
 
   final isLocationLoading = false.obs;
+  final isSubmitting = false.obs;
   final states = <String>[].obs;
   final districts = <String>[].obs;
   final talukas = <String>[].obs;
@@ -193,6 +194,8 @@ class FarmerDetailsController extends GetxController {
   }
 
   void submit() async {
+    if (isSubmitting.value) return;
+
     if (firstName.text.trim().isEmpty) {
       Get.snackbar('error'.tr, 'enter_first_name'.tr);
       return;
@@ -232,6 +235,7 @@ class FarmerDetailsController extends GetxController {
     }
 
     try {
+      isSubmitting.value = true;
       final deviceId = await SessionService.getOrCreateDeviceId();
       final fcmToken = await _loadFcmToken();
       final request = http.MultipartRequest("POST", Uri.parse(Api.addFarmer));
@@ -308,6 +312,8 @@ class FarmerDetailsController extends GetxController {
       }
     } catch (_) {
       Get.snackbar('error'.tr, 'something_went_wrong'.tr);
+    } finally {
+      isSubmitting.value = false;
     }
   }
 

@@ -32,6 +32,8 @@ class OnboardingView extends GetView<OnboardingController> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafePadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
@@ -98,7 +100,7 @@ class OnboardingView extends GetView<OnboardingController> {
           ),
 
           Positioned(
-            bottom: 30,
+            bottom: bottomSafePadding + 24,
             left: 20,
             right: 20,
             child: Column(
