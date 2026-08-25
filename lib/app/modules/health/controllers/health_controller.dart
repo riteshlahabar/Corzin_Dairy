@@ -113,7 +113,10 @@ class HealthController extends GetxController {
         await Future.wait([
           medicalController.fetchAnimals(),
           mastitisController.fetchMastitisRecords(),
-          reagentController.fetchReagentRecords(),
+          reagentController.fetchReagentRecords(
+            showLoader: false,
+            summaryOnly: true,
+          ),
         ]);
         break;
       case HealthSection.vaccination:

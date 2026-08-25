@@ -48,7 +48,16 @@ extension HealthControllerFacade on HealthController {
   Future<void> fetchVaccinationRecords() => vaccinationController.fetchVaccinationRecords();
   Future<void> fetchDmiRecords({bool forceRefresh = false}) =>
       dmiController.fetchDmiRecords(forceRefresh: forceRefresh);
-  Future<void> fetchReagentRecords() => reagentController.fetchReagentRecords();
+  Future<void> fetchReagentRecords({
+    bool forceRefresh = false,
+    bool showLoader = true,
+    bool summaryOnly = false,
+  }) =>
+      reagentController.fetchReagentRecords(
+        forceRefresh: forceRefresh,
+        showLoader: showLoader,
+        summaryOnly: summaryOnly,
+      );
 
   Future<bool> saveMedical({
     required int animalId,

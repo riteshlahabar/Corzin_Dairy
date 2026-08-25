@@ -20,7 +20,11 @@ class HealthReagentController {
     farmerId = value;
   }
 
-  Future<void> fetchReagentRecords() async {
+  Future<void> fetchReagentRecords({
+    bool forceRefresh = false,
+    bool showLoader = true,
+    bool summaryOnly = false,
+  }) async {
     if (farmerId == 0) {
       reagentUsages.clear();
       reagentBalanceMl.value = 0;
@@ -28,20 +32,39 @@ class HealthReagentController {
     }
 
     try {
-      isLoading.value = true;
-      final result = await _reagentRepository.fetchReagentRecords(farmerId);
+      if (showLoader) {
+        isLoading.value = reagentUsages.isEmpty;
+      }
+
+      void apply(ReagentRecordsResult records) {
+        reagentBalanceMl.value = records.balanceMl;
+        reagentUsages.assignAll(records.usages);
+        if (showLoader) {
+          isLoading.value = false;
+        }
+      }
+
+      final result = await _reagentRepository.fetchReagentRecords(
+        farmerId,
+        onCached: apply,
+        forceRefresh: forceRefresh,
+        summaryOnly: summaryOnly,
+      );
       if (result != null) {
-        reagentBalanceMl.value = result.balanceMl;
-        reagentUsages.assignAll(result.usages);
-      } else {
+        apply(result);
+      } else if (reagentUsages.isEmpty) {
         reagentUsages.clear();
         reagentBalanceMl.value = 0;
       }
     } catch (_) {
-      reagentUsages.clear();
-      reagentBalanceMl.value = 0;
+      if (reagentUsages.isEmpty) {
+        reagentUsages.clear();
+        reagentBalanceMl.value = 0;
+      }
     } finally {
-      isLoading.value = false;
+      if (showLoader) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -54,7 +77,7 @@ class HealthReagentController {
         quantityMl: quantityMl,
       ),
       successMessage: 'reagent_added_successfully'.tr,
-      onSuccess: fetchReagentRecords,
+      onSuccess: () => fetchReagentRecords(forceRefresh: true),
       showSuccessSnackbar: false,
     );
   }

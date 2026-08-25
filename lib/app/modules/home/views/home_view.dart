@@ -700,8 +700,8 @@ class HomeView extends GetView<HomeController> {
             child: PageView(
               onPageChanged: (index) => controller.insightCardIndex.value = index,
               children: [
-                _graphInsightCard(),
                 _planWarningCard(plan: plan, shouldBlink: shouldBlink, blinkOn: blinkOn),
+                _graphInsightCard(),
               ],
             ),
           ),

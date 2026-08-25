@@ -5,7 +5,12 @@ class HealthMastitisController {
     required this.isLoading,
     required HealthSubmitCoordinator submitter,
     required List<HealthAnimalItem> Function() animalsProvider,
-    required Future<void> Function() refreshReagentRecords,
+    required Future<void> Function({
+      bool forceRefresh,
+      bool showLoader,
+      bool summaryOnly,
+    })
+    refreshReagentRecords,
   })  : _submitter = submitter,
         _animalsProvider = animalsProvider,
         _refreshReagentRecords = refreshReagentRecords;
@@ -13,7 +18,12 @@ class HealthMastitisController {
   final RxBool isLoading;
   final HealthSubmitCoordinator _submitter;
   final List<HealthAnimalItem> Function() _animalsProvider;
-  final Future<void> Function() _refreshReagentRecords;
+  final Future<void> Function({
+    bool forceRefresh,
+    bool showLoader,
+    bool summaryOnly,
+  })
+  _refreshReagentRecords;
   final MastitisRepository _mastitisRepository = MastitisRepository();
 
   final RxList<MastitisRecordItem> mastitisRecords =
@@ -75,7 +85,11 @@ class HealthMastitisController {
       onSuccess: () async {
         await Future.wait([
           fetchMastitisRecords(forceRefresh: true),
-          _refreshReagentRecords(),
+          _refreshReagentRecords(
+            forceRefresh: true,
+            showLoader: false,
+            summaryOnly: true,
+          ),
         ]);
       },
       showSuccessSnackbar: false,
