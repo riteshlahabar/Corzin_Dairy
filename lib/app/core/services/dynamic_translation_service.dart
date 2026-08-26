@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:get/get.dart';
@@ -23,8 +24,11 @@ class DynamicTranslationService {
 
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
+    // Cached translation is available immediately.
     _applyFromCache(prefs.getString(_cacheKey));
-    await refresh();
+
+    // Do not block app startup while waiting for the server.
+    unawaited(refresh());
   }
 
   static Future<void> refresh() async {

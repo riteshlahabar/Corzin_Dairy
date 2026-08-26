@@ -11,6 +11,10 @@ class CachedApiService {
   static final CachedApiService instance = CachedApiService._();
   final LocalApiCacheService _cache = LocalApiCacheService.instance;
 
+  // Prevent identical GET requests from hitting Laravel simultaneously.
+  final Map<String, Future<http.Response>> _inFlightGets =
+      <String, Future<http.Response>>{};
+
   Future<Map<String, dynamic>?> getMap({
     required String key,
     required Uri uri,
@@ -28,7 +32,7 @@ class CachedApiService {
     }
 
     try {
-      final response = await http.get(uri, headers: headers);
+      final response = await _deduplicatedGet(uri, headers);
       final decoded = _decodeMap(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         await _cache.writeJson(key, decoded);
@@ -56,7 +60,7 @@ class CachedApiService {
     }
 
     try {
-      final response = await http.get(uri, headers: headers);
+      final response = await _deduplicatedGet(uri, headers);
       final decoded = _decodeList(response.body);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         await _cache.writeJson(key, decoded);
@@ -78,6 +82,33 @@ class CachedApiService {
       return cached;
     }
     return getMap(key: key, uri: uri, headers: headers);
+  }
+
+  Future<http.Response> _deduplicatedGet(
+    Uri uri,
+    Map<String, String> headers,
+  ) async {
+    final headerEntries = headers.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    final requestKey =
+        '${uri.toString()}|${headerEntries.map((e) => '${e.key}:${e.value}').join('|')}';
+
+    final existingRequest = _inFlightGets[requestKey];
+    if (existingRequest != null) {
+      return existingRequest;
+    }
+
+    final request = http.get(uri, headers: headers);
+    _inFlightGets[requestKey] = request;
+
+    try {
+      return await request;
+    } finally {
+      if (identical(_inFlightGets[requestKey], request)) {
+        _inFlightGets.remove(requestKey);
+      }
+    }
   }
 
   Map<String, dynamic> _decodeMap(String body) {

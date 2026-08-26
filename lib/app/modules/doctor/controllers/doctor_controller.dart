@@ -23,13 +23,13 @@ class DoctorController extends GetxController {
   final RxList<DiseaseOption> diseases = <DiseaseOption>[].obs;
 
   final RxList<int> selectedDiseaseIds = <int>[].obs;
-  final TextEditingController concernDescriptionController = TextEditingController();
-  final TextEditingController diseaseDetailsController = TextEditingController();
+  final TextEditingController concernDescriptionController =
+      TextEditingController();
+  final TextEditingController diseaseDetailsController =
+      TextEditingController();
   final TextEditingController notesController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
   final RxString searchQuery = ''.obs;
-  Timer? _requestsPollingTimer;
-  bool _isBackgroundPolling = false;
   int _backgroundTick = 0;
 
   int farmerId = 0;
@@ -40,7 +40,9 @@ class DoctorController extends GetxController {
   List<DoctorModel> get filteredDoctors {
     final query = searchQuery.value.trim().toLowerCase();
     if (query.isEmpty) return doctors;
-    return doctors.where((doctor) => doctor.searchText.contains(query)).toList();
+    return doctors
+        .where((doctor) => doctor.searchText.contains(query))
+        .toList();
   }
 
   List<VetRequestModel> get sortedRequests {
@@ -56,7 +58,6 @@ class DoctorController extends GetxController {
       searchQuery.value = searchController.text;
     });
     unawaited(initData());
-    _startBackgroundPolling();
   }
 
   Future<void> initData() async {
@@ -82,7 +83,10 @@ class DoctorController extends GetxController {
     }
   }
 
-  Future<void> _loadFarmerIdFromProfileApi(String mobile, SharedPreferences prefs) async {
+  Future<void> _loadFarmerIdFromProfileApi(
+    String mobile,
+    SharedPreferences prefs,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('${Api.farmerProfileByMobile}/$mobile'),
@@ -97,7 +101,9 @@ class DoctorController extends GetxController {
           ? Map<String, dynamic>.from(data['data'] as Map)
           : <String, dynamic>{};
       final idRaw = payload['id'];
-      final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
+      final id = idRaw is int
+          ? idRaw
+          : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
       if (id <= 0) return;
 
       farmerId = id;
@@ -144,7 +150,9 @@ class DoctorController extends GetxController {
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
-        animals.assignAll(list.map((item) => VetAnimalModel.fromJson(item)).toList());
+        animals.assignAll(
+          list.map((item) => VetAnimalModel.fromJson(item)).toList(),
+        );
       } else {
         animals.clear();
       }
@@ -163,7 +171,10 @@ class DoctorController extends GetxController {
       if (response.statusCode == 200 && data['status'] == true) {
         final List list = data['data'] ?? [];
         diseases.assignAll(
-          list.map((item) => DiseaseOption.fromJson(item)).where((e) => e.id > 0 && e.name.isNotEmpty).toList(),
+          list
+              .map((item) => DiseaseOption.fromJson(item))
+              .where((e) => e.id > 0 && e.name.isNotEmpty)
+              .toList(),
         );
       } else {
         diseases.clear();
@@ -199,7 +210,8 @@ class DoctorController extends GetxController {
       var response = await getRequests();
       var data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
-      if (!(response.statusCode == 200 && data['status'] == true) && farmerPhone.trim().isNotEmpty) {
+      if (!(response.statusCode == 200 && data['status'] == true) &&
+          farmerPhone.trim().isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await _loadFarmerIdFromProfileApi(farmerPhone.trim(), prefs);
         if (farmerId > 0) {
@@ -217,7 +229,8 @@ class DoctorController extends GetxController {
         requests.assignAll(
           list.map((item) {
             final map = Map<String, dynamic>.from(item as Map);
-            final doctorId = int.tryParse(map['doctor_id']?.toString() ?? '') ?? 0;
+            final doctorId =
+                int.tryParse(map['doctor_id']?.toString() ?? '') ?? 0;
             return VetRequestModel.fromJson(
               map,
               fallbackDoctorName: doctorNameById[doctorId] ?? 'Doctor',
@@ -244,20 +257,7 @@ class DoctorController extends GetxController {
     }
   }
 
-  void _startBackgroundPolling() {
-    _requestsPollingTimer?.cancel();
-    _requestsPollingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (_isBackgroundPolling) return;
-      _isBackgroundPolling = true;
-      silentRefresh().whenComplete(() {
-        _isBackgroundPolling = false;
-      });
-    });
-  }
-
-  Future<void> requestDoctorVisit({
-    required VetAnimalModel animal,
-  }) async {
+  Future<void> requestDoctorVisit({required VetAnimalModel animal}) async {
     if (farmerId == 0) {
       final prefs = await SharedPreferences.getInstance();
       if (farmerPhone.trim().isNotEmpty) {
@@ -279,7 +279,10 @@ class DoctorController extends GetxController {
     }
     final locationReady = await _ensureFarmerLocationReadyForAppointment();
     if (!locationReady) {
-      Get.snackbar('error'.tr, 'fetch_current_location_first_for_appointment'.tr);
+      Get.snackbar(
+        'error'.tr,
+        'fetch_current_location_first_for_appointment'.tr,
+      );
       return;
     }
 
@@ -312,11 +315,15 @@ class DoctorController extends GetxController {
 
       final response = await http.post(
         Uri.parse(Api.doctorAppointments),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
         concernDescriptionController.clear();
         diseaseDetailsController.clear();
         notesController.clear();
@@ -325,13 +332,18 @@ class DoctorController extends GetxController {
           Get.back();
         }
         await fetchFarmerRequests();
-        final successMessage = data['message']?.toString() ?? 'appointment_created_successfully'.tr;
+        final successMessage =
+            data['message']?.toString() ??
+            'appointment_created_successfully'.tr;
         _goToHomeAfterSave();
         Future.delayed(const Duration(milliseconds: 120), () {
           Get.snackbar('success'.tr, successMessage);
         });
       } else {
-        Get.snackbar('error'.tr, _extractApiMessage(data) ?? 'failed_to_submit_request'.tr);
+        Get.snackbar(
+          'error'.tr,
+          _extractApiMessage(data) ?? 'failed_to_submit_request'.tr,
+        );
       }
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -360,15 +372,25 @@ class DoctorController extends GetxController {
       isUpdatingRequestStatus.value = true;
       final response = await http.post(
         Uri.parse('${Api.doctorAppointments}/${request.id}/farmer-approval'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({'status': approved ? 'approved' : 'rejected'}),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'appointment_updated'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'appointment_updated'.tr,
+        );
       } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_update_appointment'.tr);
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_to_update_appointment'.tr,
+        );
       }
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -377,22 +399,30 @@ class DoctorController extends GetxController {
     }
   }
 
-  Future<void> cancelAppointment({
-    required VetRequestModel request,
-  }) async {
+  Future<void> cancelAppointment({required VetRequestModel request}) async {
     try {
       isUpdatingRequestStatus.value = true;
       final response = await http.post(
         Uri.parse('${Api.doctorAppointments}/${request.id}/farmer-approval'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({'status': 'cancelled'}),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'appointment_cancelled'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'appointment_cancelled'.tr,
+        );
       } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_cancel_appointment'.tr);
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_to_cancel_appointment'.tr,
+        );
       }
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -401,21 +431,29 @@ class DoctorController extends GetxController {
     }
   }
 
-  Future<void> cancelFollowup({
-    required VetRequestModel request,
-  }) async {
+  Future<void> cancelFollowup({required VetRequestModel request}) async {
     try {
       isUpdatingRequestStatus.value = true;
       final response = await http.post(
         Uri.parse('${Api.doctorCancelFollowup}/${request.id}/cancel-followup'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'follow_up_cancelled'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'follow_up_cancelled'.tr,
+        );
       } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_to_cancel_follow_up'.tr);
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_to_cancel_follow_up'.tr,
+        );
       }
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -437,18 +475,28 @@ class DoctorController extends GetxController {
       isUpdatingRequestStatus.value = true;
       final response = await http.post(
         Uri.parse('${Api.doctorAppointments}/${request.id}/rating'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           'farmer_id': farmerId.toString(),
           'rating': rating.toString(),
         }),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if ((response.statusCode == 200 || response.statusCode == 201) && data['status'] == true) {
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true) {
         await fetchFarmerRequests();
-        Get.snackbar('success'.tr, data['message']?.toString() ?? 'thank_you_for_rating_doctor'.tr);
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'thank_you_for_rating_doctor'.tr,
+        );
       } else {
-        Get.snackbar('error'.tr, _extractApiMessage(data) ?? 'failed_to_submit_rating'.tr);
+        Get.snackbar(
+          'error'.tr,
+          _extractApiMessage(data) ?? 'failed_to_submit_rating'.tr,
+        );
       }
     } catch (e) {
       Get.snackbar('error'.tr, e.toString());
@@ -495,33 +543,55 @@ class DoctorController extends GetxController {
         headers: {'Accept': 'application/json'},
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      if (response.statusCode != 200 || data['status'] != true || data['data'] == null) {
+      if (response.statusCode != 200 ||
+          data['status'] != true ||
+          data['data'] == null) {
         return;
       }
 
       final payload = Map<String, dynamic>.from(data['data'] as Map);
       final idRaw = payload['id'];
-      final id = idRaw is int ? idRaw : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
+      final id = idRaw is int
+          ? idRaw
+          : int.tryParse(idRaw?.toString() ?? '0') ?? 0;
       if (id > 0) {
         farmerId = id;
         await SessionService.saveFarmerId(id);
       }
 
       final latestProfile = <String, String>{
-        'first_name': payload['first_name']?.toString() ?? (farmerProfile['first_name'] ?? ''),
-        'middle_name': payload['middle_name']?.toString() ?? (farmerProfile['middle_name'] ?? ''),
-        'last_name': payload['last_name']?.toString() ?? (farmerProfile['last_name'] ?? ''),
-        'village': payload['village']?.toString() ?? (farmerProfile['village'] ?? ''),
+        'first_name':
+            payload['first_name']?.toString() ??
+            (farmerProfile['first_name'] ?? ''),
+        'middle_name':
+            payload['middle_name']?.toString() ??
+            (farmerProfile['middle_name'] ?? ''),
+        'last_name':
+            payload['last_name']?.toString() ??
+            (farmerProfile['last_name'] ?? ''),
+        'village':
+            payload['village']?.toString() ?? (farmerProfile['village'] ?? ''),
         'city': payload['city']?.toString() ?? (farmerProfile['city'] ?? ''),
-        'taluka': payload['taluka']?.toString() ?? (farmerProfile['taluka'] ?? ''),
-        'district': payload['district']?.toString() ?? (farmerProfile['district'] ?? ''),
+        'taluka':
+            payload['taluka']?.toString() ?? (farmerProfile['taluka'] ?? ''),
+        'district':
+            payload['district']?.toString() ??
+            (farmerProfile['district'] ?? ''),
         'state': payload['state']?.toString() ?? (farmerProfile['state'] ?? ''),
-        'pincode': payload['pincode']?.toString() ?? (farmerProfile['pincode'] ?? ''),
-        'farmer_photo': payload['farmer_photo']?.toString() ?? (farmerProfile['farmer_photo'] ?? ''),
-        'latitude': payload['latitude']?.toString() ?? (farmerProfile['latitude'] ?? ''),
-        'longitude': payload['longitude']?.toString() ?? (farmerProfile['longitude'] ?? ''),
+        'pincode':
+            payload['pincode']?.toString() ?? (farmerProfile['pincode'] ?? ''),
+        'farmer_photo':
+            payload['farmer_photo']?.toString() ??
+            (farmerProfile['farmer_photo'] ?? ''),
+        'latitude':
+            payload['latitude']?.toString() ??
+            (farmerProfile['latitude'] ?? ''),
+        'longitude':
+            payload['longitude']?.toString() ??
+            (farmerProfile['longitude'] ?? ''),
         'current_location_address':
-            payload['current_location_address']?.toString() ?? (farmerProfile['current_location_address'] ?? ''),
+            payload['current_location_address']?.toString() ??
+            (farmerProfile['current_location_address'] ?? ''),
       };
       farmerProfile = latestProfile;
       await SessionService.saveFarmerProfile(
@@ -545,10 +615,14 @@ class DoctorController extends GetxController {
   }
 
   VetRequestModel? latestRequestForAnimal(int animalId) {
-    final matched = requests.where((request) => request.animalId == animalId).toList();
+    final matched = requests
+        .where((request) => request.animalId == animalId)
+        .toList();
     if (matched.isEmpty) return null;
     matched.sort((a, b) {
-      final statusCompare = _statusPriority(b.status).compareTo(_statusPriority(a.status));
+      final statusCompare = _statusPriority(
+        b.status,
+      ).compareTo(_statusPriority(a.status));
       if (statusCompare != 0) return statusCompare;
 
       final dateCompare = b.sortDate.compareTo(a.sortDate);
@@ -601,7 +675,6 @@ class DoctorController extends GetxController {
 
   @override
   void onClose() {
-    _requestsPollingTimer?.cancel();
     concernDescriptionController.dispose();
     diseaseDetailsController.dispose();
     notesController.dispose();
@@ -652,13 +725,8 @@ class DoctorModel {
     required this.availableToday,
   });
 
-  String get searchText => [
-        name,
-        speciality,
-        location,
-        phone,
-        experience,
-      ].join(' ').toLowerCase();
+  String get searchText =>
+      [name, speciality, location, phone, experience].join(' ').toLowerCase();
 
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
     return DoctorModel(
@@ -699,7 +767,9 @@ class VetAnimalModel {
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
       animalName: json['animal_name']?.toString() ?? '',
       tagNumber: json['tag_number']?.toString() ?? '',
-      imageUrl: (json['image'] ?? json['image_url'] ?? json['animal_photo_url'] ?? '').toString(),
+      imageUrl:
+          (json['image'] ?? json['image_url'] ?? json['animal_photo_url'] ?? '')
+              .toString(),
     );
   }
 }
@@ -793,7 +863,14 @@ class VetRequestModel {
 
   bool get canTrackVisit {
     final s = status.toLowerCase();
-    return ['accept', 'accepted', 'approved', 'in_progress', 'followup', 'follow_up'].contains(s);
+    return [
+      'accept',
+      'accepted',
+      'approved',
+      'in_progress',
+      'followup',
+      'follow_up',
+    ].contains(s);
   }
 
   bool get isRated => rating > 0;
@@ -817,25 +894,33 @@ class VetRequestModel {
     String chargeLabel = '-';
     if (chargeRaw != null) {
       final parsed = double.tryParse(chargeRaw.toString());
-      chargeLabel = parsed == null ? chargeRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+      chargeLabel = parsed == null
+          ? chargeRaw.toString()
+          : 'Rs ${parsed.toStringAsFixed(2)}';
     }
     final feeRaw = json['fees'];
     String feeLabel = '-';
     if (feeRaw != null) {
       final parsed = double.tryParse(feeRaw.toString());
-      feeLabel = parsed == null ? feeRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+      feeLabel = parsed == null
+          ? feeRaw.toString()
+          : 'Rs ${parsed.toStringAsFixed(2)}';
     }
     final onSiteRaw = json['on_site_medicine_charges'];
     String onSiteLabel = '-';
     if (onSiteRaw != null) {
       final parsed = double.tryParse(onSiteRaw.toString());
-      onSiteLabel = parsed == null ? onSiteRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+      onSiteLabel = parsed == null
+          ? onSiteRaw.toString()
+          : 'Rs ${parsed.toStringAsFixed(2)}';
     }
     final totalRaw = json['total_charges'] ?? json['charges'];
     String totalLabel = '-';
     if (totalRaw != null) {
       final parsed = double.tryParse(totalRaw.toString());
-      totalLabel = parsed == null ? totalRaw.toString() : 'Rs ${parsed.toStringAsFixed(2)}';
+      totalLabel = parsed == null
+          ? totalRaw.toString()
+          : 'Rs ${parsed.toStringAsFixed(2)}';
     }
 
     final diseaseList = <String>[];
@@ -868,7 +953,10 @@ class VetRequestModel {
           : fallbackDoctorName,
       animalName: json['animal_name']?.toString() ?? '-',
       concern: json['concern']?.toString() ?? '-',
-      status: json['effective_status']?.toString() ?? json['status']?.toString() ?? 'pending',
+      status:
+          json['effective_status']?.toString() ??
+          json['status']?.toString() ??
+          'pending',
       requestedAt: json['requested_at']?.toString() ?? '',
       scheduledAt: json['scheduled_at']?.toString() ?? '',
       completedAt: json['completed_at']?.toString() ?? '',

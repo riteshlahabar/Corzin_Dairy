@@ -16,12 +16,12 @@ import '../../modules/home/views/home_view.dart';
 import '../../modules/milk/views/milk_history_view.dart';
 import '../../modules/milk/controllers/milk_controller.dart';
 import '../../modules/pan/views/pan_management_view.dart';
-import '../../modules/payment/controllers/payment_controller.dart';
+
 import '../../modules/profile/controllers/profile_controller.dart';
 import '../../modules/profile/views/profile_view.dart';
 import '../../modules/refer_farmer/views/refer_farmer_view.dart';
 import '../../modules/reports/views/livestock_report_view.dart';
-import '../../modules/shop/controllers/shop_controller.dart';
+
 // import '../../modules/shop/views/my_orders_view.dart';
 import '../../modules/upgrade/controllers/upgrade_controller.dart';
 import '../../modules/upgrade/views/upgrade_view.dart';
@@ -35,21 +35,16 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
   final Rx<Widget?> activeDrawerPage = Rx<Widget?>(null);
   final List<int> _tabBackStack = <int>[0];
   final List<Widget> _drawerPageStack = <Widget>[];
-  Timer? _silentSyncTimer;
   bool _silentSyncInFlight = false;
-  int _silentSyncTick = 0;
 
   @override
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
-    _startSilentSyncTimer();
-    unawaited(_runSilentSync(force: true));
   }
 
   @override
   void onClose() {
-    _silentSyncTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.onClose();
   }
@@ -91,38 +86,34 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
     scaffoldKey.currentState?.openDrawer();
   }
 
-  void _startSilentSyncTimer() {
-    _silentSyncTimer?.cancel();
-    _silentSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      unawaited(_runSilentSync());
-    });
-  }
-
   Future<void> _runSilentSync({bool force = false}) async {
-    if (_silentSyncInFlight && !force) return;
+    if (_silentSyncInFlight) return;
+
     _silentSyncInFlight = true;
     try {
-      if (Get.isRegistered<HomeController>()) {
-        await Get.find<HomeController>().refreshDashboard(silent: true);
-      }
+      // Refresh only the currently active bottom tab.
+      // There is intentionally no global periodic polling here.
+      switch (currentIndex.value) {
+        case 0:
+          if (Get.isRegistered<HomeController>()) {
+            await Get.find<HomeController>().refreshDashboard(silent: true);
+          }
+          break;
 
-      if (Get.isRegistered<DoctorController>()) {
-        await Get.find<DoctorController>().silentRefresh();
-      }
+        case 1:
+          if (Get.isRegistered<DoctorController>()) {
+            await Get.find<DoctorController>().silentRefresh();
+          }
+          break;
 
-      if (Get.isRegistered<PaymentController>()) {
-        await Get.find<PaymentController>().loadPayments(silent: true);
-      }
-
-      _silentSyncTick++;
-      if (_silentSyncTick % 3 == 0 && Get.isRegistered<ShopController>()) {
-        await Get.find<ShopController>().loadShopData();
-      }
-      if (_silentSyncTick % 3 == 0 && Get.isRegistered<ProfileController>()) {
-        await Get.find<ProfileController>().loadProfile();
+        case 4:
+          if (Get.isRegistered<ProfileController>()) {
+            await Get.find<ProfileController>().loadProfile();
+          }
+          break;
       }
     } catch (_) {
-      // Silent background sync should never interrupt UI flow.
+      // A silent refresh must never interrupt the customer UI.
     } finally {
       _silentSyncInFlight = false;
     }
@@ -219,7 +210,10 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
               ),
               Text(
                 'quick_add'.tr,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -427,10 +421,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
     controller.currentIndex.value = widget.initialIndex;
     controller.resetTabHistory();
     _findOrPut<HomeController>(() => HomeController(), permanent: true);
-    _resetAndPut<DoctorController>(() => DoctorController(), permanent: true);
-    _resetAndPut<ShopController>(() => ShopController(), permanent: true);
-    _resetAndPut<ProfileController>(() => ProfileController(), permanent: true);
-    _resetAndPut<UpgradeController>(() => UpgradeController(), permanent: true);
+
+    // Other bottom-tab controllers are created only when their page is opened.
+    // This prevents Doctor/Shop/Profile/Upgrade APIs from loading on Home startup.
     _pageCache[widget.initialIndex] = _buildPageForIndex(widget.initialIndex);
   }
 
@@ -439,12 +432,17 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       case 0:
         return const HomeView();
       case 1:
+        _findOrPut<DoctorController>(() => DoctorController(), permanent: true);
         return const DoctorAppointmentsNearbyView();
       case 2:
         return const SizedBox();
       case 3:
         return const LivestockReportView();
       case 4:
+        _findOrPut<ProfileController>(
+          () => ProfileController(),
+          permanent: true,
+        );
         return const ProfileView();
       default:
         return const HomeView();
@@ -478,6 +476,15 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
         body: Obx(() {
           final drawerPage = controller.activeDrawerPage.value;
           final planLocked = Get.find<HomeController>().isPlanLocked.value;
+
+          // Upgrade controller is needed only when the Upgrade screen is shown.
+          if (planLocked) {
+            _findOrPut<UpgradeController>(
+              () => UpgradeController(),
+              permanent: true,
+            );
+          }
+
           final currentIndex = controller.currentIndex.value;
           _pageCache.putIfAbsent(
             currentIndex,
@@ -557,7 +564,9 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
-                                        AppColors.primary.withValues(alpha: 0.96),
+                                        AppColors.primary.withValues(
+                                          alpha: 0.96,
+                                        ),
                                         AppColors.primary,
                                       ],
                                     ),
