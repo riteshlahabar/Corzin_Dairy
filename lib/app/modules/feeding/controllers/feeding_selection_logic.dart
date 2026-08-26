@@ -174,8 +174,11 @@ extension FeedingSelectionLogic on FeedingController {
     final next = _selectionService.buildPansFromAnimals(animals);
     pans.assignAll(next);
     final current = selectedPan.value;
-    if (current != null && !next.any((pan) => pan.matches(current))) {
-      selectedPan.value = null;
+
+    // Re-bind Pan to the object from the latest list.
+    // This is important when cached animals are replaced by fresh API data.
+    if (current != null) {
+      selectedPan.value = next.firstWhereOrNull((pan) => pan.matches(current));
     }
   }
 }

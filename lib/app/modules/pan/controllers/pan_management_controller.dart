@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
+import '../../feeding/controllers/feeding_controller.dart';
 import '../../../core/utils/api.dart';
 
 class PanManagementController extends GetxController {
@@ -233,6 +235,22 @@ class PanManagementController extends GetxController {
     await Future.wait([fetchAnimals(), fetchPans(), fetchAnimalTypes()]);
   }
 
+  Future<void> _refreshAfterPanMutation() async {
+    // Pan create/update/transfer/delete changes pan_id in animal data.
+    // Invalidate both old and shared animal cache keys.
+    await CachedApiService.instance.remove('animal_list_$farmerId');
+    await CachedApiService.instance.remove('home_animals_$farmerId');
+
+    // Refresh Pan Management itself from server.
+    await refreshAll();
+
+    // Feeding derives its Pan list from animal data.
+    // Refresh it immediately when already registered.
+    if (Get.isRegistered<FeedingController>()) {
+      await Get.find<FeedingController>().fetchAnimals();
+    }
+  }
+
   void toggleAnimalSelection(int animalId) {
     if (selectedAnimalIds.contains(animalId)) {
       selectedAnimalIds.remove(animalId);
@@ -333,7 +351,7 @@ class PanManagementController extends GetxController {
           'Afternoon',
           'Evening',
         ]);
-        await refreshAll();
+        await _refreshAfterPanMutation();
         Get.snackbar(
           'success'.tr,
           data['message']?.toString() ?? 'pan_created_successfully'.tr,
@@ -397,7 +415,7 @@ class PanManagementController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
-        await refreshAll();
+        await _refreshAfterPanMutation();
         Get.snackbar(
           'success'.tr,
           data['message']?.toString() ?? 'pan_updated_successfully'.tr,
@@ -480,7 +498,7 @@ class PanManagementController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
-        await refreshAll();
+        await _refreshAfterPanMutation();
         Get.snackbar(
           'success'.tr,
           data['message']?.toString() ??
@@ -520,7 +538,7 @@ class PanManagementController extends GetxController {
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       if (response.statusCode == 200 && data['status'] == true) {
-        await refreshAll();
+        await _refreshAfterPanMutation();
         Get.snackbar(
           'success'.tr,
           data['message']?.toString() ?? 'pan_deleted_successfully'.tr,

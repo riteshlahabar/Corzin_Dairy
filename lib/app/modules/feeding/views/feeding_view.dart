@@ -375,6 +375,9 @@ class FeedingView extends GetView<FeedingController> {
                   const SizedBox(height: 6),
                   Obx(
                     () => DropdownButtonFormField<String>(
+                      key: ValueKey<String>(
+                        'feeding_time_${controller.availableFeedingTimes.contains(controller.selectedFeedingTime.value) ? controller.selectedFeedingTime.value : ''}',
+                      ),
                       initialValue:
                           controller.availableFeedingTimes.contains(
                             controller.selectedFeedingTime.value,
@@ -426,6 +429,9 @@ class FeedingView extends GetView<FeedingController> {
                 );
 
           return DropdownButtonFormField<FeedingAnimalModel>(
+            key: ValueKey<String>(
+              'feeding_animal_${resolvedAnimal == null ? 0 : identityHashCode(resolvedAnimal)}',
+            ),
             initialValue: resolvedAnimal,
             isExpanded: true,
             dropdownColor: const Color(0xFFF4FAF4),
@@ -462,6 +468,9 @@ class FeedingView extends GetView<FeedingController> {
                 );
 
           return DropdownButtonFormField<FeedingPanModel>(
+            key: ValueKey<String>(
+              'feeding_pan_${resolvedPan == null ? 0 : identityHashCode(resolvedPan)}',
+            ),
             initialValue: resolvedPan,
             isExpanded: true,
             dropdownColor: const Color(0xFFF4FAF4),
@@ -489,6 +498,7 @@ class FeedingView extends GetView<FeedingController> {
               : null;
 
           return DropdownButtonFormField<int>(
+            key: ValueKey<String>('feeding_diet_${resolvedSelectedId ?? 0}'),
             initialValue: resolvedSelectedId,
             isExpanded: true,
             dropdownColor: const Color(0xFFF4FAF4),

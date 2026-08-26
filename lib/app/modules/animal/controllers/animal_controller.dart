@@ -8,24 +8,29 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/cached_api_service.dart';
 import '../../../core/utils/api.dart';
 import '../../../core/widget/bottom_navigation_bar.dart';
 import '../../../core/theme/colors.dart';
 import '../../../routes/app_pages.dart';
+import '../../feeding/controllers/feeding_controller.dart';
+import '../../pan/controllers/pan_management_controller.dart';
 import '../../home/controllers/home_controller.dart';
 
 class AnimalController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController animalNameController = TextEditingController();
   final TextEditingController tagNumberController = TextEditingController();
-  final TextEditingController lactationNumberController = TextEditingController();
+  final TextEditingController lactationNumberController =
+      TextEditingController();
   final TextEditingController aiDateController = TextEditingController();
   final TextEditingController breedNameController = TextEditingController();
   final TextEditingController birthDateController = TextEditingController();
   final TextEditingController purchaseDateController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
   final TextEditingController weightController = TextEditingController();
-  final TextEditingController defaultMilkPerSessionController = TextEditingController();
+  final TextEditingController defaultMilkPerSessionController =
+      TextEditingController();
   final FocusNode animalNameFocus = FocusNode();
   final FocusNode tagNumberFocus = FocusNode();
   final FocusNode weightFocus = FocusNode();
@@ -60,7 +65,8 @@ class AnimalController extends GetxController {
   void _readArguments() {
     final args = Get.arguments;
     if (args is Map) {
-      isNewBornMode = args['prefillAnimalTypeName']?.toString().isNotEmpty == true;
+      isNewBornMode =
+          args['prefillAnimalTypeName']?.toString().isNotEmpty == true;
       lockedAnimalTypeName = args['prefillAnimalTypeName']?.toString() ?? '';
       pageTitle = args['title']?.toString() ?? 'add_animal';
     }
@@ -110,44 +116,83 @@ class AnimalController extends GetxController {
       motherAnimals.clear();
       return;
     }
+
     try {
-      final response = await http.get(
-        Uri.parse('${Api.animalList}/$farmerId'),
-        headers: {'Accept': 'application/json'},
-      );
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
         final List list = data['data'] ?? [];
+
         motherAnimals.assignAll(
-          list.map((e) => MotherAnimalModel.fromJson(e)).where((e) => e.id > 0).toList(),
+          list
+              .map((e) => MotherAnimalModel.fromJson(e))
+              .where((e) => e.id > 0)
+              .toList(),
         );
-      } else {
-        motherAnimals.clear();
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_list_$farmerId',
+        uri: Uri.parse('${Api.animalList}/$farmerId'),
+        onCached: apply,
+      );
+
+      if (data != null && data['status'] == true) {
+        apply(data);
       }
     } catch (_) {
-      motherAnimals.clear();
+      // Keep already displayed cached mother animals on network failure.
     }
   }
 
   Future<void> fetchAnimalTypes() async {
     try {
-      isPageLoading.value = true;
-      final response = await http.get(Uri.parse(Api.animalTypes), headers: {'Accept': 'application/json'});
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
+      void apply(Map<String, dynamic> data) {
+        if (data['status'] != true) return;
+
         final List list = data['data'] ?? [];
-        animalTypes.assignAll(list.map((e) => AnimalTypeModel.fromJson(e)).toList());
+
+        animalTypes.assignAll(
+          list.map((e) => AnimalTypeModel.fromJson(e)).toList(),
+        );
+
         if (isNewBornMode && lockedAnimalTypeName.isNotEmpty) {
-          final match = animalTypes.firstWhereOrNull((type) => type.name.toLowerCase() == lockedAnimalTypeName.toLowerCase());
+          final match = animalTypes.firstWhereOrNull(
+            (type) =>
+                type.name.toLowerCase() == lockedAnimalTypeName.toLowerCase(),
+          );
+
           if (match != null) {
             selectedAnimalType.value = match;
           }
         }
-      } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_fetch_animal_types'.tr, snackPosition: SnackPosition.BOTTOM);
+
+        isPageLoading.value = false;
+      }
+
+      final data = await CachedApiService.instance.getMap(
+        key: 'animal_types',
+        uri: Uri.parse(Api.animalTypes),
+        onCached: apply,
+      );
+
+      if (data != null && data['status'] == true) {
+        apply(data);
+      } else if (animalTypes.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          data?['message']?.toString() ?? 'failed_fetch_animal_types'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } catch (e) {
-      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
+      if (animalTypes.isEmpty) {
+        Get.snackbar(
+          'error'.tr,
+          e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     } finally {
       isPageLoading.value = false;
     }
@@ -235,10 +280,14 @@ class AnimalController extends GetxController {
     DateTime initialDate = DateTime.now();
     if (birthDateController.text.isNotEmpty) {
       try {
-        initialDate = DateFormat('dd/MM/yyyy').parseStrict(birthDateController.text);
+        initialDate = DateFormat(
+          'dd/MM/yyyy',
+        ).parseStrict(birthDateController.text);
       } catch (_) {}
     }
-    final DateTime? picked = await _showGreenDatePicker(initialDate: initialDate);
+    final DateTime? picked = await _showGreenDatePicker(
+      initialDate: initialDate,
+    );
     if (picked != null) {
       birthDateController.text = DateFormat('dd/MM/yyyy').format(picked);
       _syncAgeFromBirthDateText();
@@ -249,10 +298,14 @@ class AnimalController extends GetxController {
     DateTime initialDate = DateTime.now();
     if (purchaseDateController.text.isNotEmpty) {
       try {
-        initialDate = DateFormat('dd/MM/yyyy').parseStrict(purchaseDateController.text);
+        initialDate = DateFormat(
+          'dd/MM/yyyy',
+        ).parseStrict(purchaseDateController.text);
       } catch (_) {}
     }
-    final DateTime? picked = await _showGreenDatePicker(initialDate: initialDate);
+    final DateTime? picked = await _showGreenDatePicker(
+      initialDate: initialDate,
+    );
     if (picked != null) {
       purchaseDateController.text = DateFormat('dd/MM/yyyy').format(picked);
     }
@@ -312,7 +365,10 @@ class AnimalController extends GetxController {
   }
 
   Future<void> pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (image != null) {
       selectedImage.value = image;
     }
@@ -321,7 +377,11 @@ class AnimalController extends GetxController {
   Future<void> submitAnimal() async {
     if (!formKey.currentState!.validate()) return;
     if (farmerId == 0) {
-      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'farmer_id_not_found_login_again'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     final duplicateMessage = _duplicateAnimalValidationMessage(
@@ -329,39 +389,69 @@ class AnimalController extends GetxController {
       tagNumber: tagNumberController.text,
     );
     if (duplicateMessage != null) {
-      Get.snackbar('validation'.tr, duplicateMessage, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'validation'.tr,
+        duplicateMessage,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     if (selectedAnimalType.value == null) {
-      Get.snackbar('error'.tr, 'please_select_animal_type'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_animal_type'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     if (showMotherAnimalDropdown && selectedMotherAnimal.value == null) {
-      Get.snackbar('error'.tr, 'please_select_mother_animal'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_mother_animal'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     final birthDateText = birthDateController.text.trim();
     final ageInfo = _calculateAgeInfoFromText(birthDateText);
     if (ageInfo == null) {
-      Get.snackbar('error'.tr, 'please_select_valid_birth_date'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_valid_birth_date'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     final weightText = weightController.text.trim();
     final weightValue = double.tryParse(weightText);
     if (weightText.isEmpty || weightValue == null || weightValue <= 0) {
-      Get.snackbar('error'.tr, 'please_enter_valid_weight'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_enter_valid_weight'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     final defaultMilkText = defaultMilkPerSessionController.text.trim();
     if (showExpectedMilkYieldField) {
       final defaultMilkValue = double.tryParse(defaultMilkText);
-      if (defaultMilkText.isEmpty || defaultMilkValue == null || defaultMilkValue < 0) {
-        Get.snackbar('error'.tr, 'please_enter_valid_expected_milk_yield_per_shift'.tr, snackPosition: SnackPosition.BOTTOM);
+      if (defaultMilkText.isEmpty ||
+          defaultMilkValue == null ||
+          defaultMilkValue < 0) {
+        Get.snackbar(
+          'error'.tr,
+          'please_enter_valid_expected_milk_yield_per_shift'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         return;
       }
     }
     if (selectedImage.value == null) {
-      Get.snackbar('error'.tr, 'upload_animal_image'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'upload_animal_image'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 
@@ -373,7 +463,8 @@ class AnimalController extends GetxController {
       request.fields['animal_name'] = animalNameController.text.trim();
       request.fields['tag_number'] = tagNumberController.text.trim();
       if (lactationNumberController.text.trim().isNotEmpty) {
-        request.fields['lactation_number'] = lactationNumberController.text.trim();
+        request.fields['lactation_number'] = lactationNumberController.text
+            .trim();
       }
       if (aiDateController.text.trim().isNotEmpty) {
         request.fields['ai_date'] = aiDateController.text.trim();
@@ -381,16 +472,20 @@ class AnimalController extends GetxController {
       if (breedNameController.text.trim().isNotEmpty) {
         request.fields['breed_name'] = breedNameController.text.trim();
       }
-      request.fields['animal_type_id'] = selectedAnimalType.value!.id.toString();
+      request.fields['animal_type_id'] = selectedAnimalType.value!.id
+          .toString();
       if (showMotherAnimalDropdown && selectedMotherAnimal.value != null) {
-        request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id.toString();
+        request.fields['mother_animal_id'] = selectedMotherAnimal.value!.id
+            .toString();
       }
       request.fields['birth_date'] = birthDateText;
       if (purchaseDateController.text.trim().isNotEmpty) {
         request.fields['purchase_date'] = purchaseDateController.text.trim();
       }
       request.fields['age'] = ageInfo.years.toString();
-      request.fields['gender'] = showExpectedMilkYieldField ? 'Female' : selectedGender.value;
+      request.fields['gender'] = showExpectedMilkYieldField
+          ? 'Female'
+          : selectedGender.value;
       request.fields['weight'] = weightController.text.trim();
       if (showExpectedMilkYieldField) {
         request.fields['default_milk_per_session'] = defaultMilkText;
@@ -410,13 +505,34 @@ class AnimalController extends GetxController {
       final response = await http.Response.fromStream(streamedResponse);
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final String successMessage = (data['message']?.toString().trim().isNotEmpty ?? false)
+        final String successMessage =
+            (data['message']?.toString().trim().isNotEmpty ?? false)
             ? data['message'].toString().trim()
             : 'animal_added_successfully'.tr;
         clearForm();
+
+        // Animal data changed on server.
+        // Remove stale reference cache before any screen reloads it.
+        await CachedApiService.instance.remove('animal_list_$farmerId');
+        await CachedApiService.instance.remove('home_animals_$farmerId');
+
+        // Refresh Add Animal reference list immediately.
         await fetchMotherAnimals();
+
+        // If Feeding is already alive, refresh its animal/pan list now.
+        if (Get.isRegistered<FeedingController>()) {
+          await Get.find<FeedingController>().fetchAnimals();
+        }
+
+        // If Pan Management is already alive, make the new animal
+        // immediately available for Pan creation.
+        if (Get.isRegistered<PanManagementController>()) {
+          await Get.find<PanManagementController>().refreshAll();
+        }
+
+        // Refresh only Home animal data instead of all dashboard APIs.
         if (Get.isRegistered<HomeController>()) {
-          await Get.find<HomeController>().refreshDashboard(silent: true);
+          await Get.find<HomeController>().fetchAnimals(silent: true);
         }
         if (Get.isRegistered<BottomNavController>()) {
           Get.find<BottomNavController>().closeDrawerPage();
@@ -434,16 +550,31 @@ class AnimalController extends GetxController {
         String errorMessage = 'Validation failed';
         if (data['message'] is Map) {
           final errors = data['message'] as Map;
-          errorMessage = errors.values.map((e) => e is List ? e.join(', ') : e.toString()).join('\n');
+          errorMessage = errors.values
+              .map((e) => e is List ? e.join(', ') : e.toString())
+              .join('\n');
         } else if (data['message'] != null) {
           errorMessage = data['message'].toString();
         }
-        Get.snackbar('validation'.tr, errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
+        Get.snackbar(
+          'validation'.tr,
+          errorMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
       } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_animal'.tr, snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_save_animal'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } catch (e) {
-      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isSubmitting.value = false;
     }
@@ -538,8 +669,18 @@ class AnimalTypeModel {
 
   AnimalTypeModel({required this.id, required this.name});
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is AnimalTypeModel && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
   factory AnimalTypeModel.fromJson(Map<String, dynamic> json) {
-    return AnimalTypeModel(id: int.tryParse(json['id'].toString()) ?? 0, name: json['name']?.toString() ?? '');
+    return AnimalTypeModel(
+      id: int.tryParse(json['id'].toString()) ?? 0,
+      name: json['name']?.toString() ?? '',
+    );
   }
 }
 
@@ -568,4 +709,3 @@ class MotherAnimalModel {
     );
   }
 }
-

@@ -119,7 +119,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     }
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadHistory({bool forceRefresh = false}) async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       await _loadFarmerId();
@@ -143,6 +144,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         key: 'feeding_list_$_farmerId',
         uri: Uri.parse('${Api.feedingList}/$_farmerId'),
         onCached: apply,
+        forceRefresh: forceRefresh,
       );
       if (data != null && data['status'] == true) {
         apply(data);
@@ -284,217 +286,87 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     return null;
   }
 
-  Future<void> _onEditTap(_FeedingHistoryItem item) async {
-    final quantityController = TextEditingController(text: item.quantity);
-    final unitController = TextEditingController(text: item.unit);
-    final notesController = TextEditingController(text: item.notes);
-    final dateController = TextEditingController(text: item.date);
-    final selectedFeedingTime = item.feedingTime.obs;
-    final isSaving = false.obs;
-
-    Future<void> pickDate() async {
-      DateTime initialDate = DateTime.now();
-      try {
-        initialDate = DateFormat(
-          'yyyy-MM-dd',
-        ).parse(dateController.text.trim());
-      } catch (_) {}
-      final picked = await showDatePicker(
-        context: context,
-        initialDate: initialDate,
-        firstDate: DateTime(2000),
-        lastDate: DateTime.now(),
-      );
-      if (picked != null) {
-        dateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      }
+  Future<void> _onDeleteTap(
+    _FeedingHistoryItem item, {
+    bool closeViewAllPageOnSuccess = false,
+  }) async {
+    if (item.id <= 0) {
+      Get.snackbar('error'.tr, 'unable_to_delete'.tr);
+      return;
     }
 
-    await Get.bottomSheet(
-      StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    if (!mounted) return;
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('confirmation'.tr),
+            content: Text(
+              'confirm_action'.trParams({'action': 'delete'.tr.toLowerCase()}),
             ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                child: Obx(
-                  () => Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'edit_feeding_entry'.tr,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: quantityController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: _inputDecoration('quantity'.tr),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: unitController,
-                        decoration: _inputDecoration('unit'.tr),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedFeedingTime.value,
-                        decoration: _inputDecoration('feeding_time'.tr),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'Morning',
-                            child: Text('morning'.tr),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Afternoon',
-                            child: Text('afternoon'.tr),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Evening',
-                            child: Text('evening'.tr),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          selectedFeedingTime.value = value ?? 'Morning';
-                          setModalState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: dateController,
-                        readOnly: true,
-                        onTap: pickDate,
-                        decoration: _inputDecoration('date'.tr).copyWith(
-                          suffixIcon: const Icon(Icons.calendar_today_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: notesController,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: _inputDecoration('notes'.tr),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isSaving.value
-                              ? null
-                              : () async {
-                                  if (quantityController.text.trim().isEmpty ||
-                                      dateController.text.trim().isEmpty ||
-                                      unitController.text.trim().isEmpty) {
-                                    Get.snackbar(
-                                      'error'.tr,
-                                      'quantity_unit_date_required'.tr,
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    isSaving.value = true;
-                                    final payload = {
-                                      'farmer_id': _farmerId.toString(),
-                                      'quantity': quantityController.text
-                                          .trim(),
-                                      'unit': unitController.text.trim(),
-                                      'feeding_time': selectedFeedingTime.value,
-                                      'date': dateController.text.trim(),
-                                      'notes': notesController.text.trim(),
-                                      if (item.feedTypeId > 0)
-                                        'feed_type_id': item.feedTypeId
-                                            .toString(),
-                                    };
-
-                                    final response = await http.post(
-                                      Uri.parse(
-                                        '${Api.feedingUpdate}/${item.id}',
-                                      ),
-                                      headers: {
-                                        'Accept': 'application/json',
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: jsonEncode(payload),
-                                    );
-                                    final data = response.body.isNotEmpty
-                                        ? jsonDecode(response.body)
-                                        : {};
-
-                                    if (response.statusCode == 200 &&
-                                        data['status'] == true) {
-                                      Get.back();
-                                      Get.snackbar(
-                                        'success'.tr,
-                                        data['message']?.toString() ??
-                                            'feeding_entry_updated_success'.tr,
-                                        snackPosition: SnackPosition.BOTTOM,
-                                      );
-                                      await Future.wait([
-                                        _loadHistory(),
-                                        _loadDietPlans(),
-                                      ]);
-                                    } else {
-                                      Get.snackbar(
-                                        'error'.tr,
-                                        data['message']?.toString() ??
-                                            'failed_update_feeding_entry'.tr,
-                                        snackPosition: SnackPosition.BOTTOM,
-                                      );
-                                    }
-                                  } catch (e) {
-                                    Get.snackbar(
-                                      'error'.tr,
-                                      e.toString(),
-                                      snackPosition: SnackPosition.BOTTOM,
-                                    );
-                                  } finally {
-                                    isSaving.value = false;
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: isSaving.value
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.3,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text('update_entry'.tr),
-                        ),
-                      ),
-                    ],
-                  ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text('cancel'.tr),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(
+                  'delete'.tr,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
-            ),
-          );
-        },
-      ),
-      isScrollControlled: true,
-    );
+            ],
+          ),
+        ) ??
+        false;
 
-    quantityController.dispose();
-    unitController.dispose();
-    notesController.dispose();
-    dateController.dispose();
+    if (!confirmed) return;
+
+    try {
+      debugPrint(
+        '[FeedingDelete] confirmed itemId=${item.id}, mounted=$mounted',
+      );
+      final response = await http.post(
+        Uri.parse('${Api.addFeeding}/delete/${item.id}'),
+        headers: const {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'farmer_id': _farmerId.toString()}),
+      );
+      debugPrint(
+        '[FeedingDelete] status=${response.statusCode}, body=${response.body}',
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      if (response.statusCode == 200 && data['status'] == true) {
+        if (closeViewAllPageOnSuccess && mounted) {
+          _closeViewAllPage();
+        }
+        Get.snackbar(
+          'success'.tr,
+          data['message']?.toString() ?? 'Feeding record deleted successfully.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        if (mounted) {
+          await _loadHistory(forceRefresh: true);
+        }
+      } else {
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'unable_to_delete'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   Future<void> _onFeedContentEditTap(_FeedingHistoryItem item) async {
@@ -574,281 +446,287 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
     recalculateTotals();
 
     await Get.bottomSheet(
-      StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                child: Obx(
-                  () => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'diet_plan'.tr,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
+      _TextEditingControllerScope(
+        controllers: [
+          feedQuantityController,
+          notesController,
+          ...subtypeControllers.values,
+        ],
+        beforeDispose: () {
+          feedQuantityController.removeListener(recalculateTotals);
+        },
+        child: StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  child: Obx(
+                    () => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'diet_plan'.tr,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${item.feedType} • ${_displayHistoryDate(item.date)} • ${item.feedingTime}',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Colors.black54,
+                        const SizedBox(height: 4),
+                        Text(
+                          '${item.feedType} • ${_displayHistoryDate(item.date)} • ${item.feedingTime}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.black54,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...subtypeNames.map(
-                        (name) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value: subtypeSelected[name] ?? false,
-                                activeColor: AppColors.primary,
-                                onChanged: (value) {
-                                  subtypeSelected[name] = value ?? false;
-                                  if (!(value ?? false)) {
-                                    subtypeControllers[name]?.clear();
-                                  }
-                                  recalculateTotals();
-                                  setModalState(() {});
-                                },
-                              ),
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                        const SizedBox(height: 12),
+                        ...subtypeNames.map(
+                          (name) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: subtypeSelected[name] ?? false,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (value) {
+                                    subtypeSelected[name] = value ?? false;
+                                    if (!(value ?? false)) {
+                                      subtypeControllers[name]?.clear();
+                                    }
+                                    recalculateTotals();
+                                    setModalState(() {});
+                                  },
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 96,
-                                child: TextField(
-                                  controller: subtypeControllers[name],
-                                  enabled: subtypeSelected[name] ?? false,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _inputDecoration('qty'.tr),
+                                SizedBox(
+                                  width: 96,
+                                  child: TextField(
+                                    controller: subtypeControllers[name],
+                                    enabled: subtypeSelected[name] ?? false,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: _inputDecoration('qty'.tr),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${'total'.tr} ${item.unit}: ${totalSubtypeQuantity.value.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                        const SizedBox(height: 2),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${'total'.tr} ${item.unit}: ${totalSubtypeQuantity.value.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: feedQuantityController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: feedQuantityController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: _inputDecoration('feeding_quantity'.tr),
                         ),
-                        decoration: _inputDecoration('feeding_quantity'.tr),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${'balance'.tr}: ${balanceQuantity.value.toStringAsFixed(2)} ${item.unit}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${'balance'.tr}: ${balanceQuantity.value.toStringAsFixed(2)} ${item.unit}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: notesController,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: _inputDecoration('notes'.tr),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isSaving.value
-                              ? null
-                              : () async {
-                                  final feedingQty =
-                                      double.tryParse(
-                                        feedQuantityController.text.trim(),
-                                      ) ??
-                                      0;
-                                  if (feedingQty <= 0) {
-                                    Get.snackbar(
-                                      'error'.tr,
-                                      'please_enter_valid_feeding_quantity'.tr,
-                                    );
-                                    return;
-                                  }
-
-                                  final subtypePayload =
-                                      <Map<String, dynamic>>[];
-                                  for (final name in subtypeNames) {
-                                    if (!(subtypeSelected[name] ?? false)) {
-                                      continue;
-                                    }
-                                    final qty =
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: notesController,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: _inputDecoration('notes'.tr),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isSaving.value
+                                ? null
+                                : () async {
+                                    final feedingQty =
                                         double.tryParse(
-                                          subtypeControllers[name]?.text
-                                                  .trim() ??
-                                              '',
+                                          feedQuantityController.text.trim(),
                                         ) ??
                                         0;
-                                    if (qty <= 0) continue;
-                                    subtypePayload.add({
-                                      if ((subtypeIdByName[name] ?? 0) > 0)
-                                        'subtype_id': subtypeIdByName[name],
-                                      'name': name,
-                                      'quantity': qty,
-                                    });
-                                  }
-
-                                  if (subtypePayload.isEmpty) {
-                                    Get.snackbar(
-                                      'Error',
-                                      'Please select at least one subtype with quantity',
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    isSaving.value = true;
-
-                                    final payload = {
-                                      'farmer_id': _farmerId.toString(),
-                                      if (item.animalId > 0)
-                                        'animal_id': item.animalId.toString(),
-                                      if (item.feedTypeId > 0)
-                                        'feed_type_id': item.feedTypeId
-                                            .toString(),
-                                      'feed_type': item.feedType,
-                                      'quantity': feedQuantityController.text
-                                          .trim(),
-                                      'feeding_quantity': feedQuantityController
-                                          .text
-                                          .trim(),
-                                      'package_quantity':
-                                          _packageQuantityForItem(
-                                            item,
-                                          ).toStringAsFixed(2),
-                                      'balance_quantity': balanceQuantity.value
-                                          .toStringAsFixed(2),
-                                      'rate_per_unit': item.ratePerUnit
-                                          .toStringAsFixed(2),
-                                      'feeding_cost':
-                                          (feedingQty * item.ratePerUnit)
-                                              .toStringAsFixed(2),
-                                      'feed_subtype_details': subtypePayload,
-                                      'unit': item.unit,
-                                      'feeding_time': item.feedingTime,
-                                      'date': item.date,
-                                      'notes': notesController.text.trim(),
-                                    };
-
-                                    final response = await http.post(
-                                      Uri.parse(
-                                        '${Api.feedingUpdate}/${item.id}',
-                                      ),
-                                      headers: {
-                                        'Accept': 'application/json',
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: jsonEncode(payload),
-                                    );
-                                    final data = response.body.isNotEmpty
-                                        ? jsonDecode(response.body)
-                                        : {};
-
-                                    if (response.statusCode == 200 &&
-                                        data['status'] == true) {
-                                      Get.back();
-                                      Get.snackbar(
-                                        'success'.tr,
-                                        data['message']?.toString() ??
-                                            'feed_content_updated_success'.tr,
-                                        snackPosition: SnackPosition.BOTTOM,
-                                      );
-                                      await Future.wait([
-                                        _loadHistory(),
-                                        _loadDietPlans(),
-                                      ]);
-                                    } else {
+                                    if (feedingQty <= 0) {
                                       Get.snackbar(
                                         'error'.tr,
-                                        data['message']?.toString() ??
-                                            'failed_update_feed_content'.tr,
+                                        'please_enter_valid_feeding_quantity'
+                                            .tr,
+                                      );
+                                      return;
+                                    }
+
+                                    final subtypePayload =
+                                        <Map<String, dynamic>>[];
+                                    for (final name in subtypeNames) {
+                                      if (!(subtypeSelected[name] ?? false)) {
+                                        continue;
+                                      }
+                                      final qty =
+                                          double.tryParse(
+                                            subtypeControllers[name]?.text
+                                                    .trim() ??
+                                                '',
+                                          ) ??
+                                          0;
+                                      if (qty <= 0) continue;
+                                      subtypePayload.add({
+                                        if ((subtypeIdByName[name] ?? 0) > 0)
+                                          'subtype_id': subtypeIdByName[name],
+                                        'name': name,
+                                        'quantity': qty,
+                                      });
+                                    }
+
+                                    if (subtypePayload.isEmpty) {
+                                      Get.snackbar(
+                                        'Error',
+                                        'Please select at least one subtype with quantity',
+                                      );
+                                      return;
+                                    }
+
+                                    try {
+                                      isSaving.value = true;
+
+                                      final payload = {
+                                        'farmer_id': _farmerId.toString(),
+                                        if (item.animalId > 0)
+                                          'animal_id': item.animalId.toString(),
+                                        if (item.feedTypeId > 0)
+                                          'feed_type_id': item.feedTypeId
+                                              .toString(),
+                                        'feed_type': item.feedType,
+                                        'quantity': feedQuantityController.text
+                                            .trim(),
+                                        'feeding_quantity':
+                                            feedQuantityController.text.trim(),
+                                        'package_quantity':
+                                            _packageQuantityForItem(
+                                              item,
+                                            ).toStringAsFixed(2),
+                                        'balance_quantity': balanceQuantity
+                                            .value
+                                            .toStringAsFixed(2),
+                                        'rate_per_unit': item.ratePerUnit
+                                            .toStringAsFixed(2),
+                                        'feeding_cost':
+                                            (feedingQty * item.ratePerUnit)
+                                                .toStringAsFixed(2),
+                                        'feed_subtype_details': subtypePayload,
+                                        'unit': item.unit,
+                                        'feeding_time': item.feedingTime,
+                                        'date': item.date,
+                                        'notes': notesController.text.trim(),
+                                      };
+
+                                      final response = await http.post(
+                                        Uri.parse(
+                                          '${Api.feedingUpdate}/${item.id}',
+                                        ),
+                                        headers: {
+                                          'Accept': 'application/json',
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: jsonEncode(payload),
+                                      );
+                                      final data = response.body.isNotEmpty
+                                          ? jsonDecode(response.body)
+                                          : {};
+
+                                      if (response.statusCode == 200 &&
+                                          data['status'] == true) {
+                                        Get.back();
+                                        Get.snackbar(
+                                          'success'.tr,
+                                          data['message']?.toString() ??
+                                              'feed_content_updated_success'.tr,
+                                          snackPosition: SnackPosition.BOTTOM,
+                                        );
+                                        if (mounted) {
+                                          await Future.wait([
+                                            _loadHistory(),
+                                            _loadDietPlans(),
+                                          ]);
+                                        }
+                                      } else {
+                                        Get.snackbar(
+                                          'error'.tr,
+                                          data['message']?.toString() ??
+                                              'failed_update_feed_content'.tr,
+                                          snackPosition: SnackPosition.BOTTOM,
+                                        );
+                                      }
+                                    } catch (e) {
+                                      Get.snackbar(
+                                        'error'.tr,
+                                        e.toString(),
                                         snackPosition: SnackPosition.BOTTOM,
                                       );
+                                    } finally {
+                                      isSaving.value = false;
                                     }
-                                  } catch (e) {
-                                    Get.snackbar(
-                                      'error'.tr,
-                                      e.toString(),
-                                      snackPosition: SnackPosition.BOTTOM,
-                                    );
-                                  } finally {
-                                    isSaving.value = false;
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: isSaving.value
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.3,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text('update_content'.tr),
                           ),
-                          child: isSaving.value
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.3,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text('update_content'.tr),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
       isScrollControlled: true,
     );
-
-    feedQuantityController.removeListener(recalculateTotals);
-    feedQuantityController.dispose();
-    notesController.dispose();
-    for (final controller in subtypeControllers.values) {
-      controller.dispose();
-    }
   }
 
   _FeedTypeEditorItem? _findLinkedFeedType(_FeedingHistoryItem item) {
@@ -1326,7 +1204,7 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
 
   Widget _viewAllEntryCard(
     _FeedingHistoryItem row, {
-    required Future<void> Function() onEdit,
+    required Future<void> Function() onDelete,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1360,19 +1238,19 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
               ),
               const SizedBox(width: 8),
               InkWell(
-                onTap: onEdit,
+                onTap: onDelete,
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   height: 30,
                   width: 30,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
+                    color: Colors.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
-                    Icons.edit_rounded,
+                    Icons.delete_outline_rounded,
                     size: 17,
-                    color: AppColors.primary,
+                    color: Colors.red,
                   ),
                 ),
               ),
@@ -1853,8 +1731,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                                               maxWidth: constraints.maxWidth,
                                             ),
                                             _infoChip(
-                                              icon: Icons
-                                                  .currency_rupee_rounded,
+                                              icon:
+                                                  Icons.currency_rupee_rounded,
                                               label:
                                                   '${'feeding_cost'.tr}: ${_formatQuantity(item.feedingCost)}',
                                               color: const Color(0xFFFFF3E0),
@@ -1872,10 +1750,10 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
-                                onPressed: () => _onEditTap(item),
-                                icon: const Icon(Icons.edit_rounded),
-                                color: AppColors.primary,
-                                tooltip: 'edit'.tr,
+                                onPressed: () => _onDeleteTap(item),
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                color: Colors.red,
+                                tooltip: 'delete'.tr,
                                 visualDensity: VisualDensity.compact,
                               ),
                             ],
@@ -2194,10 +2072,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
                   final row = group.entries[index];
                   return _viewAllEntryCard(
                     row,
-                    onEdit: () async {
-                      _closeViewAllPage();
-                      await _onEditTap(row);
-                    },
+                    onDelete: () =>
+                        _onDeleteTap(row, closeViewAllPageOnSuccess: true),
                   );
                 },
               ),
@@ -2207,10 +2083,8 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
       ),
     );
 
-    if (Get.isRegistered<BottomNavController>()) {
-      Get.find<BottomNavController>().openNestedDrawerPage(page);
-      return;
-    }
+    // Open View All as a real route so FeedingHistoryView stays mounted.
+    // The View All callbacks (_onDeleteTap, etc.) belong to this State.
     await Get.to<void>(() => page);
   }
 
@@ -2372,6 +2246,37 @@ class _FeedingHistoryViewState extends State<FeedingHistoryView> {
         ),
       ),
     );
+  }
+}
+
+class _TextEditingControllerScope extends StatefulWidget {
+  const _TextEditingControllerScope({
+    required this.controllers,
+    required this.child,
+    this.beforeDispose,
+  });
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+  final VoidCallback? beforeDispose;
+
+  @override
+  State<_TextEditingControllerScope> createState() =>
+      _TextEditingControllerScopeState();
+}
+
+class _TextEditingControllerScopeState
+    extends State<_TextEditingControllerScope> {
+  @override
+  Widget build(BuildContext context) => widget.child;
+
+  @override
+  void dispose() {
+    widget.beforeDispose?.call();
+    for (final controller in widget.controllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 }
 

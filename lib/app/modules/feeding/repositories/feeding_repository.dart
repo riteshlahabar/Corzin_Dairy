@@ -18,7 +18,10 @@ class FeedingApiResult {
 class FeedingRepository {
   const FeedingRepository({
     this.referenceCacheMaxAge = const Duration(minutes: 10),
-    this.dietPlanCacheMaxAge = const Duration(minutes: 2),
+    // Diet plans are farmer-editable reference data.
+    // Cache is shown instantly, but server is checked every time the
+    // diet-plan list is requested so newly added plans appear immediately.
+    this.dietPlanCacheMaxAge = Duration.zero,
     this.scheduleCacheMaxAge = const Duration(minutes: 1),
   });
 

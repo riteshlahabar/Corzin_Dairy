@@ -229,29 +229,29 @@ class HomeController extends GetxController {
   Future<void> fetchFarmerSettings() async {
     try {
       void apply(Map<String, dynamic> data) {
-      final settings = data['data'] is Map
-          ? Map<String, dynamic>.from(data['data'] as Map)
-          : <String, dynamic>{};
-      final contact = settings['admin_contact'] is Map
-          ? Map<String, dynamic>.from(settings['admin_contact'] as Map)
-          : <String, dynamic>{};
-      adminContactName.value = contact['name']?.toString().trim() ?? '';
-      adminContactNumber.value = contact['number']?.toString().trim() ?? '';
-      final banners = settings['banners'] ?? [];
+        final settings = data['data'] is Map
+            ? Map<String, dynamic>.from(data['data'] as Map)
+            : <String, dynamic>{};
+        final contact = settings['admin_contact'] is Map
+            ? Map<String, dynamic>.from(settings['admin_contact'] as Map)
+            : <String, dynamic>{};
+        adminContactName.value = contact['name']?.toString().trim() ?? '';
+        adminContactNumber.value = contact['number']?.toString().trim() ?? '';
+        final banners = settings['banners'] ?? [];
         if (data['status'] == true && banners is List) {
-        farmerBanners.assignAll(
-          banners
-              .whereType<Map>()
-              .map(
-                (item) => HomeAdminBannerModel.fromJson(
-                  Map<String, dynamic>.from(item),
-                ),
-              )
-              .where((banner) => banner.imageUrl.trim().isNotEmpty)
-              .toList(),
-        );
-        _preCacheBannerImages();
-        _syncHeroBannerTimer();
+          farmerBanners.assignAll(
+            banners
+                .whereType<Map>()
+                .map(
+                  (item) => HomeAdminBannerModel.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .where((banner) => banner.imageUrl.trim().isNotEmpty)
+                .toList(),
+          );
+          _preCacheBannerImages();
+          _syncHeroBannerTimer();
         }
       }
 
@@ -375,7 +375,7 @@ class HomeController extends GetxController {
     try {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
-      
+
         final list = data['data'] is List ? data['data'] as List : <dynamic>[];
         double todayMilkTotal = 0;
         double totalMilkTotal = 0;
@@ -411,7 +411,9 @@ class HomeController extends GetxController {
           final latestPayment = latestPaymentFromApi.isNotEmpty
               ? latestPaymentFromApi
               : latestPaymentFromHistory;
-          final latest = latestPayment.isNotEmpty ? latestPayment : latestLedger;
+          final latest = latestPayment.isNotEmpty
+              ? latestPayment
+              : latestLedger;
 
           double todayPayment = 0;
           double totalPayment = 0;
@@ -556,12 +558,9 @@ class HomeController extends GetxController {
 
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final uri = Uri.parse('${Api.healthDmi}/$farmerId').replace(
-        queryParameters: {
-          'from_date': today,
-          'to_date': today,
-        },
-      );
+      final uri = Uri.parse(
+        '${Api.healthDmi}/$farmerId',
+      ).replace(queryParameters: {'from_date': today, 'to_date': today});
 
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
@@ -614,18 +613,15 @@ class HomeController extends GetxController {
     final today = DateTime.now();
     final days = List.generate(
       5,
-      (index) => DateTime(today.year, today.month, today.day)
-          .subtract(Duration(days: 4 - index)),
+      (index) => DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: 4 - index)),
     );
-    final milkByDate = {
-      for (final day in days) _dateKey(day): 0.0,
-    };
-    final feedingByDate = {
-      for (final day in days) _dateKey(day): 0.0,
-    };
-    final dmiByDate = {
-      for (final day in days) _dateKey(day): 0.0,
-    };
+    final milkByDate = {for (final day in days) _dateKey(day): 0.0};
+    final feedingByDate = {for (final day in days) _dateKey(day): 0.0};
+    final dmiByDate = {for (final day in days) _dateKey(day): 0.0};
     void applyGraph() {
       _assignProductionGraphPoints(
         days: days,
@@ -671,8 +667,11 @@ class HomeController extends GetxController {
   List<HomeProductionGraphPoint> _emptyProductionGraphPoints() {
     final today = DateTime.now();
     return List.generate(5, (index) {
-      final day = DateTime(today.year, today.month, today.day)
-          .subtract(Duration(days: 4 - index));
+      final day = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: 4 - index));
       return HomeProductionGraphPoint(
         dateLabel: DateFormat('d').format(day),
         milk: 0,
@@ -703,12 +702,16 @@ class HomeController extends GetxController {
 
           var quantity = _asDouble(row['total_milk']);
           if (quantity <= 0) {
-            quantity = _asDouble(row['morning_milk']) +
+            quantity =
+                _asDouble(row['morning_milk']) +
                 _asDouble(row['afternoon_milk']) +
                 _asDouble(row['evening_milk']);
           }
           if (quantity <= 0) {
-            quantity = _firstPositiveValue(row, const ['quantity_liters', 'quantity']);
+            quantity = _firstPositiveValue(row, const [
+              'quantity_liters',
+              'quantity',
+            ]);
           }
           valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
         }
@@ -743,10 +746,11 @@ class HomeController extends GetxController {
           final key = _dateKey(_parseDateValue(row['date']));
           if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
 
-          final quantity = _firstPositiveValue(
-            row,
-            const ['feeding_quantity', 'quantity', 'total_feeding'],
-          );
+          final quantity = _firstPositiveValue(row, const [
+            'feeding_quantity',
+            'quantity',
+            'total_feeding',
+          ]);
           valuesByDate[key] = (valuesByDate[key] ?? 0) + quantity;
         }
         onApplied?.call();
@@ -791,7 +795,8 @@ class HomeController extends GetxController {
           final key = _dateKey(_parseDateValue(row['date']));
           if (key.isEmpty || !valuesByDate.containsKey(key)) continue;
 
-          valuesByDate[key] = (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
+          valuesByDate[key] =
+              (valuesByDate[key] ?? 0) + _asDouble(row['actual_dmi']);
         }
         onApplied?.call();
       }
@@ -821,7 +826,7 @@ class HomeController extends GetxController {
         if (data['status'] != true || data['data'] is! List) {
           return;
         }
-      
+
         final list = (data['data'] as List)
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
@@ -854,8 +859,7 @@ class HomeController extends GetxController {
         }
 
         final plan = list.firstWhere(
-          (item) =>
-              int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
+          (item) => int.tryParse(item['id']?.toString() ?? '') == currentPlanId,
           orElse: () => <String, dynamic>{},
         );
 
@@ -867,7 +871,8 @@ class HomeController extends GetxController {
             ) ??
             0;
         final planName =
-            currentSubscription['plan_name']?.toString().trim().isNotEmpty == true
+            currentSubscription['plan_name']?.toString().trim().isNotEmpty ==
+                true
             ? currentSubscription['plan_name'].toString()
             : plan['name']?.toString().trim().isNotEmpty == true
             ? plan['name'].toString()
@@ -902,7 +907,9 @@ class HomeController extends GetxController {
               'expires_at',
               'end_date',
             ]) ??
-            (durationDays > 0 ? startAt.add(Duration(days: durationDays)) : now);
+            (durationDays > 0
+                ? startAt.add(Duration(days: durationDays))
+                : now);
         _planRenewAt = renewAt;
         final daysLeft = _daysLeftFromNow(renewAt);
         final lockedFromApi =
@@ -1599,7 +1606,12 @@ class HomeController extends GetxController {
     if (text.isEmpty) return null;
     final parsed = DateTime.tryParse(text);
     if (parsed != null) return parsed.toLocal();
-    for (final pattern in const ['dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'yyyy-MM-dd']) {
+    for (final pattern in const [
+      'dd/MM/yyyy',
+      'd/M/yyyy',
+      'dd-MM-yyyy',
+      'yyyy-MM-dd',
+    ]) {
       try {
         return DateFormat(pattern).parseStrict(text);
       } catch (_) {}

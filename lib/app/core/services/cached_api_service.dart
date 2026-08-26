@@ -111,6 +111,10 @@ class CachedApiService {
     }
   }
 
+  Future<void> remove(String key) async {
+    await _cache.remove(key);
+  }
+
   Map<String, dynamic> _decodeMap(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);

@@ -226,7 +226,11 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
                 title: 'add_milk'.tr,
                 onTap: () {
                   Get.back();
-                  openDrawerRoute(Routes.MILK);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!isClosed) {
+                      openDrawerRoute(Routes.MILK);
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 12),
@@ -248,6 +252,9 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
 
   Future<void> logout() async {
     await SessionService.logout();
+    if (Get.isRegistered<MilkController>()) {
+      Get.delete<MilkController>(force: true);
+    }
     if (Get.isRegistered<HomeController>()) {
       Get.delete<HomeController>(force: true);
     }
@@ -264,7 +271,7 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
       Get.delete<AnimalController>(force: true);
     }
     if (routeName == Routes.MILK && Get.isRegistered<MilkController>()) {
-      Get.delete<MilkController>(force: true);
+      unawaited(Get.find<MilkController>().prepareForOpen());
     }
     final route = AppPages.routes.firstWhereOrNull(
       (item) => item.name == routeName,

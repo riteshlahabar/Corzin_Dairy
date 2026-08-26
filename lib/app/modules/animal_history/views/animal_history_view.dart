@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
@@ -43,7 +43,12 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             Container(
               width: double.infinity,
               color: AppColors.primary,
-              padding: EdgeInsets.fromLTRB(8, MediaQuery.of(context).padding.top + 4, 8, 6),
+              padding: EdgeInsets.fromLTRB(
+                8,
+                MediaQuery.of(context).padding.top + 4,
+                8,
+                6,
+              ),
               child: Row(
                 children: [
                   IconButton(
@@ -55,7 +60,11 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   Expanded(
                     child: Text(
                       onlyForSale ? 'animal_for_sale'.tr : 'animal_list'.tr,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -68,7 +77,10 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 decoration: InputDecoration(
                   hintText: 'search_animal_tag_action'.tr,
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   prefixIconConstraints: const BoxConstraints(minWidth: 38),
                   filled: true,
@@ -91,12 +103,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             _animalTypeFilters(),
             const SizedBox(height: 10),
             Expanded(
-              child: Obx(
-                () {
-                  final items = onlyForSale
-                      ? controller.filteredHistory.where((item) => item.isForSale).toList()
-                      : controller.filteredHistory;
-                  return controller.isLoading.value
+              child: Obx(() {
+                final items = onlyForSale
+                    ? controller.filteredHistory
+                          .where((item) => item.isForSale)
+                          .toList()
+                    : controller.filteredHistory;
+                return controller.isLoading.value
                     ? const Center(child: CircularProgressIndicator())
                     : RefreshIndicator(
                         onRefresh: controller.fetchHistory,
@@ -105,18 +118,30 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                                 padding: const EdgeInsets.all(24),
                                 children: [
                                   SizedBox(height: 120),
-                                  Icon(Icons.pets_rounded, size: 48, color: AppColors.primary),
+                                  Icon(
+                                    Icons.pets_rounded,
+                                    size: 48,
+                                    color: AppColors.primary,
+                                  ),
                                   SizedBox(height: 12),
                                   Center(
                                     child: Text(
                                       'no_animals_found'.tr,
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  20,
+                                ),
                                 itemCount: items.length,
                                 itemBuilder: (context, index) {
                                   final item = items[index];
@@ -124,8 +149,7 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                                 },
                               ),
                       );
-                },
-              ),
+              }),
             ),
           ],
         ),
@@ -134,7 +158,8 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   }
 
   void _goBack() {
-    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+    if (Get.isRegistered<BottomNavController>() &&
+        Get.find<BottomNavController>().closeDrawerPage()) {
       return;
     }
     Get.back();
@@ -192,7 +217,9 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
   Widget _animalCard(AnimalHistoryItem item) {
     final statusText = item.isForSale
         ? 'status_selling'.tr
-        : (item.isActive ? controller.translatedLifecycleStatus(item.lifecycleStatus) : 'status_inactive'.tr);
+        : (item.isActive
+              ? controller.translatedLifecycleStatus(item.lifecycleStatus)
+              : 'status_inactive'.tr);
     final statusColor = item.isForSale
         ? const Color(0xFFB25E00)
         : (item.isActive ? AppColors.primary : Colors.redAccent);
@@ -232,7 +259,10 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                             item.animalName.isEmpty ? '-' : item.animalName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -244,15 +274,26 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        _miniChip(Icons.confirmation_number_outlined, item.uniqueId.isEmpty ? '-' : item.uniqueId),
-                        _miniChip(Icons.sell_outlined, '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}'),
+                        _miniChip(
+                          Icons.confirmation_number_outlined,
+                          item.uniqueId.isEmpty ? '-' : item.uniqueId,
+                        ),
+                        _miniChip(
+                          Icons.sell_outlined,
+                          '${'tag'.tr}: ${item.tagNumber.isEmpty ? '-' : item.tagNumber}',
+                        ),
                         if (onlyForSale)
-                          _miniChip(Icons.currency_rupee_rounded, _priceText(item.sellingPrice)),
+                          _miniChip(
+                            Icons.currency_rupee_rounded,
+                            _priceText(item.sellingPrice),
+                          ),
                         _miniChip(
                           Icons.category_outlined,
                           item.animalTypeName.isEmpty
                               ? '-'
-                              : controller.translatedAnimalTypeName(item.animalTypeName),
+                              : controller.translatedAnimalTypeName(
+                                  item.animalTypeName,
+                                ),
                         ),
                       ],
                     ),
@@ -266,22 +307,62 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _detailTile('pan'.tr.toUpperCase(), item.panName.isEmpty ? '-' : item.panName, Icons.grid_view_rounded),
-              _detailTile('gender'.tr, item.gender.isEmpty ? '-' : item.gender, Icons.female_rounded),
-              _detailTile('birth_date'.tr, item.birthDate.isEmpty ? '-' : item.birthDate, Icons.cake_rounded),
-              _detailTile('purchase_date'.tr, item.purchaseDate.isEmpty ? '-' : item.purchaseDate, Icons.shopping_bag_outlined),
-              _detailTile('age'.tr, item.age.isEmpty ? '-' : item.age, Icons.timelapse_rounded),
-              _detailTile('weight'.tr, item.weight.isEmpty ? '-' : '${item.weight} Kg', Icons.monitor_weight_outlined),
+              _detailTile(
+                'pan'.tr.toUpperCase(),
+                item.panName.isEmpty ? '-' : item.panName,
+                Icons.grid_view_rounded,
+              ),
+              _detailTile(
+                'gender'.tr,
+                item.gender.isEmpty ? '-' : item.gender,
+                Icons.female_rounded,
+              ),
+              _detailTile(
+                'birth_date'.tr,
+                item.birthDate.isEmpty ? '-' : item.birthDate,
+                Icons.cake_rounded,
+              ),
+              _detailTile(
+                'purchase_date'.tr,
+                item.purchaseDate.isEmpty ? '-' : item.purchaseDate,
+                Icons.shopping_bag_outlined,
+              ),
+              _detailTile(
+                'age'.tr,
+                item.age.isEmpty ? '-' : item.age,
+                Icons.timelapse_rounded,
+              ),
+              _detailTile(
+                'weight'.tr,
+                item.weight.isEmpty ? '-' : '${item.weight} Kg',
+                Icons.monitor_weight_outlined,
+              ),
               if (controller.isMilkingAnimalTypeName(item.animalTypeName))
                 _detailTile(
                   'milk_per_day'.tr,
                   _milkPerDayText(item),
                   Icons.local_drink_outlined,
                 ),
-              _detailTile('breed'.tr, item.breedName.isEmpty ? '-' : item.breedName, Icons.pets_rounded),
-              _detailTile('lactation'.tr, item.lactationNumber.isEmpty ? '-' : item.lactationNumber, Icons.local_drink_rounded),
-              _detailTile('ai_date'.tr, item.aiDate.isEmpty ? '-' : item.aiDate, Icons.calendar_month_rounded),
-              _detailTile('mother'.tr, item.motherLabel.isEmpty ? '-' : item.motherLabel, Icons.family_restroom_rounded),
+              _detailTile(
+                'breed'.tr,
+                item.breedName.isEmpty ? '-' : item.breedName,
+                Icons.pets_rounded,
+              ),
+              _detailTile(
+                'lactation'.tr,
+                item.lactationNumber.isEmpty ? '-' : item.lactationNumber,
+                Icons.local_drink_rounded,
+              ),
+              _detailTile(
+                'ai_date'.tr,
+                item.aiDate.isEmpty ? '-' : item.aiDate,
+                Icons.calendar_month_rounded,
+              ),
+              _detailTile(
+                'mother'.tr,
+                item.motherLabel.isEmpty ? '-' : item.motherLabel,
+                Icons.family_restroom_rounded,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -296,29 +377,30 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (onlyForSale)
-                Expanded(
-                  child: _actionButton(
-                    label: 'cancel_selling_title'.tr,
-                    icon: Icons.cancel_presentation_rounded,
-                    onTap: () => _confirmCancelSellingAnimal(item),
-                    filled: false,
-                  ),
-                )
-              else
-                _squareActionButton(
-                  icon: Icons.edit_rounded,
-                  color: AppColors.primary,
-                  onTap: () {
-                    if (Get.isRegistered<BottomNavController>()) {
-                      Get.find<BottomNavController>().openNestedDrawerPage(
-                        EditAnimalView(item: item),
-                      );
-                      return;
-                    }
-                    Get.to(() => EditAnimalView(item: item));
-                  },
-                ),
+              Expanded(
+                child: onlyForSale
+                    ? _actionButton(
+                        label: 'cancel_selling_title'.tr,
+                        icon: Icons.cancel_presentation_rounded,
+                        onTap: () => _confirmCancelSellingAnimal(item),
+                        filled: false,
+                      )
+                    : _actionButton(
+                        label: 'Edit',
+                        icon: Icons.edit_rounded,
+                        onTap: () {
+                          if (Get.isRegistered<BottomNavController>()) {
+                            Get.find<BottomNavController>()
+                                .openNestedDrawerPage(
+                                  EditAnimalView(item: item),
+                                );
+                            return;
+                          }
+                          Get.to(() => EditAnimalView(item: item));
+                        },
+                        filled: false,
+                      ),
+              ),
             ],
           ),
         ],
@@ -340,7 +422,11 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
           const SizedBox(width: 4),
           Text(
             text,
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.black),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.black,
+            ),
           ),
         ],
       ),
@@ -356,7 +442,11 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
@@ -383,14 +473,21 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10.5, color: AppColors.grey.shade700, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.grey.shade700,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -412,9 +509,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
       return '-';
     }
 
-    final shiftCount = item.panMilkShifts.isEmpty ? 1 : item.panMilkShifts.length;
+    final shiftCount = item.panMilkShifts.isEmpty
+        ? 1
+        : item.panMilkShifts.length;
     final total = perShift * shiftCount;
-    final display = total % 1 == 0 ? total.toStringAsFixed(0) : total.toStringAsFixed(2);
+    final display = total % 1 == 0
+        ? total.toStringAsFixed(0)
+        : total.toStringAsFixed(2);
     return '$display L';
   }
 
@@ -436,8 +537,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                 backgroundColor: color,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
               ),
             )
           : OutlinedButton.icon(
@@ -447,31 +553,15 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: color,
                 side: BorderSide(color: color.withValues(alpha: 0.35)),
-                textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
               ),
             ),
-    );
-  }
-
-  Widget _squareActionButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(13),
-      child: Container(
-        height: 40,
-        width: 42,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: color.withValues(alpha: 0.18)),
-        ),
-        child: Icon(icon, color: color, size: 18),
-      ),
     );
   }
 
@@ -524,8 +614,13 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               ),
               const SizedBox(height: 10),
               Text(
-                item.animalName.isEmpty ? 'record'.tr : '${item.animalName} ${'record'.tr}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                item.animalName.isEmpty
+                    ? 'record'.tr
+                    : '${item.animalName} ${'record'.tr}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 10),
               _historyActionTile(
@@ -631,7 +726,11 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                   color: const Color(0xFFB25E00).withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.cancel_presentation_rounded, color: Color(0xFFB25E00), size: 28),
+                child: const Icon(
+                  Icons.cancel_presentation_rounded,
+                  color: Color(0xFFB25E00),
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -642,7 +741,11 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               Text(
                 'cancel_selling_message'.trParams({'name': animalName}),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13.5, height: 1.35, color: AppColors.grey.shade700),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.35,
+                  color: AppColors.grey.shade700,
+                ),
               ),
               const SizedBox(height: 18),
               Row(
@@ -653,7 +756,9 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.black,
                         side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       child: Text('cancel'.tr),
                     ),
@@ -666,22 +771,31 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
                             ? null
                             : () async {
                                 Get.back();
-                                final ok = await controller.cancelSellingAnimal(item);
-                                if (ok && Get.isRegistered<BottomNavController>()) {
-                                  Get.find<BottomNavController>().runSilentSyncNow();
+                                final ok = await controller.cancelSellingAnimal(
+                                  item,
+                                );
+                                if (ok &&
+                                    Get.isRegistered<BottomNavController>()) {
+                                  Get.find<BottomNavController>()
+                                      .runSilentSyncNow();
                                 }
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFB25E00),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: controller.isSubmitting.value
                             ? const SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: Colors.white,
+                                ),
                               )
                             : Text('confirm'.tr),
                       ),
@@ -723,9 +837,21 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.grey.shade700)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.grey.shade700,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -735,6 +861,4 @@ class AnimalHistoryView extends GetView<AnimalHistoryController> {
       ),
     );
   }
-
 }
-

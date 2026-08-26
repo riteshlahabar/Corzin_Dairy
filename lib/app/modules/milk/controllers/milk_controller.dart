@@ -37,8 +37,15 @@ class MilkController extends GetxController {
   final Rxn<MilkPanModel> selectedPan = Rxn<MilkPanModel>();
   final Rxn<MilkDairyModel> selectedDairy = Rxn<MilkDairyModel>();
   final RxString selectedShift = 'Morning'.obs;
-  final RxList<String> availableShifts = <String>['Morning', 'Afternoon', 'Evening'].obs;
-  final Rx<DateTime> entryCalendarMonth = DateTime(DateTime.now().year, DateTime.now().month).obs;
+  final RxList<String> availableShifts = <String>[
+    'Morning',
+    'Afternoon',
+    'Evening',
+  ].obs;
+  final Rx<DateTime> entryCalendarMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+  ).obs;
   final RxMap<String, int> monthEntryCounts = <String, int>{}.obs;
   final RxDouble cowMilkTotal = 0.0.obs;
   final RxDouble cowMilkDifference = 0.0.obs;
@@ -46,8 +53,17 @@ class MilkController extends GetxController {
 
   int farmerId = 0;
   List<Map<String, dynamic>> _milkRows = <Map<String, dynamic>>[];
-  static const List<String> _allShifts = <String>['Morning', 'Afternoon', 'Evening'];
+  static const List<String> _allShifts = <String>[
+    'Morning',
+    'Afternoon',
+    'Evening',
+  ];
   static const Duration _referenceCacheMaxAge = Duration(minutes: 10);
+
+  // Dairy can be added/edited by the farmer.
+  // Show local cache immediately but always verify fresh list from server.
+  static const Duration _dairyCacheMaxAge = Duration.zero;
+
   static const Duration _scheduleCacheMaxAge = Duration(minutes: 1);
 
   @override
@@ -63,12 +79,22 @@ class MilkController extends GetxController {
     await Future.wait([fetchAnimals(), fetchDairies(), refreshAutoSchedule()]);
   }
 
+  Future<void> prepareForOpen() async {
+    clearForm();
+    await loadFarmerId();
+    await Future.wait([
+      fetchAnimals(forceRefresh: true),
+      fetchDairies(),
+      refreshAutoSchedule(forceRefresh: true),
+    ]);
+  }
+
   Future<void> loadFarmerId() async {
     final prefs = await SharedPreferences.getInstance();
     farmerId = prefs.getInt('farmer_id') ?? 0;
   }
 
-  Future<void> fetchAnimals() async {
+  Future<void> fetchAnimals({bool forceRefresh = false}) async {
     if (farmerId == 0) return;
     try {
       isPageLoading.value = animals.isEmpty;
@@ -76,12 +102,20 @@ class MilkController extends GetxController {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
         final List list = data['data'] ?? [];
-        final fetched = list.map((item) => MilkAnimalModel.fromJson(item)).toList();
-        final milkingOnly = fetched.where((animal) => _isMilkingAnimalType(animal.animalTypeName)).toList();
+        final fetched = list
+            .map((item) => MilkAnimalModel.fromJson(item))
+            .toList();
+        final milkingOnly = fetched
+            .where((animal) => _isMilkingAnimalType(animal.animalTypeName))
+            .toList();
         animals.assignAll(milkingOnly);
         final currentAnimal = selectedAnimal.value;
-        if (currentAnimal != null && !milkingOnly.any((animal) => animal.id == currentAnimal.id)) {
-          selectedAnimal.value = null;
+
+        // Re-bind selected Milk animal to refreshed list object.
+        if (currentAnimal != null) {
+          selectedAnimal.value = milkingOnly.firstWhereOrNull(
+            (animal) => animal.id == currentAnimal.id,
+          );
         }
         _rebuildPansFromAnimals();
         updateAvailableShifts();
@@ -93,6 +127,7 @@ class MilkController extends GetxController {
         uri: Uri.parse('${Api.animalList}/$farmerId'),
         onCached: apply,
         maxAge: _referenceCacheMaxAge,
+        forceRefresh: forceRefresh,
       );
       if (data != null && data['status'] == true) {
         apply(data);
@@ -129,7 +164,9 @@ class MilkController extends GetxController {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
         final List list = data['data'] ?? [];
-        dairies.assignAll(list.map((item) => MilkDairyModel.fromJson(item)).toList());
+        dairies.assignAll(
+          list.map((item) => MilkDairyModel.fromJson(item)).toList(),
+        );
         final currentDairy = selectedDairy.value;
         if (currentDairy != null) {
           selectedDairy.value = dairies.firstWhereOrNull(
@@ -142,7 +179,7 @@ class MilkController extends GetxController {
         key: 'dairy_list_$farmerId',
         uri: Uri.parse('${Api.dairyList}/$farmerId'),
         onCached: apply,
-        maxAge: _referenceCacheMaxAge,
+        maxAge: _dairyCacheMaxAge,
       );
       if (data != null && data['status'] == true) {
         apply(data);
@@ -166,7 +203,9 @@ class MilkController extends GetxController {
 
     final selectedId = _extractDairyIdFromResult(result);
     if (selectedId != null) {
-      final matched = dairies.firstWhereOrNull((dairy) => dairy.id == selectedId);
+      final matched = dairies.firstWhereOrNull(
+        (dairy) => dairy.id == selectedId,
+      );
       if (matched != null) {
         selectedDairy.value = matched;
         return;
@@ -235,7 +274,8 @@ class MilkController extends GetxController {
     updateAvailableShifts();
   }
 
-  double get enteredQuantityLiters => double.tryParse(quantityController.text.trim()) ?? 0;
+  double get enteredQuantityLiters =>
+      double.tryParse(quantityController.text.trim()) ?? 0;
 
   bool get isCowMilkMatched {
     if (selectedPan.value == null) return true;
@@ -258,7 +298,9 @@ class MilkController extends GetxController {
 
   bool get canSubmitMilkForm {
     if (isSubmitting.value) return false;
-    if (animals.isEmpty || dairies.isEmpty || availableShifts.isEmpty) return false;
+    if (animals.isEmpty || dairies.isEmpty || availableShifts.isEmpty) {
+      return false;
+    }
     if (selectedDairy.value == null) return false;
     if (selectedAnimal.value == null && selectedPan.value == null) return false;
     if (milkDateController.text.trim().isEmpty) return false;
@@ -272,7 +314,8 @@ class MilkController extends GetxController {
     if (fat == null || fat <= 0) return false;
     if (snf == null || snf <= 0) return false;
     if (rate == null || rate <= 0) return false;
-    if (selectedShift.value.trim().isEmpty || !availableShifts.contains(selectedShift.value)) {
+    if (selectedShift.value.trim().isEmpty ||
+        !availableShifts.contains(selectedShift.value)) {
       return false;
     }
 
@@ -285,44 +328,96 @@ class MilkController extends GetxController {
   }
 
   void rebuildPanCowDistribution() {
-    final oldEntries = List<PanCowMilkEntry>.from(panCowMilkEntries);
-    panCowMilkEntries.clear();
-    for (final entry in oldEntries) {
-      entry.dispose();
-    }
-
     final pan = selectedPan.value;
+
     if (pan == null) {
-      recalculateCowMilkTotal();
+      clearPanCowDistribution();
       return;
     }
 
-    final panAnimals = animals.where((animal) => animal.belongsToPan(pan)).toList()
-      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
-    final entries = panAnimals.map(PanCowMilkEntry.fromAnimal).toList();
-    for (final entry in entries) {
+    final oldByAnimalId = <int, PanCowMilkEntry>{
+      for (final entry in panCowMilkEntries) entry.animal.id: entry,
+    };
+
+    final panAnimals =
+        animals.where((animal) => animal.belongsToPan(pan)).toList()..sort(
+          (a, b) => a.displayName.toLowerCase().compareTo(
+            b.displayName.toLowerCase(),
+          ),
+        );
+
+    final nextEntries = <PanCowMilkEntry>[];
+    final retainedIds = <int>{};
+
+    for (final animal in panAnimals) {
+      final existing = oldByAnimalId[animal.id];
+
+      if (existing != null) {
+        nextEntries.add(
+          PanCowMilkEntry(
+            animal: animal,
+            quantityController: existing.quantityController,
+          ),
+        );
+
+        retainedIds.add(animal.id);
+        continue;
+      }
+
+      final entry = PanCowMilkEntry.fromAnimal(animal);
       entry.quantityController.addListener(recalculateCowMilkTotal);
+      nextEntries.add(entry);
     }
-    panCowMilkEntries.assignAll(entries);
+
+    final removedEntries = panCowMilkEntries
+        .where((entry) => !retainedIds.contains(entry.animal.id))
+        .toList();
+
+    for (final entry in removedEntries) {
+      entry.quantityController.removeListener(recalculateCowMilkTotal);
+    }
+
+    panCowMilkEntries.assignAll(nextEntries);
+
+    _disposePanCowEntriesAfterFrame(removedEntries);
+
     recalculateCowMilkTotal();
   }
 
   void clearPanCowDistribution() {
     final oldEntries = List<PanCowMilkEntry>.from(panCowMilkEntries);
+
     panCowMilkEntries.clear();
+
     for (final entry in oldEntries) {
-      entry.dispose();
+      entry.quantityController.removeListener(recalculateCowMilkTotal);
     }
+
+    _disposePanCowEntriesAfterFrame(oldEntries);
+
     recalculateCowMilkTotal();
+  }
+
+  void _disposePanCowEntriesAfterFrame(List<PanCowMilkEntry> entries) {
+    if (entries.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final entry in entries) {
+        entry.dispose();
+      }
+    });
   }
 
   void recalculateCowMilkTotal() {
     final total = panCowMilkEntries.fold<double>(
       0,
-      (sum, entry) => sum + (double.tryParse(entry.quantityController.text.trim()) ?? 0),
+      (sum, entry) =>
+          sum + (double.tryParse(entry.quantityController.text.trim()) ?? 0),
     );
     final roundedTotal = double.parse(total.toStringAsFixed(2));
-    final roundedDiff = double.parse((roundedTotal - enteredQuantityLiters).toStringAsFixed(2));
+    final roundedDiff = double.parse(
+      (roundedTotal - enteredQuantityLiters).toStringAsFixed(2),
+    );
     cowMilkTotal.value = roundedTotal;
     cowMilkDifference.value = roundedDiff;
   }
@@ -330,29 +425,50 @@ class MilkController extends GetxController {
   Future<void> submitMilk() async {
     if (!formKey.currentState!.validate()) return;
     if (farmerId == 0) {
-      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'farmer_id_not_found_login_again'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     if (selectedAnimal.value == null) {
       if (selectedPan.value == null) {
-        Get.snackbar('error'.tr, 'please_select_animal_or_pan'.tr, snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'error'.tr,
+          'please_select_animal_or_pan'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         return;
       }
     }
-    if (selectedShift.value.trim().isEmpty || !availableShifts.contains(selectedShift.value)) {
-      Get.snackbar('info'.tr, 'no_milk_shift_available_selected_date'.tr, snackPosition: SnackPosition.BOTTOM);
+    if (selectedShift.value.trim().isEmpty ||
+        !availableShifts.contains(selectedShift.value)) {
+      Get.snackbar(
+        'info'.tr,
+        'no_milk_shift_available_selected_date'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
     if (selectedPan.value != null) {
       final pan = selectedPan.value!;
       if (panCowMilkEntries.isEmpty) {
-        Get.snackbar('error'.tr, 'no_animals_found_in_selected_pan_msg'.tr, snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'error'.tr,
+          'no_animals_found_in_selected_pan_msg'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         return;
       }
 
       final totalQty = double.tryParse(quantityController.text.trim()) ?? 0;
       if (totalQty <= 0) {
-        Get.snackbar('error'.tr, 'enter_valid_milk_qty'.tr, snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'error'.tr,
+          'enter_valid_milk_qty'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
         return;
       }
       recalculateCowMilkTotal();
@@ -392,7 +508,11 @@ class MilkController extends GetxController {
       return;
     }
     if (selectedDairy.value == null) {
-      Get.snackbar('error'.tr, 'please_select_dairy'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_dairy'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 
@@ -413,14 +533,18 @@ class MilkController extends GetxController {
 
       final response = await http.post(
         Uri.parse(Api.addMilk),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final successMessage = data['message']?.toString() ?? 'Milk record saved successfully';
+        final successMessage =
+            data['message']?.toString() ?? 'Milk record saved successfully';
         await refreshAutoSchedule(forceRefresh: true);
         clearForm();
         _goToHomeAfterSave();
@@ -435,16 +559,31 @@ class MilkController extends GetxController {
         String errorMessage = 'Validation failed';
         if (data['message'] is Map) {
           final errors = data['message'] as Map;
-          errorMessage = errors.values.map((e) => e is List ? e.join(', ') : e.toString()).join('\n');
+          errorMessage = errors.values
+              .map((e) => e is List ? e.join(', ') : e.toString())
+              .join('\n');
         } else if (data['message'] != null) {
           errorMessage = data['message'].toString();
         }
-        Get.snackbar('validation'.tr, errorMessage, snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 4));
+        Get.snackbar(
+          'validation'.tr,
+          errorMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
       } else {
-        Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_milk_record'.tr, snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar(
+          'error'.tr,
+          data['message']?.toString() ?? 'failed_save_milk_record'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } catch (e) {
-      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isSubmitting.value = false;
     }
@@ -464,21 +603,37 @@ class MilkController extends GetxController {
 
   Future<bool> submitPanMilk() async {
     if (farmerId == 0) {
-      Get.snackbar('error'.tr, 'farmer_id_not_found_login_again'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'farmer_id_not_found_login_again'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
     final pan = selectedPan.value;
     final dairy = selectedDairy.value;
     if (pan == null) {
-      Get.snackbar('error'.tr, 'please_select_pan'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_pan'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
     if (dairy == null) {
-      Get.snackbar('error'.tr, 'please_select_dairy_first'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_select_dairy_first'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
     if (panCowMilkEntries.isEmpty) {
-      Get.snackbar('error'.tr, 'no_animals_found_in_selected_pan_msg'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'no_animals_found_in_selected_pan_msg'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
 
@@ -487,12 +642,20 @@ class MilkController extends GetxController {
       return value == null || value < 0;
     });
     if (invalid) {
-      Get.snackbar('error'.tr, 'please_enter_valid_cow_wise_milk_quantities'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        'please_enter_valid_cow_wise_milk_quantities'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
     recalculateCowMilkTotal();
     if (!isCowMilkMatched) {
-      Get.snackbar('validation'.tr, 'cow_total_mismatch_warning'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'validation'.tr,
+        'cow_total_mismatch_warning'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     }
 
@@ -523,7 +686,10 @@ class MilkController extends GetxController {
 
       final response = await http.post(
         Uri.parse(Api.addPanMilk),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
@@ -531,10 +697,18 @@ class MilkController extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return data['status'] == true;
       }
-      Get.snackbar('error'.tr, data['message']?.toString() ?? 'failed_save_pan_milk_record'.tr, snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        data['message']?.toString() ?? 'failed_save_pan_milk_record'.tr,
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     } catch (e) {
-      Get.snackbar('error'.tr, e.toString(), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'error'.tr,
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return false;
     } finally {
       isSubmitting.value = false;
@@ -599,7 +773,10 @@ class MilkController extends GetxController {
 
         final response = await http.post(
           Uri.parse(Api.addMilk),
-          headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
           body: jsonEncode(payload),
         );
 
@@ -643,7 +820,10 @@ class MilkController extends GetxController {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
         final List list = data['data'] ?? [];
-        _milkRows = list.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+        _milkRows = list
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
         _refreshMonthEntryCounts();
         updateAvailableShifts();
         isScheduleLoading.value = false;
@@ -692,7 +872,8 @@ class MilkController extends GetxController {
   bool get canMoveEntryCalendarForward {
     final current = entryCalendarMonth.value;
     final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
-    return current.year < currentMonth.year || current.month < currentMonth.month;
+    return current.year < currentMonth.year ||
+        current.month < currentMonth.month;
   }
 
   void _refreshMonthEntryCounts() {
@@ -732,7 +913,9 @@ class MilkController extends GetxController {
     final rows = _rowsForSelectedTarget(date);
     final done = <String, bool>{
       'Morning': rows.any((row) => _isShiftValuePresent(row['morning_milk'])),
-      'Afternoon': rows.any((row) => _isShiftValuePresent(row['afternoon_milk'])),
+      'Afternoon': rows.any(
+        (row) => _isShiftValuePresent(row['afternoon_milk']),
+      ),
       'Evening': rows.any((row) => _isShiftValuePresent(row['evening_milk'])),
     };
 
@@ -752,7 +935,12 @@ class MilkController extends GetxController {
       }
     }
 
-    final next = allowed.asMap().entries.where((entry) => entry.key > lastDoneIndex).map((entry) => entry.value).toList();
+    final next = allowed
+        .asMap()
+        .entries
+        .where((entry) => entry.key > lastDoneIndex)
+        .map((entry) => entry.value)
+        .toList();
     availableShifts.assignAll(next);
     if (!next.contains(selectedShift.value)) {
       selectedShift.value = next.isEmpty ? '' : next.first;
@@ -776,13 +964,17 @@ class MilkController extends GetxController {
     if (animal != null) {
       animalIds.add(animal.id);
     } else if (pan != null) {
-      animalIds.addAll(animals.where((item) => item.belongsToPan(pan)).map((item) => item.id));
+      animalIds.addAll(
+        animals.where((item) => item.belongsToPan(pan)).map((item) => item.id),
+      );
     }
 
     if (animalIds.isEmpty) return <Map<String, dynamic>>[];
     return _milkRows.where((row) {
-      final rowAnimalId = int.tryParse((row['animal_id'] ?? '').toString()) ?? 0;
-      return animalIds.contains(rowAnimalId) && _isSameDate(_parseApiDate(row['date']), date);
+      final rowAnimalId =
+          int.tryParse((row['animal_id'] ?? '').toString()) ?? 0;
+      return animalIds.contains(rowAnimalId) &&
+          _isSameDate(_parseApiDate(row['date']), date);
     }).toList();
   }
 
@@ -813,7 +1005,9 @@ class MilkController extends GetxController {
 
   bool _isSameDate(DateTime? first, DateTime? second) {
     if (first == null || second == null) return false;
-    return first.year == second.year && first.month == second.month && first.day == second.day;
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
   }
 
   bool _isShiftValuePresent(dynamic value) {
@@ -872,10 +1066,16 @@ class MilkController extends GetxController {
     for (final animal in animals) {
       final panName = animal.panName.trim();
       if (panName.isEmpty) continue;
-      final key = animal.panId > 0 ? 'id_${animal.panId}' : 'name_${panName.toLowerCase()}';
+      final key = animal.panId > 0
+          ? 'id_${animal.panId}'
+          : 'name_${panName.toLowerCase()}';
       unique.putIfAbsent(
         key,
-        () => MilkPanModel(id: animal.panId, name: panName, milkShifts: animal.panMilkShifts),
+        () => MilkPanModel(
+          id: animal.panId,
+          name: panName,
+          milkShifts: animal.panMilkShifts,
+        ),
       );
     }
     final next = unique.values.toList()
@@ -893,10 +1093,7 @@ class PanCowMilkEntry {
   final MilkAnimalModel animal;
   final TextEditingController quantityController;
 
-  PanCowMilkEntry({
-    required this.animal,
-    required this.quantityController,
-  });
+  PanCowMilkEntry({required this.animal, required this.quantityController});
 
   factory PanCowMilkEntry.fromAnimal(MilkAnimalModel animal) {
     return PanCowMilkEntry(
@@ -967,7 +1164,11 @@ class MilkAnimalModel {
       panId: int.tryParse((json['pan_id'] ?? '').toString()) ?? 0,
       panName: panFromFlat.trim().isNotEmpty ? panFromFlat : panFromNested,
       panMilkShifts: _parseMilkShifts(json['pan_milk_shifts']),
-      defaultMilkPerSession: double.tryParse((json['default_milk_per_session'] ?? '').toString()) ?? 0,
+      defaultMilkPerSession:
+          double.tryParse(
+            (json['default_milk_per_session'] ?? '').toString(),
+          ) ??
+          0,
     );
   }
 
@@ -1006,7 +1207,11 @@ class MilkDairyModel {
   final String dairyName;
   final String city;
 
-  MilkDairyModel({required this.id, required this.dairyName, required this.city});
+  MilkDairyModel({
+    required this.id,
+    required this.dairyName,
+    required this.city,
+  });
 
   String get displayName {
     if (city.trim().isEmpty) return dairyName;

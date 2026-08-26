@@ -24,9 +24,21 @@ extension FeedingDataLogic on FeedingController {
       void apply(Map<String, dynamic> data) {
         if (data['status'] != true) return;
         final List list = data['data'] ?? [];
-        animals.assignAll(
-          list.map((item) => FeedingAnimalModel.fromJson(item)).toList(),
-        );
+        final refreshedAnimals = list
+            .map((item) => FeedingAnimalModel.fromJson(item))
+            .toList();
+
+        animals.assignAll(refreshedAnimals);
+
+        // Re-bind selected animal to latest refreshed object.
+        // Prevents stale DropdownButtonFormField value after cache refresh.
+        final currentAnimal = selectedAnimal.value;
+        if (currentAnimal != null) {
+          selectedAnimal.value = refreshedAnimals.firstWhereOrNull(
+            (animal) => animal.id == currentAnimal.id,
+          );
+        }
+
         _rebuildPansFromAnimals();
         updateAvailableFeedingTimes();
         isPageLoading.value = false;
@@ -38,7 +50,6 @@ extension FeedingDataLogic on FeedingController {
       );
       if (data != null && data['status'] == true) {
         apply(data);
-        await fetchDietPlans();
       } else if (animals.isEmpty) {
         animals.clear();
         pans.clear();
@@ -86,7 +97,6 @@ extension FeedingDataLogic on FeedingController {
       );
       if (data != null && data['status'] == true) {
         apply(data);
-        await fetchDietPlans();
       } else if (feedTypes.isEmpty) {
         feedTypes.clear();
         _clearSubtypeInputs();
