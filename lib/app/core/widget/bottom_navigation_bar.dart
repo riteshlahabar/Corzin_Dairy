@@ -20,7 +20,8 @@ import '../../modules/pan/views/pan_management_view.dart';
 import '../../modules/profile/controllers/profile_controller.dart';
 import '../../modules/profile/views/profile_view.dart';
 import '../../modules/refer_farmer/views/refer_farmer_view.dart';
-import '../../modules/reports/views/livestock_report_view.dart';
+import '../../modules/shop/controllers/shop_controller.dart';
+import '../../modules/shop/views/shop_view.dart';
 
 // import '../../modules/shop/views/my_orders_view.dart';
 import '../../modules/upgrade/controllers/upgrade_controller.dart';
@@ -444,7 +445,8 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
       case 2:
         return const SizedBox();
       case 3:
-        return const LivestockReportView();
+        _findOrPut<ShopController>(() => ShopController(), permanent: true);
+        return const ShopView();
       case 4:
         _findOrPut<ProfileController>(
           () => ProfileController(),
@@ -597,11 +599,10 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                               ),
                             ),
                           ),
-                          // Temporary swap: Shop tab hidden in bottom navigation.
                           _navItem(
-                            icon: Icons.summarize_outlined,
-                            selectedIcon: Icons.summarize_rounded,
-                            label: 'menu_report'.tr,
+                            icon: Icons.shopping_bag_outlined,
+                            selectedIcon: Icons.shopping_bag_rounded,
+                            label: 'shop'.tr,
                             isSelected: controller.currentIndex.value == 3,
                             onTap: () => controller.changeTab(3),
                           ),

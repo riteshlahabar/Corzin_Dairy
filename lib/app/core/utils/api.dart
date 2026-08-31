@@ -90,4 +90,5 @@ class Api {
   static const String subscriptionFree = "$baseUrl/subscription/free";
   static const String subscriptionOrder = "$baseUrl/subscription/order";
   static const String subscriptionPurchase = "$baseUrl/subscription/purchase";
+  static const String shopRazorpayOrder = "$baseUrl/shop/razorpay-order";
 }

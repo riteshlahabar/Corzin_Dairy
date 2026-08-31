@@ -493,8 +493,19 @@ class ShopController extends GetxController {
     }
 
     final total = items.fold<double>(0, (sum, item) => sum + lineTotalForItem(item));
+    final orderResult = await _createShopRazorpayOrder(items);
+    if (!orderResult.success || orderResult.order == null || !orderResult.order!.isValid) {
+      Get.snackbar(
+        'payment'.tr,
+        orderResult.message.isNotEmpty ? orderResult.message : 'Unable to create payment order.',
+      );
+      return false;
+    }
+    final razorpayOrder = orderResult.order!;
     final paymentResult = await RazorpayService.instance.openCheckout(
-      amount: total,
+      amount: razorpayOrder.amount,
+      keyId: razorpayOrder.keyId,
+      orderId: razorpayOrder.orderId,
       customerName: farmerName,
       contact: mobileNumber,
       description: 'Shop order payment',
@@ -530,6 +541,38 @@ class ShopController extends GetxController {
       );
     }
     return saved;
+  }
+
+  Future<_ShopRazorpayOrderResult> _createShopRazorpayOrder(List<CartItemModel> items) async {
+    try {
+      final payload = <String, dynamic>{
+        'farmer_id': farmerId,
+        'items': items
+            .map((item) => {
+                  'product_id': item.product.id,
+                  'quantity': item.quantity,
+                  'quantity_unit': item.product.hasPackPricing ? item.quantityMode : CartQuantityMode.pack,
+                })
+            .toList(),
+      };
+      final response = await http.post(
+        Uri.parse(Api.shopRazorpayOrder),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final message = data['message']?.toString().trim() ?? '';
+      if (response.statusCode != 200 || data['status'] != true || data['data'] is! Map) {
+        return _ShopRazorpayOrderResult(success: false, message: message);
+      }
+      return _ShopRazorpayOrderResult(
+        success: true,
+        message: message,
+        order: _ShopRazorpayOrder.fromJson(Map<String, dynamic>.from(data['data'] as Map)),
+      );
+    } catch (e) {
+      return _ShopRazorpayOrderResult(success: false, message: e.toString());
+    }
   }
 
   Future<bool> placeOrderWithPayment({
@@ -870,6 +913,40 @@ class CartQuantityMode {
 class ShopPaymentMethod {
   static const String cod = 'cod';
   static const String razorpay = 'razorpay';
+}
+
+class _ShopRazorpayOrderResult {
+  const _ShopRazorpayOrderResult({
+    required this.success,
+    required this.message,
+    this.order,
+  });
+
+  final bool success;
+  final String message;
+  final _ShopRazorpayOrder? order;
+}
+
+class _ShopRazorpayOrder {
+  const _ShopRazorpayOrder({
+    required this.keyId,
+    required this.orderId,
+    required this.amount,
+  });
+
+  final String keyId;
+  final String orderId;
+  final double amount;
+
+  bool get isValid => keyId.isNotEmpty && orderId.isNotEmpty && amount > 0;
+
+  factory _ShopRazorpayOrder.fromJson(Map<String, dynamic> json) {
+    return _ShopRazorpayOrder(
+      keyId: json['key_id']?.toString().trim() ?? '',
+      orderId: json['order_id']?.toString().trim() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0,
+    );
+  }
 }
 
 class _CheckoutValidationError {
