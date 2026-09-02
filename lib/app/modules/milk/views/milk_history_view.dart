@@ -897,10 +897,11 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                             Icons.confirmation_number_outlined,
                                             '${'tag'.tr}: ${item.tagNumber.trim().isEmpty ? '-' : item.tagNumber}',
                                           ),
-                                          _infoChip(
-                                            Icons.storefront_outlined,
-                                            item.dairyName.trim().isEmpty ? '-' : item.dairyName,
-                                          ),
+                                           if (item.panId > 0)
+                                            _infoChip(
+                                              Icons.grid_view_rounded,
+                                              '${'pan'.tr}: ${item.panName.trim().isEmpty ? '-' : item.panName}',
+                                            ),
                                         ],
                                       ),
                                     ],
@@ -1028,7 +1029,9 @@ class _MilkHistoryItem {
     required this.dairyId,
     required this.date,
     required this.sortDate,
-    required this.dairyName,
+    required this.dairyName,    
+    required this.panId,
+    required this.panName,
     required this.morningMilk,
     required this.afternoonMilk,
     required this.eveningMilk,
@@ -1045,7 +1048,9 @@ class _MilkHistoryItem {
   final int dairyId;
   final String date;
   final DateTime sortDate;
-  final String dairyName;
+  final String dairyName;   
+  final int panId;
+  final String panName;
   final String morningMilk;
   final String afternoonMilk;
   final String eveningMilk;
@@ -1133,6 +1138,8 @@ class _MilkHistoryItem {
       date: dateText,
       sortDate: parsedDate,
       dairyName: (json['dairy_name'] ?? '-').toString(),
+      panId: int.tryParse((json['pan_id'] ?? '0').toString()) ?? 0,
+      panName: (json['pan_name'] ?? '').toString(),
       morningMilk: (json['morning_milk'] ?? '0').toString(),
       afternoonMilk: (json['afternoon_milk'] ?? '0').toString(),
       eveningMilk: (json['evening_milk'] ?? '0').toString(),
