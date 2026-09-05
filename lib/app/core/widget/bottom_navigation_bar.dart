@@ -22,8 +22,7 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/refer_farmer/views/refer_farmer_view.dart';
 import '../../modules/shop/controllers/shop_controller.dart';
 import '../../modules/shop/views/shop_view.dart';
-
-// import '../../modules/shop/views/my_orders_view.dart';
+import '../../modules/shop/views/my_orders_view.dart';
 import '../../modules/upgrade/controllers/upgrade_controller.dart';
 import '../../modules/upgrade/views/upgrade_view.dart';
 import '../../routes/app_pages.dart';
@@ -104,6 +103,12 @@ class BottomNavController extends GetxController with WidgetsBindingObserver {
         case 1:
           if (Get.isRegistered<DoctorController>()) {
             await Get.find<DoctorController>().silentRefresh();
+          }
+          break;
+
+        case 3:
+          if (Get.isRegistered<ShopController>()) {
+            await Get.find<ShopController>().loadShopData(silent: true);
           }
           break;
 
@@ -902,14 +907,14 @@ class _MainBottomNavViewState extends State<MainBottomNavView> {
                         ),
                       ],
                     ),
-                    // _drawerTile(
-                    //   icon: Icons.receipt_long_outlined,
-                    //   title: 'my_orders'.tr,
-                    //   onTap: () {
-                    //     Get.back();
-                    //     controller.openDrawerPage(const MyOrdersView());
-                    //   },
-                    // ),
+                    _drawerTile(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'my_orders'.tr,
+                      onTap: () {
+                        Get.back();
+                        controller.openDrawerPage(const MyOrdersView());
+                      },
+                    ),
                     _drawerTile(
                       icon: Icons.share_rounded,
                       title: 'refer_to_farmer'.tr,

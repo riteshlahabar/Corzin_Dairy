@@ -40,35 +40,33 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     final selectedAnimalId = widget.initialAnimalId ?? 0;
     final selectedName = widget.initialAnimalName.trim();
     final selectedTag = widget.initialTagNumber.trim();
-    return _history
-        .where(
-          (item) {
-            final matchesAnimalFilter =
-                (selectedAnimalId <= 0 && selectedName.isEmpty && selectedTag.isEmpty) ||
-                item.matchesAnimal(
-                  animalId: selectedAnimalId,
-                  animalName: selectedName,
-                  tagNumber: selectedTag,
-                );
-            if (!matchesAnimalFilter) {
-              return false;
-            }
+    return _history.where((item) {
+      final matchesAnimalFilter =
+          (selectedAnimalId <= 0 &&
+              selectedName.isEmpty &&
+              selectedTag.isEmpty) ||
+          item.matchesAnimal(
+            animalId: selectedAnimalId,
+            animalName: selectedName,
+            tagNumber: selectedTag,
+          );
+      if (!matchesAnimalFilter) {
+        return false;
+      }
 
-            final itemDate = _dateOnly(item.sortDate);
-            if (_fromDate != null && itemDate.isBefore(_dateOnly(_fromDate!))) {
-              return false;
-            }
-            if (_toDate != null && itemDate.isAfter(_dateOnly(_toDate!))) {
-              return false;
-            }
+      final itemDate = _dateOnly(item.sortDate);
+      if (_fromDate != null && itemDate.isBefore(_dateOnly(_fromDate!))) {
+        return false;
+      }
+      if (_toDate != null && itemDate.isAfter(_dateOnly(_toDate!))) {
+        return false;
+      }
 
-            if (query.isEmpty) {
-              return true;
-            }
-            return item.matchesSearch(query);
-          },
-        )
-        .toList();
+      if (query.isEmpty) {
+        return true;
+      }
+      return item.matchesSearch(query);
+    }).toList();
   }
 
   bool get _hasActiveFilters =>
@@ -108,7 +106,15 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
         final List items = (data['data'] as List?) ?? [];
         _history
           ..clear()
-          ..addAll(items.map((e) => _MilkHistoryItem.fromJson((e as Map).cast<String, dynamic>())).toList());
+          ..addAll(
+            items
+                .map(
+                  (e) => _MilkHistoryItem.fromJson(
+                    (e as Map).cast<String, dynamic>(),
+                  ),
+                )
+                .toList(),
+          );
 
         _history.sort((a, b) => b.sortDate.compareTo(a.sortDate));
         if (mounted) {
@@ -151,7 +157,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     Future<void> pickDate() async {
       DateTime initialDate = DateTime.now();
       try {
-        initialDate = DateFormat('dd/MM/yyyy').parse(dateController.text.trim());
+        initialDate = DateFormat(
+          'dd/MM/yyyy',
+        ).parse(dateController.text.trim());
       } catch (_) {}
       final picked = await showDatePicker(
         context: context,
@@ -183,27 +191,43 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                     children: [
                       Text(
                         'edit_milk_entry'.tr,
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: selectedShift.value,
                         decoration: _inputDecoration('shift'.tr),
                         items: [
-                          DropdownMenuItem(value: 'Morning', child: Text('morning'.tr)),
-                          DropdownMenuItem(value: 'Afternoon', child: Text('afternoon'.tr)),
-                          DropdownMenuItem(value: 'Evening', child: Text('evening'.tr)),
+                          DropdownMenuItem(
+                            value: 'Morning',
+                            child: Text('morning'.tr),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Afternoon',
+                            child: Text('afternoon'.tr),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Evening',
+                            child: Text('evening'.tr),
+                          ),
                         ],
                         onChanged: (value) {
                           selectedShift.value = value ?? 'Morning';
-                          quantityController.text = item.quantityForShift(selectedShift.value);
+                          quantityController.text = item.quantityForShift(
+                            selectedShift.value,
+                          );
                           setModalState(() {});
                         },
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: quantityController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: _inputDecoration('quantity'.tr),
                       ),
                       const SizedBox(height: 10),
@@ -221,16 +245,22 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                           Expanded(
                             child: TextField(
                               controller: fatController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: _inputDecoration('fat_upper'.tr),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: _inputDecoration('fat_upper'.tr),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextField(
                               controller: snfController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: _inputDecoration('snf_upper'.tr),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: _inputDecoration('snf_upper'.tr),
                             ),
                           ),
                         ],
@@ -238,7 +268,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: rateController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: _inputDecoration('rate'.tr),
                       ),
                       const SizedBox(height: 14),
@@ -249,7 +281,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                               ? null
                               : () async {
                                   final qty = quantityController.text.trim();
-                                  if (qty.isEmpty || (double.tryParse(qty) ?? -1) < 0) {
+                                  if (qty.isEmpty ||
+                                      (double.tryParse(qty) ?? -1) < 0) {
                                     Get.snackbar(
                                       'error'.tr,
                                       'please_enter_valid_quantity'.tr,
@@ -262,8 +295,12 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                     isSaving.value = true;
                                     final payload = {
                                       'farmer_id': _farmerId.toString(),
-                                      'dairy_id': item.dairyId > 0 ? item.dairyId.toString() : '',
-                                      'date': _formatDateForApi(dateController.text.trim()),
+                                      'dairy_id': item.dairyId > 0
+                                          ? item.dairyId.toString()
+                                          : '',
+                                      'date': _formatDateForApi(
+                                        dateController.text.trim(),
+                                      ),
                                       'shift': selectedShift.value,
                                       'quantity': qty,
                                       'fat': fatController.text.trim(),
@@ -283,7 +320,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                         ? jsonDecode(response.body)
                                         : {};
 
-                                    if (response.statusCode == 200 && data['status'] == true) {
+                                    if (response.statusCode == 200 &&
+                                        data['status'] == true) {
                                       sheetClosedAfterSuccess = true;
                                       Get.back();
                                       Get.snackbar(
@@ -357,7 +395,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     }
   }
 
-  DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   Future<void> _pickFilterDate({required bool isFrom}) async {
     final currentValue = isFrom ? _fromDate : _toDate;
@@ -372,12 +411,14 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
     setState(() {
       if (isFrom) {
         _fromDate = picked;
-        if (_toDate != null && _dateOnly(_toDate!).isBefore(_dateOnly(picked))) {
+        if (_toDate != null &&
+            _dateOnly(_toDate!).isBefore(_dateOnly(picked))) {
           _toDate = picked;
         }
       } else {
         _toDate = picked;
-        if (_fromDate != null && _dateOnly(_fromDate!).isAfter(_dateOnly(picked))) {
+        if (_fromDate != null &&
+            _dateOnly(_fromDate!).isAfter(_dateOnly(picked))) {
           _fromDate = picked;
         }
       }
@@ -463,11 +504,17 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
           decoration: BoxDecoration(
             color: const Color(0xFFF8FBF8),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.12),
+            ),
           ),
           child: Row(
             children: [
-              const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+              const Icon(
+                Icons.calendar_month_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -583,12 +630,17 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
   @override
   Widget build(BuildContext context) {
     final visibleHistory = _visibleHistory;
+    final visibleGroups = _MilkHistoryGroup.build(visibleHistory);
     final totalMilk = visibleHistory.fold<double>(
       0,
       (sum, item) => sum + item.totalMilkValue,
     );
-    final rangeStart = visibleHistory.isEmpty ? null : visibleHistory.last.sortDate;
-    final rangeEnd = visibleHistory.isEmpty ? null : visibleHistory.first.sortDate;
+    final rangeStart = visibleHistory.isEmpty
+        ? null
+        : visibleHistory.last.sortDate;
+    final rangeEnd = visibleHistory.isEmpty
+        ? null
+        : visibleHistory.first.sortDate;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF7),
@@ -676,14 +728,20 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                   Text(
                                     rangeStart != null && rangeEnd != null
                                         ? 'range_from_to'.trParams({
-                                            'from': DateFormat('dd MMM').format(rangeStart),
-                                            'to': DateFormat('dd MMM').format(rangeEnd),
+                                            'from': DateFormat(
+                                              'dd MMM',
+                                            ).format(rangeStart),
+                                            'to': DateFormat(
+                                              'dd MMM',
+                                            ).format(rangeEnd),
                                           })
                                         : 'no_milk_history_found'.tr,
                                     style: TextStyle(
                                       fontSize: 12.8,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -716,7 +774,9 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.04),
@@ -732,27 +792,42 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                           decoration: InputDecoration(
                             hintText: 'search_by_animal_name_or_tag'.tr,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                            ),
                             suffixIcon: _searchController.text.trim().isEmpty
                                 ? null
                                 : IconButton(
                                     onPressed: () => _searchController.clear(),
-                                    icon: const Icon(Icons.close_rounded, size: 20),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 20,
+                                    ),
                                   ),
                             filled: true,
                             fillColor: const Color(0xFFF8FBF8),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(color: AppColors.primary),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
                         ),
@@ -782,7 +857,10 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                               label: Text('clear'.tr),
                               style: TextButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 0,
+                                ),
                               ),
                             ),
                           ),
@@ -791,13 +869,18 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (visibleHistory.isEmpty)
+                  if (visibleGroups.isEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 36,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                        ),
                       ),
                       child: Column(
                         children: [
@@ -839,14 +922,18 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                       ),
                     )
                   else
-                    ...visibleHistory.map(
-                      (item) => Container(
+                    ...visibleGroups.map((group) {
+                      final item = group.first;
+                      final isPanGroup = group.isPanGroup;
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.08)),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.045),
@@ -865,21 +952,30 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                   height: 48,
                                   width: 48,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
-                                  child: const Icon(
-                                    Icons.pets_rounded,
+                                  child: Icon(
+                                    isPanGroup
+                                        ? Icons.grid_view_rounded
+                                        : Icons.pets_rounded,
                                     color: AppColors.primary,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        item.animalName.trim().isEmpty ? '-' : item.animalName,
+                                        isPanGroup
+                                            ? '${item.panName.trim().isEmpty ? '-' : item.panName} (${group.entries.length} ${'animals'.tr})'
+                                            : (item.animalName.trim().isEmpty
+                                                  ? '-'
+                                                  : item.animalName),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -888,22 +984,25 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                           color: AppColors.black,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          _infoChip(
-                                            Icons.confirmation_number_outlined,
-                                            '${'tag'.tr}: ${item.tagNumber.trim().isEmpty ? '-' : item.tagNumber}',
-                                          ),
-                                           if (item.panId > 0)
+                                      if (!isPanGroup) ...[
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
                                             _infoChip(
-                                              Icons.grid_view_rounded,
-                                              '${'pan'.tr}: ${item.panName.trim().isEmpty ? '-' : item.panName}',
+                                              Icons
+                                                  .confirmation_number_outlined,
+                                              '${'tag'.tr}: ${item.tagNumber.trim().isEmpty ? '-' : item.tagNumber}',
                                             ),
-                                        ],
-                                      ),
+                                            if (item.panId > 0)
+                                              _infoChip(
+                                                Icons.grid_view_rounded,
+                                                '${'pan'.tr}: ${item.panName.trim().isEmpty ? '-' : item.panName}',
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -912,13 +1011,18 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(alpha: 0.1),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(14),
                                       ),
                                       child: Text(
-                                        '${_formatQuantity(item.totalMilk)} L',
+                                        '${_formatQuantity(group.totalMilkValue.toString())} L',
                                         style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w800,
@@ -926,13 +1030,14 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                         ),
                                       ),
                                     ),
-                                    IconButton(
-                                      onPressed: () => _onEditTap(item),
-                                      icon: const Icon(Icons.edit_rounded),
-                                      color: AppColors.primary,
-                                      tooltip: 'edit_animal'.tr,
-                                      visualDensity: VisualDensity.compact,
-                                    ),
+                                    if (!isPanGroup)
+                                      IconButton(
+                                        onPressed: () => _onEditTap(item),
+                                        icon: const Icon(Icons.edit_rounded),
+                                        color: AppColors.primary,
+                                        tooltip: 'edit_animal'.tr,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
                                   ],
                                 ),
                               ],
@@ -940,14 +1045,21 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                             const SizedBox(height: 14),
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF7FAF7),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                                  const Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -960,11 +1072,13 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                                     ),
                                   ),
                                   Text(
-                                    '${'rate'.tr}: ${item.rate}',
+                                    '${'rate'.tr}: Rs. ${item.rate}/ltr',
                                     style: TextStyle(
                                       fontSize: 12.6,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.black.withValues(alpha: 0.65),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.65,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -975,19 +1089,25 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                               children: [
                                 _shiftTile(
                                   label: 'morning'.tr,
-                                  value: item.morningMilk,
+                                  value: isPanGroup
+                                      ? group.morningTotal.toString()
+                                      : item.morningMilk,
                                   icon: Icons.wb_sunny_outlined,
                                 ),
                                 const SizedBox(width: 10),
                                 _shiftTile(
                                   label: 'afternoon'.tr,
-                                  value: item.afternoonMilk,
+                                  value: isPanGroup
+                                      ? group.afternoonTotal.toString()
+                                      : item.afternoonMilk,
                                   icon: Icons.light_mode_outlined,
                                 ),
                                 const SizedBox(width: 10),
                                 _shiftTile(
                                   label: 'evening'.tr,
-                                  value: item.eveningMilk,
+                                  value: isPanGroup
+                                      ? group.eveningTotal.toString()
+                                      : item.eveningMilk,
                                   icon: Icons.nights_stay_outlined,
                                 ),
                               ],
@@ -997,15 +1117,24 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
                               spacing: 10,
                               runSpacing: 10,
                               children: [
-                                _infoChip(Icons.opacity_rounded, '${'fat_upper'.tr}: ${item.fat}'),
-                                _infoChip(Icons.science_outlined, '${'snf_upper'.tr}: ${item.snf}'),
-                                _infoChip(Icons.calculate_outlined, '${'total'.tr}: ${_formatQuantity(item.totalMilk)} L'),
+                                _infoChip(
+                                  Icons.opacity_rounded,
+                                  '${'fat_upper'.tr}: ${item.fat}',
+                                ),
+                                _infoChip(
+                                  Icons.science_outlined,
+                                  '${'snf_upper'.tr}: ${item.snf}',
+                                ),
+                                _infoChip(
+                                  Icons.calculate_outlined,
+                                  '${'total'.tr}: ${_formatQuantity(group.totalMilkValue.toString())} L',
+                                ),
                               ],
                             ),
                           ],
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                 ],
               ),
       ),
@@ -1013,7 +1142,8 @@ class _MilkHistoryViewState extends State<MilkHistoryView> {
   }
 
   void _goBack() {
-    if (Get.isRegistered<BottomNavController>() && Get.find<BottomNavController>().closeDrawerPage()) {
+    if (Get.isRegistered<BottomNavController>() &&
+        Get.find<BottomNavController>().closeDrawerPage()) {
       return;
     }
     Get.back();
@@ -1029,7 +1159,7 @@ class _MilkHistoryItem {
     required this.dairyId,
     required this.date,
     required this.sortDate,
-    required this.dairyName,    
+    required this.dairyName,
     required this.panId,
     required this.panName,
     required this.morningMilk,
@@ -1048,7 +1178,7 @@ class _MilkHistoryItem {
   final int dairyId;
   final String date;
   final DateTime sortDate;
-  final String dairyName;   
+  final String dairyName;
   final int panId;
   final String panName;
   final String morningMilk;
@@ -1095,6 +1225,15 @@ class _MilkHistoryItem {
       date,
     ].join(' ').toLowerCase();
     return haystack.contains(normalized);
+  }
+
+  bool get hasPan => panId > 0 || panName.trim().isNotEmpty;
+
+  String get groupKey {
+    if (panId > 0) return 'pan_id_${panId}_$date';
+    final normalizedPan = panName.trim().toLowerCase();
+    if (normalizedPan.isNotEmpty) return 'pan_name_${normalizedPan}_$date';
+    return 'item_$id';
   }
 
   String get editShift {
@@ -1148,6 +1287,55 @@ class _MilkHistoryItem {
       snf: (json['snf'] ?? '-').toString(),
       rate: (json['rate'] ?? '-').toString(),
     );
+  }
+}
+
+class _MilkHistoryGroup {
+  _MilkHistoryGroup({
+    required this.key,
+    required this.isPanGroup,
+    required this.entries,
+  });
+
+  final String key;
+  final bool isPanGroup;
+  final List<_MilkHistoryItem> entries;
+
+  _MilkHistoryItem get first => entries.first;
+
+  double get morningTotal => entries.fold<double>(
+    0,
+    (sum, e) => sum + (double.tryParse(e.morningMilk) ?? 0),
+  );
+  double get afternoonTotal => entries.fold<double>(
+    0,
+    (sum, e) => sum + (double.tryParse(e.afternoonMilk) ?? 0),
+  );
+  double get eveningTotal => entries.fold<double>(
+    0,
+    (sum, e) => sum + (double.tryParse(e.eveningMilk) ?? 0),
+  );
+  double get totalMilkValue =>
+      entries.fold<double>(0, (sum, e) => sum + e.totalMilkValue);
+
+  static List<_MilkHistoryGroup> build(List<_MilkHistoryItem> items) {
+    final grouped = <String, List<_MilkHistoryItem>>{};
+    for (final item in items) {
+      grouped.putIfAbsent(item.groupKey, () => <_MilkHistoryItem>[]).add(item);
+    }
+
+    final groups =
+        grouped.entries
+            .map(
+              (entry) => _MilkHistoryGroup(
+                key: entry.key,
+                isPanGroup: entry.value.first.hasPan,
+                entries: entry.value,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.first.sortDate.compareTo(a.first.sortDate));
+    return groups;
   }
 }
 

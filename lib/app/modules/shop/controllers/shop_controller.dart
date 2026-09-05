@@ -28,14 +28,17 @@ class ShopController extends GetxController {
   List<ShopProductModel> get filteredProducts {
     final query = searchQuery.value.trim().toLowerCase();
     return products.where((item) {
-      final categoryMatch = selectedCategory.value == 'all' ? true : item.category == selectedCategory.value;
+      final categoryMatch = selectedCategory.value == 'all'
+          ? true
+          : item.category == selectedCategory.value;
       final searchMatch = query.isEmpty || item.searchText.contains(query);
       return categoryMatch && searchMatch;
     }).toList();
   }
 
   int get cartCount => cartItems.fold(0, (sum, item) => sum + item.quantity);
-  double get subtotal => cartItems.fold(0, (sum, item) => sum + lineTotalForItem(item));
+  double get subtotal =>
+      cartItems.fold(0, (sum, item) => sum + lineTotalForItem(item));
   double get deliveryCharge => 0;
   double get grandTotal => subtotal + deliveryCharge;
 
@@ -45,7 +48,8 @@ class ShopController extends GetxController {
       item.product.hasPackPricing && item.product.allowPartialUnits;
 
   double itemUnitPrice(CartItemModel item) {
-    if (item.product.hasPackPricing && item.quantityMode == CartQuantityMode.unit) {
+    if (item.product.hasPackPricing &&
+        item.quantityMode == CartQuantityMode.unit) {
       return item.product.unitPrice;
     }
     return item.product.price;
@@ -53,7 +57,9 @@ class ShopController extends GetxController {
 
   String itemUnitLabel(CartItemModel item) {
     if (!item.product.hasPackPricing) {
-      return item.product.unit.trim().isEmpty ? 'unit' : item.product.unit.trim();
+      return item.product.unit.trim().isEmpty
+          ? 'unit'
+          : item.product.unit.trim();
     }
     if (item.quantityMode == CartQuantityMode.pack) {
       return 'strip';
@@ -71,7 +77,8 @@ class ShopController extends GetxController {
     if (!item.product.hasPackPricing) {
       return 'Rs $unitPrice / $unitName';
     }
-    final packInfo = '1 strip = ${item.product.packSize} ${item.product.medicineUnitName}';
+    final packInfo =
+        '1 strip = ${item.product.packSize} ${item.product.medicineUnitName}';
     return 'Rs $unitPrice / $unitName ($packInfo)';
   }
 
@@ -105,19 +112,31 @@ class ShopController extends GetxController {
     addressController.text = parts.isEmpty ? '' : parts.join(', ');
   }
 
-  Future<void> loadShopData() async {
+  Future<void> loadShopData({bool silent = false}) async {
     try {
-      isLoading.value = true;
+      if (!silent) {
+        isLoading.value = true;
+      }
       final responses = await Future.wait([
-        http.get(Uri.parse(Api.shopCategories), headers: {'Accept': 'application/json'}),
-        http.get(Uri.parse(Api.shopProducts), headers: {'Accept': 'application/json'}),
+        http.get(
+          Uri.parse(Api.shopCategories),
+          headers: {'Accept': 'application/json'},
+        ),
+        http.get(
+          Uri.parse(Api.shopProducts),
+          headers: {'Accept': 'application/json'},
+        ),
       ]);
 
       final categoryResponse = responses[0];
       final productResponse = responses[1];
 
-      final categoryData = categoryResponse.body.isNotEmpty ? jsonDecode(categoryResponse.body) : {};
-      final productData = productResponse.body.isNotEmpty ? jsonDecode(productResponse.body) : {};
+      final categoryData = categoryResponse.body.isNotEmpty
+          ? jsonDecode(categoryResponse.body)
+          : {};
+      final productData = productResponse.body.isNotEmpty
+          ? jsonDecode(productResponse.body)
+          : {};
 
       final List categoryList = categoryData['data'] ?? [];
       categories.assignAll([
@@ -126,12 +145,18 @@ class ShopController extends GetxController {
       ]);
 
       final List productList = productData['data'] ?? [];
-      products.assignAll(productList.map((item) => ShopProductModel.fromJson(item)).toList());
+      products.assignAll(
+        productList.map((item) => ShopProductModel.fromJson(item)).toList(),
+      );
     } catch (_) {
-      categories.assignAll(['all']);
-      products.clear();
+      if (!silent) {
+        categories.assignAll(['all']);
+        products.clear();
+      }
     } finally {
-      isLoading.value = false;
+      if (!silent) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -155,9 +180,14 @@ class ShopController extends GetxController {
           toMode: targetMode,
           packSize: product.packSize,
         );
-        current = current.copyWith(quantity: converted, quantityMode: targetMode);
+        current = current.copyWith(
+          quantity: converted,
+          quantityMode: targetMode,
+        );
       }
-      cartItems[index] = current.copyWith(quantity: current.quantity + quantity);
+      cartItems[index] = current.copyWith(
+        quantity: current.quantity + quantity,
+      );
     } else {
       cartItems.add(
         CartItemModel(
@@ -181,7 +211,10 @@ class ShopController extends GetxController {
     return CartItemModel(
       product: product,
       quantity: quantity <= 0 ? 1 : quantity,
-      quantityMode: _initialQuantityModeForProduct(product, override: quantityMode),
+      quantityMode: _initialQuantityModeForProduct(
+        product,
+        override: quantityMode,
+      ),
     );
   }
 
@@ -192,8 +225,8 @@ class ShopController extends GetxController {
 
     final normalizedMode =
         nextMode == CartQuantityMode.unit && item.product.allowPartialUnits
-            ? CartQuantityMode.unit
-            : CartQuantityMode.pack;
+        ? CartQuantityMode.unit
+        : CartQuantityMode.pack;
 
     if (cartItems[index].quantityMode == normalizedMode) {
       return;
@@ -234,7 +267,9 @@ class ShopController extends GetxController {
       return CartQuantityMode.pack;
     }
 
-    return product.allowPartialUnits ? CartQuantityMode.unit : CartQuantityMode.pack;
+    return product.allowPartialUnits
+        ? CartQuantityMode.unit
+        : CartQuantityMode.pack;
   }
 
   int _convertQuantityBetweenModes({
@@ -261,24 +296,34 @@ class ShopController extends GetxController {
   ) async {
     final cleaned = requests
         .where((item) => item.name.trim().isNotEmpty)
-        .map((item) => PrescriptionCartRequest(
-              name: item.name.trim(),
-              quantity: _safePrescriptionQty(item.quantity),
-            ))
+        .map(
+          (item) => PrescriptionCartRequest(
+            name: item.name.trim(),
+            quantity: _safePrescriptionQty(item.quantity),
+          ),
+        )
         .toList();
 
     if (cleaned.isEmpty) {
       Get.snackbar('Unavailable', 'No prescription medicine found.');
-      return const PrescriptionAddToCartResult(addedCount: 0, unmatchedNames: []);
+      return const PrescriptionAddToCartResult(
+        addedCount: 0,
+        unmatchedNames: [],
+      );
     }
 
-    List<PrescriptionProductMatch> matches = await _fetchPrescriptionMatches(cleaned);
+    List<PrescriptionProductMatch> matches = await _fetchPrescriptionMatches(
+      cleaned,
+    );
     if (matches.isEmpty) {
       matches = _localPrescriptionMatches(cleaned);
     }
 
     if (matches.isEmpty) {
-      Get.snackbar('Unavailable', 'Prescription medicines are not available in shop.');
+      Get.snackbar(
+        'Unavailable',
+        'Prescription medicines are not available in shop.',
+      );
       return PrescriptionAddToCartResult(
         addedCount: 0,
         unmatchedNames: cleaned.map((item) => item.name).toList(),
@@ -298,21 +343,26 @@ class ShopController extends GetxController {
     }
 
     for (final match in grouped.values) {
-      final useUnitMode = match.product.hasPackPricing && match.product.allowPartialUnits;
+      final useUnitMode =
+          match.product.hasPackPricing && match.product.allowPartialUnits;
       final qtyToAdd = useUnitMode
           ? _safePrescriptionQty(match.quantity)
           : (match.product.hasPackPricing
-              ? (match.quantity / match.product.packSize).ceil().clamp(1, 50)
-              : _safePrescriptionQty(match.quantity));
+                ? (match.quantity / match.product.packSize).ceil().clamp(1, 50)
+                : _safePrescriptionQty(match.quantity));
       addToCart(
         match.product,
         quantity: qtyToAdd,
-        quantityMode: useUnitMode ? CartQuantityMode.unit : CartQuantityMode.pack,
+        quantityMode: useUnitMode
+            ? CartQuantityMode.unit
+            : CartQuantityMode.pack,
         showMessage: false,
       );
     }
 
-    final matchedNames = matches.map((e) => e.requestedName.toLowerCase()).toSet();
+    final matchedNames = matches
+        .map((e) => e.requestedName.toLowerCase())
+        .toSet();
     final unmatched = cleaned
         .where((item) => !matchedNames.contains(item.name.toLowerCase()))
         .map((item) => item.name)
@@ -321,7 +371,9 @@ class ShopController extends GetxController {
 
     Get.snackbar(
       'added'.tr,
-      'prescription_items_added_to_cart'.trParams({'count': '${grouped.length}'}),
+      'prescription_items_added_to_cart'.trParams({
+        'count': '${grouped.length}',
+      }),
     );
 
     if (unmatched.isNotEmpty) {
@@ -341,7 +393,9 @@ class ShopController extends GetxController {
   void increaseQty(CartItemModel item) {
     final index = cartItems.indexWhere((e) => e.product.id == item.product.id);
     if (index < 0) return;
-    cartItems[index] = cartItems[index].copyWith(quantity: cartItems[index].quantity + 1);
+    cartItems[index] = cartItems[index].copyWith(
+      quantity: cartItems[index].quantity + 1,
+    );
     cartItems.refresh();
   }
 
@@ -363,19 +417,26 @@ class ShopController extends GetxController {
     try {
       final response = await http.post(
         Uri.parse(Api.shopPrescriptionProducts),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode({
           'items': requests
-              .map((item) => {
-                    'name': item.name,
-                    'quantity': _safePrescriptionQty(item.quantity),
-                  })
+              .map(
+                (item) => {
+                  'name': item.name,
+                  'quantity': _safePrescriptionQty(item.quantity),
+                },
+              )
               .toList(),
         }),
       );
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final ok = (response.statusCode == 200 || response.statusCode == 201) && data['status'] == true;
+      final ok =
+          (response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true;
       if (!ok) {
         return const [];
       }
@@ -391,19 +452,27 @@ class ShopController extends GetxController {
       }
 
       return rows
-          .map((row) => row is Map ? Map<String, dynamic>.from(row) : <String, dynamic>{})
+          .map(
+            (row) => row is Map
+                ? Map<String, dynamic>.from(row)
+                : <String, dynamic>{},
+          )
           .map((row) {
             final productMap = row['product'];
             if (productMap is! Map) {
               return null;
             }
-            final product = ShopProductModel.fromJson(Map<String, dynamic>.from(productMap));
+            final product = ShopProductModel.fromJson(
+              Map<String, dynamic>.from(productMap),
+            );
             if (product.id <= 0) {
               return null;
             }
             return PrescriptionProductMatch(
               requestedName: row['requested_name']?.toString() ?? '',
-              quantity: _safePrescriptionQty(int.tryParse(row['quantity']?.toString() ?? '1') ?? 1),
+              quantity: _safePrescriptionQty(
+                int.tryParse(row['quantity']?.toString() ?? '1') ?? 1,
+              ),
               product: product,
             );
           })
@@ -452,7 +521,8 @@ class ShopController extends GetxController {
         exactMedicine ??= product;
       }
 
-      final contains = name.contains(needle) ||
+      final contains =
+          name.contains(needle) ||
           needle.contains(name) ||
           subtitle.contains(needle) ||
           description.contains(needle) ||
@@ -478,7 +548,9 @@ class ShopController extends GetxController {
   }
 
   Future<bool> checkoutOrder({List<CartItemModel>? directItems}) async {
-    final items = (directItems ?? cartItems).where((e) => e.quantity > 0).toList();
+    final items = (directItems ?? cartItems)
+        .where((e) => e.quantity > 0)
+        .toList();
     final validationError = _validateCheckout(items);
     if (validationError != null) {
       Get.snackbar(validationError.title, validationError.message);
@@ -492,12 +564,19 @@ class ShopController extends GetxController {
       );
     }
 
-    final total = items.fold<double>(0, (sum, item) => sum + lineTotalForItem(item));
+    final total = items.fold<double>(
+      0,
+      (sum, item) => sum + lineTotalForItem(item),
+    );
     final orderResult = await _createShopRazorpayOrder(items);
-    if (!orderResult.success || orderResult.order == null || !orderResult.order!.isValid) {
+    if (!orderResult.success ||
+        orderResult.order == null ||
+        !orderResult.order!.isValid) {
       Get.snackbar(
         'payment'.tr,
-        orderResult.message.isNotEmpty ? orderResult.message : 'Unable to create payment order.',
+        orderResult.message.isNotEmpty
+            ? orderResult.message
+            : 'Unable to create payment order.',
       );
       return false;
     }
@@ -543,32 +622,45 @@ class ShopController extends GetxController {
     return saved;
   }
 
-  Future<_ShopRazorpayOrderResult> _createShopRazorpayOrder(List<CartItemModel> items) async {
+  Future<_ShopRazorpayOrderResult> _createShopRazorpayOrder(
+    List<CartItemModel> items,
+  ) async {
     try {
       final payload = <String, dynamic>{
         'farmer_id': farmerId,
         'items': items
-            .map((item) => {
-                  'product_id': item.product.id,
-                  'quantity': item.quantity,
-                  'quantity_unit': item.product.hasPackPricing ? item.quantityMode : CartQuantityMode.pack,
-                })
+            .map(
+              (item) => {
+                'product_id': item.product.id,
+                'quantity': item.quantity,
+                'quantity_unit': item.product.hasPackPricing
+                    ? item.quantityMode
+                    : CartQuantityMode.pack,
+              },
+            )
             .toList(),
       };
       final response = await http.post(
         Uri.parse(Api.shopRazorpayOrder),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       final message = data['message']?.toString().trim() ?? '';
-      if (response.statusCode != 200 || data['status'] != true || data['data'] is! Map) {
+      if (response.statusCode != 200 ||
+          data['status'] != true ||
+          data['data'] is! Map) {
         return _ShopRazorpayOrderResult(success: false, message: message);
       }
       return _ShopRazorpayOrderResult(
         success: true,
         message: message,
-        order: _ShopRazorpayOrder.fromJson(Map<String, dynamic>.from(data['data'] as Map)),
+        order: _ShopRazorpayOrder.fromJson(
+          Map<String, dynamic>.from(data['data'] as Map),
+        ),
       );
     } catch (e) {
       return _ShopRazorpayOrderResult(success: false, message: e.toString());
@@ -582,7 +674,9 @@ class ShopController extends GetxController {
     double? paidAmount,
     Map<String, dynamic>? paymentMeta,
   }) async {
-    final items = (directItems ?? cartItems).where((e) => e.quantity > 0).toList();
+    final items = (directItems ?? cartItems)
+        .where((e) => e.quantity > 0)
+        .toList();
     final validationError = _validateCheckout(items);
     if (validationError != null) {
       Get.snackbar(validationError.title, validationError.message);
@@ -596,11 +690,15 @@ class ShopController extends GetxController {
         'shipping_address': addressController.text.trim(),
         'payment_method': paymentMethod ?? selectedPaymentMethod.value,
         'items': items
-            .map((item) => {
-                  'product_id': item.product.id,
-                  'quantity': item.quantity,
-                  'quantity_unit': item.product.hasPackPricing ? item.quantityMode : CartQuantityMode.pack,
-                })
+            .map(
+              (item) => {
+                'product_id': item.product.id,
+                'quantity': item.quantity,
+                'quantity_unit': item.product.hasPackPricing
+                    ? item.quantityMode
+                    : CartQuantityMode.pack,
+              },
+            )
             .toList(),
       };
       if (paymentStatus != null && paymentStatus.trim().isNotEmpty) {
@@ -616,14 +714,22 @@ class ShopController extends GetxController {
 
       final response = await http.post(
         Uri.parse(Api.shopOrders),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
         body: jsonEncode(payload),
       );
 
       final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final success = (response.statusCode == 200 || response.statusCode == 201) && data['status'] == true;
+      final success =
+          (response.statusCode == 200 || response.statusCode == 201) &&
+          data['status'] == true;
       if (!success) {
-        Get.snackbar('order_failed'.tr, data['message']?.toString() ?? 'unable_to_place_order'.tr);
+        Get.snackbar(
+          'order_failed'.tr,
+          data['message']?.toString() ?? 'unable_to_place_order'.tr,
+        );
         return false;
       }
 
@@ -671,7 +777,11 @@ class ShopController extends GetxController {
       final ok = response.statusCode == 200 && data['status'] == true;
       if (!ok) return;
       final List rows = data['data'] ?? [];
-      myOrders.assignAll(rows.map((e) => ShopOrderModel.fromJson(Map<String, dynamic>.from(e))).toList());
+      myOrders.assignAll(
+        rows
+            .map((e) => ShopOrderModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+      );
     } catch (_) {}
   }
 
@@ -720,6 +830,14 @@ class ShopProductModel {
 
   bool get hasPackPricing => isMedicine && packSize > 0;
 
+  String get displayUnit {
+    final cleanedUnit = unit.trim();
+    if (!isMedicine && packSize > 0 && cleanedUnit.isNotEmpty) {
+      return '$packSize $cleanedUnit';
+    }
+    return unit;
+  }
+
   double get unitPrice {
     if (!hasPackPricing) return price;
     return price / packSize;
@@ -732,29 +850,36 @@ class ShopProductModel {
   }
 
   String get searchText => [
-        name,
-        category,
-        subtitle,
-        unit,
-        description,
-        priceLabel,
-        ...features,
-        ...medicineAliases,
-      ].join(' ').toLowerCase();
+    name,
+    category,
+    subtitle,
+    unit,
+    description,
+    priceLabel,
+    ...features,
+    ...medicineAliases,
+  ].join(' ').toLowerCase();
 
   factory ShopProductModel.fromJson(Map<String, dynamic> json) {
     final galleryRaw = json['gallery_image_urls'];
-    final List<String> gallery = galleryRaw is List ? galleryRaw.map((e) => e.toString()).toList() : <String>[];
+    final List<String> gallery = galleryRaw is List
+        ? galleryRaw.map((e) => e.toString()).toList()
+        : <String>[];
     final featuresRaw = json['features'];
-    final List<String> features = featuresRaw is List ? featuresRaw.map((e) => e.toString()).toList() : <String>[];
+    final List<String> features = featuresRaw is List
+        ? featuresRaw.map((e) => e.toString()).toList()
+        : <String>[];
     final aliasesRaw = json['medicine_aliases'];
-    final List<String> aliases = aliasesRaw is List ? aliasesRaw.map((e) => e.toString()).toList() : <String>[];
+    final List<String> aliases = aliasesRaw is List
+        ? aliasesRaw.map((e) => e.toString()).toList()
+        : <String>[];
 
     return ShopProductModel(
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
       name: json['name']?.toString() ?? '',
       category: json['category']?.toString().toLowerCase() ?? '',
-      isMedicine: (json['is_medicine']?.toString().toLowerCase() == 'true') ||
+      isMedicine:
+          (json['is_medicine']?.toString().toLowerCase() == 'true') ||
           (json['is_medicine']?.toString() == '1') ||
           (json['category']?.toString().toLowerCase() == 'medicine'),
       priceLabel: json['price_label']?.toString() ?? 'Rs 0.00',
@@ -765,7 +890,8 @@ class ShopProductModel {
       features: features,
       medicineAliases: aliases,
       packSize: int.tryParse(json['pack_size']?.toString() ?? '0') ?? 0,
-      allowPartialUnits: (json['allow_partial_units']?.toString().toLowerCase() == 'true') ||
+      allowPartialUnits:
+          (json['allow_partial_units']?.toString().toLowerCase() == 'true') ||
           (json['allow_partial_units']?.toString() == '1'),
       imageUrl: json['image_url']?.toString() ?? '',
       galleryImageUrls: gallery,
@@ -819,7 +945,9 @@ class ShopOrderModel {
   final List<ShopOrderItemModel> items;
 
   factory ShopOrderModel.fromJson(Map<String, dynamic> json) {
-    final List rawItems = json['items'] is List ? json['items'] as List : <dynamic>[];
+    final List rawItems = json['items'] is List
+        ? json['items'] as List
+        : <dynamic>[];
     return ShopOrderModel(
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
       status: json['status']?.toString() ?? '',
@@ -828,7 +956,9 @@ class ShopOrderModel {
       shippingAddress: json['shipping_address']?.toString() ?? '',
       total: double.tryParse(json['total']?.toString() ?? '0') ?? 0,
       createdAt: json['created_at']?.toString() ?? '',
-      items: rawItems.map((e) => ShopOrderItemModel.fromJson(Map<String, dynamic>.from(e))).toList(),
+      items: rawItems
+          .map((e) => ShopOrderItemModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
     );
   }
 }
@@ -860,10 +990,7 @@ class ShopOrderItemModel {
 }
 
 class PrescriptionCartRequest {
-  const PrescriptionCartRequest({
-    required this.name,
-    required this.quantity,
-  });
+  const PrescriptionCartRequest({required this.name, required this.quantity});
 
   final String name;
   final int quantity;
@@ -950,10 +1077,7 @@ class _ShopRazorpayOrder {
 }
 
 class _CheckoutValidationError {
-  const _CheckoutValidationError({
-    required this.title,
-    required this.message,
-  });
+  const _CheckoutValidationError({required this.title, required this.message});
 
   final String title;
   final String message;

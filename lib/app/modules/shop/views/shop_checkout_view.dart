@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/widget/bottom_navigation_bar.dart';
-import '../../../routes/app_pages.dart';
 import '../controllers/shop_controller.dart';
+import 'shop_order_success_view.dart';
 
 class ShopCheckoutView extends StatefulWidget {
   const ShopCheckoutView({
@@ -24,18 +23,6 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
   late final ShopController controller;
   bool useDifferentAddress = false;
 
-  void _goToHomeAfterSave() {
-    if (Get.isRegistered<BottomNavController>()) {
-      final nav = Get.find<BottomNavController>();
-      nav.activeDrawerPage.value = null;
-      nav.changeTab(0);
-      nav.resetTabHistory();
-      nav.runSilentSyncNow();
-      return;
-    }
-    Get.offAllNamed(Routes.HOME);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -44,7 +31,10 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
 
   @override
   Widget build(BuildContext context) {
-    final subtotal = widget.items.fold<double>(0, (sum, item) => sum + controller.lineTotalForItem(item));
+    final subtotal = widget.items.fold<double>(
+      0,
+      (sum, item) => sum + controller.lineTotalForItem(item),
+    );
     final total = subtotal;
 
     return Scaffold(
@@ -74,15 +64,25 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                   decoration: InputDecoration(
                     hintText: 'shop_enter_delivery_address'.tr,
                     filled: true,
-                    fillColor: useDifferentAddress ? Colors.white : const Color(0xFFF1F5F1),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    fillColor: useDifferentAddress
+                        ? Colors.white
+                        : const Color(0xFFF1F5F1),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
-                  onPressed: () => setState(() => useDifferentAddress = !useDifferentAddress),
+                  onPressed: () => setState(
+                    () => useDifferentAddress = !useDifferentAddress,
+                  ),
                   icon: const Icon(Icons.edit_location_alt_outlined),
-                  label: Text(useDifferentAddress ? 'shop_use_default_address'.tr : 'shop_add_different_address'.tr),
+                  label: Text(
+                    useDifferentAddress
+                        ? 'shop_use_default_address'.tr
+                        : 'shop_add_different_address'.tr,
+                  ),
                 ),
               ],
             ),
@@ -126,17 +126,29 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                               children: [
                                 Text(
                                   '${item.product.name} x ${controller.itemQuantityLabel(item)}',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 if (item.product.hasPackPricing)
                                   Text(
                                     controller.itemRateLabel(item),
-                                    style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: AppColors.grey,
+                                    ),
                                   ),
                               ],
                             ),
                           ),
-                          Text('amount_rs'.trParams({'value': controller.lineTotalForItem(item).toStringAsFixed(2)})),
+                          Text(
+                            'amount_rs'.trParams({
+                              'value': controller
+                                  .lineTotalForItem(item)
+                                  .toStringAsFixed(2),
+                            }),
+                          ),
                         ],
                       ),
                     ),
@@ -169,22 +181,31 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                 onPressed: controller.isPlacingOrder.value
                     ? null
                     : () async {
-                        final ok = await controller.checkoutOrder(directItems: widget.items);
+                        final ok = await controller.checkoutOrder(
+                          directItems: widget.items,
+                        );
                         if (!mounted || !ok) return;
                         if (widget.clearCartOnSuccess) {
                           controller.cartItems.clear();
                         }
-                        _goToHomeAfterSave();
+                        Get.off(() => const ShopOrderSuccessView());
                       },
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
                 child: controller.isPlacingOrder.value
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
                       )
                     : Text(
-                        controller.selectedPaymentMethod.value == ShopPaymentMethod.razorpay
+                        controller.selectedPaymentMethod.value ==
+                                ShopPaymentMethod.razorpay
                             ? 'shop_pay_now'.tr
                             : 'shop_complete_order'.tr,
                       ),
@@ -199,11 +220,17 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
   Widget _block({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 8),
           child,
         ],
@@ -221,7 +248,10 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
       child: Row(
         children: [
           Expanded(child: Text(label, style: style)),
-          Text('amount_rs'.trParams({'value': value.toStringAsFixed(2)}), style: style),
+          Text(
+            'amount_rs'.trParams({'value': value.toStringAsFixed(2)}),
+            style: style,
+          ),
         ],
       ),
     );
@@ -254,14 +284,25 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.grey)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: AppColors.grey),
+                  ),
                 ],
               ),
             ),
             Icon(
-              selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
               color: AppColors.primary,
             ),
           ],
