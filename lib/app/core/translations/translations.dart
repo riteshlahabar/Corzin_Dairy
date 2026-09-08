@@ -1096,6 +1096,9 @@ const Map<String, String> _enExtra = {
   'proceed_to_checkout_amount': 'Proceed to Checkout - Rs @value',
   'amount_rs': 'Rs @value',
   'quantity_with_unit': 'x@qty@unit',
+  'shop_delivery_partner': 'Delivery Partner',
+  'shop_delivery_code_hint': 'Share this code with the delivery man to confirm handover',
+  'shop_waiting_for_delivery_man': 'Waiting for the delivery man to reach your location.',
 };
 
 const Map<String, String> _hiExtra = {};

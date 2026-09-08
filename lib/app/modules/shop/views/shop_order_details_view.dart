@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -6,13 +8,51 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/colors.dart';
 import '../controllers/shop_controller.dart';
 
-class ShopOrderDetailsView extends StatelessWidget {
+class ShopOrderDetailsView extends StatefulWidget {
   const ShopOrderDetailsView({
     super.key,
     required this.order,
   });
 
   final ShopOrderModel order;
+
+  @override
+  State<ShopOrderDetailsView> createState() => _ShopOrderDetailsViewState();
+}
+
+class _ShopOrderDetailsViewState extends State<ShopOrderDetailsView> {
+  late ShopOrderModel order;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    order = widget.order;
+    _maybeStartPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _maybeStartPolling() {
+    _pollTimer?.cancel();
+    final shouldPoll = order.delivery.isAssigned && !order.delivery.isDelivered;
+    if (!shouldPoll) return;
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => _refreshOrder());
+  }
+
+  Future<void> _refreshOrder() async {
+    final controller = Get.find<ShopController>();
+    final refreshed = await controller.fetchOrderById(order.id);
+    if (refreshed == null || !mounted) return;
+    setState(() => order = refreshed);
+    if (refreshed.delivery.isDelivered || refreshed.status.toLowerCase() == 'completed') {
+      _pollTimer?.cancel();
+    }
+  }
 
   int _currentStep() {
     final status = order.status.toLowerCase();
@@ -157,6 +197,10 @@ class ShopOrderDetailsView extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (order.delivery.isAssigned) ...[
+                  const SizedBox(height: 12),
+                  _DeliveryCard(delivery: order.delivery),
+                ],
               ],
             ),
             ListView(
@@ -342,6 +386,98 @@ class _SectionCard extends StatelessWidget {
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryCard extends StatelessWidget {
+  const _DeliveryCard({required this.delivery});
+
+  final ShopOrderDeliveryModel delivery;
+
+  Future<void> _callDeliveryMan() async {
+    final phone = delivery.deliveryManPhone;
+    if (phone == null || phone.isEmpty) return;
+    await launchUrl(Uri.parse('tel:$phone'), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showCode = delivery.isCodeRequested;
+
+    return _SectionCard(
+      title: 'shop_delivery_partner'.tr,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                child: const Icon(Icons.two_wheeler_outlined, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      delivery.deliveryManName?.isNotEmpty == true ? delivery.deliveryManName! : 'shop_delivery_partner'.tr,
+                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      delivery.deliveryManPhone ?? '',
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _callDeliveryMan,
+                icon: const Icon(Icons.call, color: AppColors.primary),
+              ),
+            ],
+          ),
+          if (showCode) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'shop_delivery_code_hint'.tr,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    delivery.code!.splitMapJoin('', onNonMatch: (c) => '$c '),
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Text(
+              'shop_waiting_for_delivery_man'.tr,
+              style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+            ),
+          ],
         ],
       ),
     );

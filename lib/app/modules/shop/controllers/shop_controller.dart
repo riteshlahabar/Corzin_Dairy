@@ -766,6 +766,21 @@ class ShopController extends GetxController {
     return null;
   }
 
+  Future<ShopOrderModel?> fetchOrderById(int orderId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Api.shopOrders}/$orderId'),
+        headers: {'Accept': 'application/json'},
+      );
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final ok = response.statusCode == 200 && data['status'] == true;
+      if (!ok || data['data'] == null) return null;
+      return ShopOrderModel.fromJson(Map<String, dynamic>.from(data['data']));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> fetchMyOrders() async {
     if (farmerId <= 0) return;
     try {
@@ -933,6 +948,7 @@ class ShopOrderModel {
     required this.total,
     required this.createdAt,
     required this.items,
+    required this.delivery,
   });
 
   final int id;
@@ -943,6 +959,7 @@ class ShopOrderModel {
   final double total;
   final String createdAt;
   final List<ShopOrderItemModel> items;
+  final ShopOrderDeliveryModel delivery;
 
   factory ShopOrderModel.fromJson(Map<String, dynamic> json) {
     final List rawItems = json['items'] is List
@@ -959,6 +976,42 @@ class ShopOrderModel {
       items: rawItems
           .map((e) => ShopOrderItemModel.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      delivery: ShopOrderDeliveryModel.fromJson(
+        json['delivery'] is Map
+            ? Map<String, dynamic>.from(json['delivery'] as Map)
+            : <String, dynamic>{},
+      ),
+    );
+  }
+}
+
+class ShopOrderDeliveryModel {
+  const ShopOrderDeliveryModel({
+    required this.stage,
+    required this.deliveryManName,
+    required this.deliveryManPhone,
+    required this.code,
+    required this.codeExpiresAt,
+  });
+
+  /// One of: unassigned, assigned, code_requested, delivered.
+  final String stage;
+  final String? deliveryManName;
+  final String? deliveryManPhone;
+  final String? code;
+  final String? codeExpiresAt;
+
+  bool get isCodeRequested => stage == 'code_requested' && (code?.isNotEmpty ?? false);
+  bool get isAssigned => stage == 'assigned' || stage == 'code_requested';
+  bool get isDelivered => stage == 'delivered';
+
+  factory ShopOrderDeliveryModel.fromJson(Map<String, dynamic> json) {
+    return ShopOrderDeliveryModel(
+      stage: json['stage']?.toString() ?? 'unassigned',
+      deliveryManName: json['delivery_man_name']?.toString(),
+      deliveryManPhone: json['delivery_man_phone']?.toString(),
+      code: json['code']?.toString(),
+      codeExpiresAt: json['code_expires_at']?.toString(),
     );
   }
 }
