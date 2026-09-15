@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,10 @@ class ShopController extends GetxController {
   final RxList<ShopProductModel> products = <ShopProductModel>[].obs;
   final RxList<CartItemModel> cartItems = <CartItemModel>[].obs;
   final RxList<ShopOrderModel> myOrders = <ShopOrderModel>[].obs;
+
+  /// False until the first My Orders fetch finishes, so the list can show a
+  /// spinner instead of flashing "No orders" while the call is in flight.
+  final RxBool hasLoadedMyOrders = false.obs;
   final TextEditingController searchController = TextEditingController();
   final TextEditingController addressController = TextEditingController();
   final RxString searchQuery = ''.obs;
@@ -734,7 +739,12 @@ class ShopController extends GetxController {
       }
 
       if (directItems == null) cartItems.clear();
-      await fetchMyOrders();
+      // Not awaited: the order is already saved, so the success screen should
+      // appear immediately. Awaiting the refetch kept the button spinning
+      // through a second round-trip, long after the "order placed" push had
+      // already arrived. My Orders also refetches in its own initState, so it
+      // cannot go stale if this one is still in flight.
+      unawaited(fetchMyOrders());
       return true;
     } catch (e) {
       Get.snackbar('order_failed'.tr, e.toString());
@@ -781,8 +791,38 @@ class ShopController extends GetxController {
     }
   }
 
+  /// Farmer cancels their own order. The backend enforces the rules (COD only,
+  /// and only before the delivery man sets off); this just surfaces whatever it
+  /// says. Returns null on success, or the message to show on failure.
+  Future<String?> cancelOrder(int orderId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${Api.shopOrders}/$orderId/cancel'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'farmer_id': farmerId}),
+      );
+
+      final data = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final ok = response.statusCode == 200 && data['status'] == true;
+      if (!ok) {
+        return data['message']?.toString() ?? 'unable_to_cancel_order'.tr;
+      }
+
+      unawaited(fetchMyOrders());
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   Future<void> fetchMyOrders() async {
-    if (farmerId <= 0) return;
+    if (farmerId <= 0) {
+      hasLoadedMyOrders.value = true;
+      return;
+    }
     try {
       final response = await http.get(
         Uri.parse('${Api.shopOrdersByFarmer}/$farmerId'),
@@ -797,7 +837,10 @@ class ShopController extends GetxController {
             .map((e) => ShopOrderModel.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
       );
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      hasLoadedMyOrders.value = true;
+    }
   }
 
   @override
@@ -949,6 +992,7 @@ class ShopOrderModel {
     required this.createdAt,
     required this.items,
     required this.delivery,
+    required this.support,
   });
 
   final int id;
@@ -960,6 +1004,53 @@ class ShopOrderModel {
   final String createdAt;
   final List<ShopOrderItemModel> items;
   final ShopOrderDeliveryModel delivery;
+
+  /// Support numbers the admin maintains in the web panel, sent with every
+  /// order so the Contact Us tab always shows the current ones.
+  final ShopSupportContactModel support;
+
+  bool get isCancelled => status.toLowerCase() == 'cancelled';
+  bool get isDelivered =>
+      delivery.isDelivered || status.toLowerCase() == 'completed';
+
+  /// The farmer may cancel only before the delivery man sets off, and only for
+  /// COD — a prepaid order would need a refund, which admin handles. Mirrors
+  /// CancelOrderService::farmerCanCancel() on the backend.
+  bool get canFarmerCancel =>
+      !isDelivered &&
+      !isCancelled &&
+      !delivery.isOutForDelivery &&
+      paymentMethod.toLowerCase() == 'cod';
+
+  /// How far the order has got: 1 new order, 2 preparing, 3 out for delivery,
+  /// 4 delivered. "Out for delivery" comes from the delivery data rather than
+  /// the order status, because it is the delivery man's trip that started.
+  int get timelineStep {
+    if (isDelivered) return 4;
+    if (delivery.isOutForDelivery) return 3;
+    if (status.toLowerCase() == 'in_progress') return 2;
+    return 1;
+  }
+
+  /// The one place a status turns into words. Both My Orders and Order Details
+  /// read this, so the two screens cannot drift apart again.
+  String get statusLabel {
+    if (isCancelled) return 'shop_status_cancelled'.tr;
+    if (isDelivered) return 'shop_status_delivered'.tr;
+    if (delivery.isOutForDelivery) return 'shop_status_out_for_delivery'.tr;
+    if (status.toLowerCase() == 'in_progress') return 'shop_status_preparing'.tr;
+    return 'shop_status_order_placed'.tr;
+  }
+
+  /// Badge colour matching [statusLabel] — red for cancelled, green when done,
+  /// blue while on the way, amber while being prepared.
+  Color get statusColor {
+    if (isCancelled) return const Color(0xFFD32F2F);
+    if (isDelivered) return const Color(0xFF2E7D32);
+    if (delivery.isOutForDelivery) return const Color(0xFF1565C0);
+    if (status.toLowerCase() == 'in_progress') return const Color(0xFFE07A00);
+    return const Color(0xFF6C757D);
+  }
 
   factory ShopOrderModel.fromJson(Map<String, dynamic> json) {
     final List rawItems = json['items'] is List
@@ -981,6 +1072,45 @@ class ShopOrderModel {
             ? Map<String, dynamic>.from(json['delivery'] as Map)
             : <String, dynamic>{},
       ),
+      support: ShopSupportContactModel.fromJson(
+        json['support'] is Map
+            ? Map<String, dynamic>.from(json['support'] as Map)
+            : <String, dynamic>{},
+      ),
+    );
+  }
+}
+
+/// Support contact shown under Order Details -> Contact Us. The values are the
+/// admin support contact maintained in the web panel under Farmer Data ->
+/// Settings, so the same number is used here and for Buy Animal / Upgrade Plan.
+/// The fallbacks only apply if the backend sends nothing.
+class ShopSupportContactModel {
+  const ShopSupportContactModel({
+    required this.name,
+    required this.phone,
+    required this.email,
+  });
+
+  final String? name;
+  final String phone;
+  final String email;
+
+  bool get hasPhone => phone.trim().isNotEmpty;
+  bool get hasEmail => email.trim().isNotEmpty;
+
+  factory ShopSupportContactModel.fromJson(Map<String, dynamic> json) {
+    String read(String key, String fallback) {
+      final value = json[key]?.toString().trim() ?? '';
+      return value.isEmpty ? fallback : value;
+    }
+
+    final name = json['name']?.toString().trim() ?? '';
+
+    return ShopSupportContactModel(
+      name: name.isEmpty ? null : name,
+      phone: read('phone', '18001234567'),
+      email: read('email', 'support@corzin.com'),
     );
   }
 }
@@ -992,26 +1122,54 @@ class ShopOrderDeliveryModel {
     required this.deliveryManPhone,
     required this.code,
     required this.codeExpiresAt,
+    required this.placedAt,
+    required this.assignedAt,
+    required this.departedAt,
+    required this.deliveredAt,
   });
 
-  /// One of: unassigned, assigned, code_requested, delivered.
+  /// One of: unassigned, assigned, out_for_delivery, code_requested, delivered.
   final String stage;
   final String? deliveryManName;
   final String? deliveryManPhone;
   final String? code;
   final String? codeExpiresAt;
 
+  /// Milestone times, used to date each step of the delivery timeline.
+  final DateTime? placedAt;
+  final DateTime? assignedAt;
+  final DateTime? departedAt;
+  final DateTime? deliveredAt;
+
+  DateTime? get codeExpiry =>
+      codeExpiresAt == null ? null : DateTime.tryParse(codeExpiresAt!)?.toLocal();
+
   bool get isCodeRequested => stage == 'code_requested' && (code?.isNotEmpty ?? false);
-  bool get isAssigned => stage == 'assigned' || stage == 'code_requested';
+  bool get isAssigned =>
+      stage == 'assigned' || stage == 'out_for_delivery' || stage == 'code_requested';
+
+  /// The delivery man has set off. Also true once he has reached the farmer
+  /// and asked for the handover code, since that comes after departure.
+  bool get isOutForDelivery => stage == 'out_for_delivery' || stage == 'code_requested';
   bool get isDelivered => stage == 'delivered';
 
   factory ShopOrderDeliveryModel.fromJson(Map<String, dynamic> json) {
+    DateTime? at(String key) {
+      final raw = json[key]?.toString();
+      if (raw == null || raw.isEmpty) return null;
+      return DateTime.tryParse(raw)?.toLocal();
+    }
+
     return ShopOrderDeliveryModel(
       stage: json['stage']?.toString() ?? 'unassigned',
       deliveryManName: json['delivery_man_name']?.toString(),
       deliveryManPhone: json['delivery_man_phone']?.toString(),
       code: json['code']?.toString(),
       codeExpiresAt: json['code_expires_at']?.toString(),
+      placedAt: at('placed_at'),
+      assignedAt: at('assigned_at'),
+      departedAt: at('departed_at'),
+      deliveredAt: at('delivered_at'),
     );
   }
 }
@@ -1023,6 +1181,8 @@ class ShopOrderItemModel {
     required this.price,
     required this.lineTotal,
     required this.unit,
+    required this.packSize,
+    required this.image,
   });
 
   final String productName;
@@ -1031,13 +1191,33 @@ class ShopOrderItemModel {
   final double lineTotal;
   final String unit;
 
+  /// Units per pack, snapshotted when the order was placed. Null when the
+  /// product is not sold by the pack.
+  final int? packSize;
+  final String? image;
+
+  /// "80 kg pack" when the product has a pack size, otherwise just the unit.
+  /// Empty when neither is known, so callers can skip the line entirely.
+  String get packLabel {
+    final trimmedUnit = unit.trim();
+    if (packSize != null && packSize! > 0) {
+      return trimmedUnit.isEmpty ? '$packSize pack' : '$packSize $trimmedUnit pack';
+    }
+    return trimmedUnit;
+  }
+
   factory ShopOrderItemModel.fromJson(Map<String, dynamic> json) {
+    final packSize = int.tryParse(json['pack_size']?.toString() ?? '');
+    final image = json['image']?.toString().trim() ?? '';
+
     return ShopOrderItemModel(
       productName: json['product_name']?.toString() ?? '',
       quantity: int.tryParse(json['quantity']?.toString() ?? '0') ?? 0,
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
       lineTotal: double.tryParse(json['line_total']?.toString() ?? '0') ?? 0,
       unit: json['unit']?.toString() ?? '',
+      packSize: (packSize != null && packSize > 0) ? packSize : null,
+      image: image.isEmpty ? null : image,
     );
   }
 }
