@@ -908,60 +908,18 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _DeliveryCard extends StatefulWidget {
+class _DeliveryCard extends StatelessWidget {
   const _DeliveryCard({required this.delivery});
 
   final ShopOrderDeliveryModel delivery;
 
-  @override
-  State<_DeliveryCard> createState() => _DeliveryCardState();
-}
-
-class _DeliveryCardState extends State<_DeliveryCard> {
-  Timer? _countdownTimer;
-
-  ShopOrderDeliveryModel get delivery => widget.delivery;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncCountdown();
-  }
-
-  @override
-  void didUpdateWidget(covariant _DeliveryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncCountdown();
-  }
-
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  /// Ticks once a second only while a code is on screen, so the "expires in"
-  /// label counts down instead of the code silently vanishing.
-  void _syncCountdown() {
-    _countdownTimer?.cancel();
-    if (!delivery.isCodeRequested || delivery.codeExpiry == null) return;
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  Duration? get _remaining {
-    final expiry = delivery.codeExpiry;
-    if (expiry == null) return null;
-    final left = expiry.difference(DateTime.now());
-    return left.isNegative ? Duration.zero : left;
-  }
-
   Future<void> _callDeliveryMan() async {
-    final phone = delivery.deliveryManPhone;
+    final phone = deliveryManPhone;
     if (phone == null || phone.isEmpty) return;
     await launchUrl(Uri.parse('tel:$phone'), mode: LaunchMode.externalApplication);
   }
+
+  String? get deliveryManPhone => delivery.deliveryManPhone;
 
   /// A delivered order must never read as "waiting for the delivery man".
   String _waitingText() {
@@ -978,10 +936,6 @@ class _DeliveryCardState extends State<_DeliveryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = _remaining;
-    final showCode = delivery.isCodeRequested && (remaining == null || remaining > Duration.zero);
-    final codeExpired = delivery.isCodeRequested && remaining == Duration.zero;
-
     return _SectionCard(
       title: 'shop_delivery_partner'.tr,
       icon: Icons.person_pin_circle_rounded,
@@ -1043,102 +997,13 @@ class _DeliveryCardState extends State<_DeliveryCard> {
               ],
             ),
           ),
-          if (showCode) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'shop_delivery_code_hint'.tr,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
-                  ),
-                  const SizedBox(height: 8),
-                  // Each digit in its own tile — easier to read out loud to
-                  // the delivery man than one run of numbers.
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: delivery.code!
-                        .split('')
-                        .map(
-                          (digit) => Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 3),
-                            width: 38,
-                            height: 46,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.30),
-                              ),
-                            ),
-                            child: Text(
-                              digit,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  if (remaining != null) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.timer_outlined, size: 13, color: AppColors.grey),
-                        const SizedBox(width: 5),
-                        Text(
-                          'shop_code_expires_in'.trParams({
-                            'time': '${remaining.inMinutes}:'
-                                '${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                          }),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ] else if (codeExpired) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                'shop_code_expired'.tr,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 10),
-            Text(
-              _waitingText(),
-              style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
-            ),
-          ],
+          // The handover code itself now lives on the My Orders card, not
+          // here — this card only shows who is delivering and a status line.
+          const SizedBox(height: 10),
+          Text(
+            _waitingText(),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+          ),
         ],
       ),
     );

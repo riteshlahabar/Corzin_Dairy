@@ -91,6 +91,30 @@ class ShopController extends GetxController {
     return '${item.quantity} ${itemUnitLabel(item)}';
   }
 
+  /// The price line that sits directly under a product's name in the cart and
+  /// at checkout. Set [includeQuantity] on screens with no stepper — checkout
+  /// — so the line also carries "× 2"; the cart leaves it out because its
+  /// stepper already shows the quantity.
+  String itemPriceLabel(CartItemModel item, {bool includeQuantity = false}) {
+    final product = item.product;
+    final price = 'amount_rs'.trParams({
+      'value': itemUnitPrice(item).toStringAsFixed(2),
+    });
+    // A plain pack price needs no "/ unit" suffix — the pack label below it
+    // already says what one pack is. Medicine priced per strip or per tablet
+    // does, because the rate changes with the selected mode.
+    final priceLabel = product.packSize > 0 && !product.hasPackPricing
+        ? price
+        : '$price / ${itemUnitLabel(item)}';
+
+    if (!includeQuantity) return priceLabel;
+    return '$priceLabel  ·  × ${item.quantity}';
+  }
+
+  /// The pack-size line shown beneath the price. Empty when the product has
+  /// neither a pack size nor a unit, so callers can skip the line entirely.
+  String itemPackLabel(CartItemModel item) => item.product.packLabel;
+
   @override
   void onInit() {
     super.onInit();
@@ -894,6 +918,17 @@ class ShopProductModel {
       return '$packSize $cleanedUnit';
     }
     return unit;
+  }
+
+  /// "80 kg pack" when the product has a pack size, otherwise just the unit.
+  /// Same wording as `ShopOrderItemModel.packLabel` so the cart and the order
+  /// details screen describe the same product identically.
+  String get packLabel {
+    final cleanedUnit = unit.trim();
+    if (packSize > 0) {
+      return cleanedUnit.isEmpty ? '$packSize pack' : '$packSize $cleanedUnit pack';
+    }
+    return cleanedUnit;
   }
 
   double get unitPrice {

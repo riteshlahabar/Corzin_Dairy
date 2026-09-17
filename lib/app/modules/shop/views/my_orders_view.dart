@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -273,10 +275,164 @@ class _OrderCard extends StatelessWidget {
                   ],
                 ),
               ),
+              _DeliveryCodeCard(delivery: order.delivery),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The handover code for this order, shown only while one is active —
+/// relocated here (from the order details screen) so it sits at the bottom
+/// of the order's card in the My Orders list instead of requiring a tap
+/// into the order to see it.
+class _DeliveryCodeCard extends StatefulWidget {
+  const _DeliveryCodeCard({required this.delivery});
+
+  final ShopOrderDeliveryModel delivery;
+
+  @override
+  State<_DeliveryCodeCard> createState() => _DeliveryCodeCardState();
+}
+
+class _DeliveryCodeCardState extends State<_DeliveryCodeCard> {
+  Timer? _countdownTimer;
+
+  ShopOrderDeliveryModel get delivery => widget.delivery;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeliveryCodeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncCountdown();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Ticks once a second only while a code is on screen, so the "expires in"
+  /// label counts down instead of the code silently vanishing.
+  void _syncCountdown() {
+    _countdownTimer?.cancel();
+    if (!delivery.isCodeRequested || delivery.codeExpiry == null) return;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Duration? get _remaining {
+    final expiry = delivery.codeExpiry;
+    if (expiry == null) return null;
+    final left = expiry.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _remaining;
+    final showCode = delivery.isCodeRequested && (remaining == null || remaining > Duration.zero);
+    final codeExpired = delivery.isCodeRequested && remaining == Duration.zero;
+
+    if (!showCode && !codeExpired) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      child: showCode
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'shop_delivery_code_hint'.tr,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  // Each digit in its own tile — easier to read out loud to
+                  // the delivery man than one run of numbers.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: delivery.code!
+                        .split('')
+                        .map(
+                          (digit) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: 38,
+                            height: 46,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.30),
+                              ),
+                            ),
+                            child: Text(
+                              digit,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  if (remaining != null) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.timer_outlined, size: 13, color: AppColors.grey),
+                        const SizedBox(width: 5),
+                        Text(
+                          'shop_code_expires_in'.trParams({
+                            'time': '${remaining.inMinutes}:'
+                                '${(remaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                          }),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            )
+          : Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                'shop_code_expired'.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12.5, color: AppColors.grey),
+              ),
+            ),
     );
   }
 }

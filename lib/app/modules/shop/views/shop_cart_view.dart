@@ -189,13 +189,20 @@ class _CartItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      controller.itemRateLabel(item),
+                      controller.itemPriceLabel(item),
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: AppColors.grey,
                       ),
                     ),
+                    if (controller.itemPackLabel(item).isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        controller.itemPackLabel(item),
+                        style: const TextStyle(fontSize: 12, color: AppColors.grey),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -248,9 +255,11 @@ class _CartItemCard extends StatelessWidget {
                       onTap: () => controller.decreaseQty(item),
                     ),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 54),
+                      // Number only — the unit is already on the details line
+                      // above, so repeating it here just crowded the stepper.
+                      constraints: const BoxConstraints(minWidth: 40),
                       child: Text(
-                        controller.itemQuantityLabel(item),
+                        '${item.quantity}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                       ),

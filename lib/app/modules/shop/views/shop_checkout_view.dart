@@ -297,9 +297,20 @@ class _ShopCheckoutViewState extends State<ShopCheckoutView> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${controller.itemRateLabel(item)}  ·  ${controller.itemQuantityLabel(item)}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.grey),
+                  controller.itemPriceLabel(item, includeQuantity: true),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey,
+                  ),
                 ),
+                if (controller.itemPackLabel(item).isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    controller.itemPackLabel(item),
+                    style: const TextStyle(fontSize: 11.5, color: AppColors.grey),
+                  ),
+                ],
               ],
             ),
           ),
