@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +40,13 @@ class LanguageController extends GetxController {
   }
 
   Get.updateLocale(Locale(code));
+
+  // Tell the server too, otherwise push notifications would keep arriving in
+  // the previously selected language.
+  if (Get.isRegistered<HomeController>()) {
+    unawaited(Get.find<HomeController>().syncLanguagePreference());
+  }
+
   Get.snackbar('success'.tr, 'language_success'.tr);
 
   await Future.delayed(const Duration(milliseconds: 700));

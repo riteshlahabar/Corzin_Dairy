@@ -21,6 +21,10 @@ class FirebaseMessagingService {
     return _messaging.getToken();
   }
 
+  Future<String?> getToken() {
+    return _messaging.getToken();
+  }
+
   Stream<String> tokenRefreshStream() {
     return _messaging.onTokenRefresh;
   }

@@ -257,6 +257,11 @@ class FarmerDetailsController extends GetxController {
         "device_id": deviceId,
         "fcm_token": fcmToken,
         "start_session": "1",
+        // Captures the language chosen on the previous screen so notifications
+        // are in it from the very first one.
+        "language":
+            (await SharedPreferences.getInstance()).getString('app_language') ??
+            'en',
       });
       final imagePath = selectedPhoto.value!.path;
       final fileName = imagePath.split(Platform.pathSeparator).last;

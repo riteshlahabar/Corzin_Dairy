@@ -2,6 +2,7 @@ import 'package:dairycorzin/app/core/theme/colors.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +71,12 @@ class MyApp extends StatelessWidget {
       translations: RuntimeTranslations(),
       locale: Locale(localeCode),
       fallbackLocale: const Locale('en'),
+      supportedLocales: const [Locale('en', 'GB')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       debugShowCheckedModeBanner: false,
       title: 'DairyCorzin',
       initialRoute: AppPages.INITIAL,

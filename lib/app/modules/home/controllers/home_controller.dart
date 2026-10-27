@@ -1132,33 +1132,53 @@ class HomeController extends GetxController {
     } catch (_) {}
   }
 
+  /// The language the farmer picked, which the server stores so push
+  /// notifications can be sent in it. Mirrors the key used in main.dart.
+  Future<String> _selectedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('app_language') ?? 'en';
+  }
+
+  /// Re-sends the stored language after the farmer switches it, so their
+  /// notifications change over without waiting for an FCM token refresh.
+  Future<void> syncLanguagePreference() async {
+    final token = await _firebaseMessagingService.getToken();
+    if (token == null || token.trim().isEmpty) {
+      return;
+    }
+    await _syncFarmerFcmTokenIfNeeded(token);
+  }
+
   Future<void> _syncFarmerFcmTokenIfNeeded(String token) async {
     final normalizedToken = token.trim();
     if (normalizedToken.isEmpty) {
       return;
     }
-    if (_lastSyncedFcmToken == normalizedToken ||
-        _fcmTokenSyncInFlight == normalizedToken) {
+    // The language is part of the key so switching language still re-syncs
+    // even though the FCM token itself has not changed.
+    final language = await _selectedLanguage();
+    final syncKey = '$normalizedToken|$language';
+    if (_lastSyncedFcmToken == syncKey || _fcmTokenSyncInFlight == syncKey) {
       debugPrint(
         '[FCM][Farmer] duplicate token sync skipped for farmerId=$farmerId',
       );
       return;
     }
 
-    _fcmTokenSyncInFlight = normalizedToken;
+    _fcmTokenSyncInFlight = syncKey;
     try {
-      final synced = await _updateFarmerFcmToken(normalizedToken);
+      final synced = await _updateFarmerFcmToken(normalizedToken, language);
       if (synced) {
-        _lastSyncedFcmToken = normalizedToken;
+        _lastSyncedFcmToken = syncKey;
       }
     } finally {
-      if (_fcmTokenSyncInFlight == normalizedToken) {
+      if (_fcmTokenSyncInFlight == syncKey) {
         _fcmTokenSyncInFlight = '';
       }
     }
   }
 
-  Future<bool> _updateFarmerFcmToken(String token) async {
+  Future<bool> _updateFarmerFcmToken(String token, String language) async {
     if (farmerId <= 0) {
       await loadBaseData();
     }
@@ -1178,6 +1198,7 @@ class HomeController extends GetxController {
         'fcm_token': token,
         'device_id': deviceId,
         'session_token': sessionToken,
+        'language': language,
       }),
     );
     if (response.statusCode == 401) {

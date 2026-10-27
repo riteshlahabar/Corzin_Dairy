@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/firebase_messaging_service.dart';
 import '../../../core/services/session_service.dart';
@@ -191,6 +192,12 @@ class LoginOtpController extends GetxController {
           "device_id": deviceId,
           "fcm_token": fcmToken,
           "start_session": true,
+          // Stored server-side so push notifications are sent in this language.
+          "language":
+              (await SharedPreferences.getInstance()).getString(
+                'app_language',
+              ) ??
+              'en',
         }),
       );
 
