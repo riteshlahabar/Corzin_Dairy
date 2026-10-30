@@ -71,7 +71,7 @@ class MyApp extends StatelessWidget {
       translations: RuntimeTranslations(),
       locale: Locale(localeCode),
       fallbackLocale: const Locale('en'),
-      supportedLocales: const [Locale('en', 'GB')],
+      supportedLocales: const [Locale('en', 'GB'), Locale('hi'), Locale('mr')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

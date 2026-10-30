@@ -95,6 +95,11 @@ class DynamicTranslationService {
       'mr': Map<String, String>.from(values['mr'] ?? const <String, String>{}),
     };
     TranslationRegistry.setRemoteTranslations(_translations);
+
+    // GetMaterialApp snapshots translations.keys once, in its initState, so
+    // refreshing _remote alone never reaches Get.translations. On a first
+    // launch (empty cache) that left hi/mr as English until a restart.
+    Get.appendTranslations(TranslationRegistry.keys);
   }
 
   static Map<String, Map<String, String>> _parseLanguageMaps(
